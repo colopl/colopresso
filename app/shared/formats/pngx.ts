@@ -1,0 +1,182 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * This file is part of colopresso
+ *
+ * Copyright (C) 2025 COLOPL, Inc.
+ *
+ * Author: Go Kudo <g-kudo@colopl.co.jp>
+ * Developed with AI (LLM) code assistance. See `NOTICE` for details.
+ */
+
+import { convertPngToPngx } from '../core/converter';
+import { FormatDefinition, FormatOptions, FormatSection } from '../types';
+import { buildDefaultOptions, normalizeOptionsWithSchema } from './helpers';
+
+function clampNumber(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+  return Math.min(max, Math.max(min, value));
+}
+
+function getNumeric(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
+const sections: FormatSection[] = [
+  {
+    section: 'basic',
+    labelKey: 'formats.common.sections.basic',
+    fields: [
+      { id: 'pngx_level', type: 'number', min: 0, max: 6, defaultValue: 5, labelKey: 'formats.pngx.fields.level' },
+      { id: 'pngx_strip_safe', type: 'checkbox', defaultValue: true, labelKey: 'formats.pngx.fields.strip_safe' },
+      { id: 'pngx_optimize_alpha', type: 'checkbox', defaultValue: true, labelKey: 'formats.pngx.fields.optimize_alpha' },
+    ],
+  },
+  {
+    section: 'lossy',
+    labelKey: 'formats.common.sections.lossy',
+    fields: [
+      { id: 'pngx_lossy_enable', type: 'checkbox', defaultValue: true, labelKey: 'formats.pngx.fields.lossy_enable' },
+      {
+        id: 'pngx_lossy_type',
+        type: 'select',
+        defaultValue: 0,
+        labelKey: 'formats.pngx.fields.lossy_type',
+        options: [
+          { value: 0, labelKey: 'formats.pngx.options.lossy_type.palette256' },
+          { value: 1, labelKey: 'formats.pngx.options.lossy_type.limited_rgba16bit' },
+          { value: 2, labelKey: 'formats.pngx.options.lossy_type.reduced_rgba32' },
+        ],
+      },
+      {
+        id: 'pngx_lossy_max_colors',
+        type: 'number',
+        min: 1,
+        max: 32768,
+        defaultValue: 256,
+        labelKey: 'formats.pngx.fields.lossy_max_colors',
+        noteKey: 'settingsModal.notes.pngxMaxColorsPalette',
+      },
+      {
+        id: 'pngx_lossy_reduced_bits_rgb',
+        type: 'number',
+        min: 1,
+        max: 8,
+        defaultValue: 4,
+        labelKey: 'formats.pngx.fields.lossy_reduced_bits_rgb',
+        noteKey: 'settingsModal.notes.pngxReducedBitsRgb',
+      },
+      {
+        id: 'pngx_lossy_reduced_alpha_bits',
+        type: 'number',
+        min: 1,
+        max: 8,
+        defaultValue: 4,
+        labelKey: 'formats.pngx.fields.lossy_reduced_alpha_bits',
+        noteKey: 'settingsModal.notes.pngxReducedAlphaBits',
+      },
+      { id: 'pngx_lossy_quality_min', type: 'number', min: 0, max: 100, defaultValue: 80, labelKey: 'formats.pngx.fields.lossy_quality_min' },
+      { id: 'pngx_lossy_quality_max', type: 'number', min: 0, max: 100, defaultValue: 95, labelKey: 'formats.pngx.fields.lossy_quality_max' },
+      { id: 'pngx_lossy_speed', type: 'number', min: 1, max: 10, defaultValue: 3, labelKey: 'formats.pngx.fields.lossy_speed' },
+      {
+        id: 'pngx_lossy_dither_level',
+        type: 'range',
+        min: 0,
+        max: 100,
+        step: 1,
+        defaultValue: 60,
+        labelKey: 'formats.pngx.fields.lossy_dither_level',
+        noteKey: 'settingsModal.notes.pngxDitherDefault',
+      },
+      { id: 'pngx_lossy_dither_auto', type: 'checkbox', defaultValue: false, labelKey: 'formats.pngx.fields.lossy_dither_auto' },
+      { id: 'pngx_saliency_map_enable', type: 'checkbox', defaultValue: true, labelKey: 'formats.pngx.fields.saliency_map' },
+      { id: 'pngx_chroma_anchor_enable', type: 'checkbox', defaultValue: true, labelKey: 'formats.pngx.fields.chroma_anchor' },
+      { id: 'pngx_adaptive_dither_enable', type: 'checkbox', defaultValue: true, labelKey: 'formats.pngx.fields.adaptive_dither' },
+      { id: 'pngx_gradient_boost_enable', type: 'checkbox', defaultValue: true, labelKey: 'formats.pngx.fields.gradient_boost' },
+      { id: 'pngx_chroma_weight_enable', type: 'checkbox', defaultValue: true, labelKey: 'formats.pngx.fields.chroma_weight' },
+      { id: 'pngx_postprocess_smooth_enable', type: 'checkbox', defaultValue: true, labelKey: 'formats.pngx.fields.postprocess_smooth' },
+      {
+        id: 'pngx_postprocess_smooth_importance_cutoff',
+        type: 'number',
+        min: -1,
+        max: 1,
+        step: 0.05,
+        defaultValue: 0.6,
+        labelKey: 'formats.pngx.fields.postprocess_smooth_cutoff',
+      },
+      { id: 'pngx_protected_colors', type: 'color-array', defaultValue: [], labelKey: 'formats.pngx.fields.protected_colors' },
+    ],
+  },
+];
+
+const defaultOptions = buildDefaultOptions(sections);
+
+function normalizePngxOptions(raw?: FormatOptions): FormatOptions {
+  const normalized = normalizeOptionsWithSchema(sections, raw);
+  const normalizedRecord = normalized as Record<string, unknown>;
+  const lossyType = getNumeric(normalizedRecord['pngx_lossy_type']) ?? 0;
+  const legacyReduced = raw ? getNumeric((raw as Record<string, unknown>)['pngx_lossy_reduced_colors']) : undefined;
+  const providedMax = getNumeric(normalizedRecord['pngx_lossy_max_colors']);
+  const rawRecord = raw ? (raw as Record<string, unknown>) : undefined;
+
+  if (lossyType === 2) {
+    const source = legacyReduced ?? providedMax;
+    if (source === undefined || source <= 1) {
+      normalizedRecord['pngx_lossy_max_colors'] = 1;
+    } else {
+      const manual = clampNumber(Math.trunc(source), 2, 32768);
+      normalizedRecord['pngx_lossy_max_colors'] = manual;
+    }
+  } else {
+    const paletteValue = clampNumber(Math.trunc(providedMax ?? 256), 2, 256);
+    normalizedRecord['pngx_lossy_max_colors'] = paletteValue;
+  }
+
+  const rawDitherValue = getNumeric(normalizedRecord['pngx_lossy_dither_level']);
+  const rawDitherAuto = rawRecord ? rawRecord['pngx_lossy_dither_auto'] : undefined;
+  let sliderValue: number;
+  if (rawDitherValue === undefined || Number.isNaN(rawDitherValue)) {
+    sliderValue = 60;
+  } else if (rawDitherValue < 0) {
+    sliderValue = 60;
+  } else if (rawDitherValue <= 1) {
+    sliderValue = clampNumber(Math.round(rawDitherValue * 100), 0, 100);
+  } else {
+    sliderValue = clampNumber(Math.round(rawDitherValue), 0, 100);
+  }
+
+  let ditherAuto = Boolean(rawDitherAuto);
+  if (!ditherAuto && rawDitherValue !== undefined && rawDitherValue < 0) {
+    ditherAuto = true;
+  }
+  if (lossyType !== 1) {
+    ditherAuto = false;
+  }
+
+  normalizedRecord['pngx_lossy_dither_auto'] = ditherAuto;
+  normalizedRecord['pngx_lossy_dither_level'] = ditherAuto ? -1 : sliderValue;
+
+  return normalized;
+}
+
+export const pngxFormat: FormatDefinition = {
+  id: 'pngx',
+  labelKey: 'formats.pngx.name',
+  outputExtension: 'png',
+  optionsSchema: sections,
+  getDefaultOptions: () => ({ ...defaultOptions }),
+  normalizeOptions: (raw?: FormatOptions) => normalizePngxOptions(raw),
+  async convert({ Module, inputBytes, options }): Promise<Uint8Array> {
+    const normalized = normalizePngxOptions(options);
+    return convertPngToPngx(Module, inputBytes, normalized);
+  },
+};

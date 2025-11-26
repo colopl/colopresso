@@ -1,0 +1,21 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * This file is part of colopresso
+ *
+ * Copyright (C) 2025 COLOPL, Inc.
+ *
+ * Author: Go Kudo <g-kudo@colopl.co.jp>
+ * Developed with AI (LLM) code assistance. See `NOTICE` for details.
+ */
+
+#ifndef COLOPRESSO_CONFIG_H
+#define COLOPRESSO_CONFIG_H
+
+#cmakedefine01 COLOPRESSO_WITH_FILE_OPS
+
+#if !COLOPRESSO_WITH_FILE_OPS
+#define COLOPRESSO_DISABLE_FILE_OPS 1
+#endif
+
+#endif /* COLOPRESSO_CONFIG_H */

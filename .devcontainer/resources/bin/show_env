@@ -1,0 +1,144 @@
+#!/bin/sh
+
+TOOLS=0
+LLM=0
+VSCODE=0
+
+for ARG in "$@"; do
+  case "${ARG}" in
+    -t|--tools) TOOLS=1 ;;
+    -l|--llm) LLM=1 ;;
+    -c|--code) VSCODE=1 ;;
+    -v|--verbose) TOOLS=1; LLM=1; VSCODE=1 ;;
+  esac
+done
+
+CYAN='\033[36m'
+RED='\033[31m'
+RESET='\033[0m'
+
+print_aligned() {
+  printf "%-12s : %s\n" "${1}" "${2}"
+}
+
+print_tool_info() {
+  if type "${1}" >/dev/null 2>&1; then
+    VERSION=$(eval "${3}")
+    PATH_INFO=$(command -v "${1}")
+    printf "%-12s : ${CYAN}%-9s${RESET} %s\n" "${2}" "${VERSION}" "${PATH_INFO}"
+    return 0
+  else
+    return 1
+  fi
+}
+
+print_section_info() {
+  SECTION_NAME="${1}"
+  shift
+  
+  INSTALLED_TOOLS=""
+  NOT_INSTALLED_TOOLS=""
+  
+  while test ${#} -gt 0; do
+    COMMAND_NAME="${1}"
+    DISPLAY_NAME="${2}"
+    VERSION_COMMAND="${3}"
+    
+    if type "${COMMAND_NAME}" >/dev/null 2>&1; then
+      INSTALLED_TOOLS="${INSTALLED_TOOLS}${COMMAND_NAME}|${DISPLAY_NAME}|${VERSION_COMMAND}
+"
+    else
+      NOT_INSTALLED_TOOLS="${NOT_INSTALLED_TOOLS}${DISPLAY_NAME}
+"
+    fi
+    
+    shift 3
+  done
+  
+  echo ""
+  echo "=== ${SECTION_NAME} ==="
+  
+  if test -n "${INSTALLED_TOOLS}"; then
+    echo "${INSTALLED_TOOLS}" | while IFS='|' read -r CMD_NAME DISP_NAME VER_CMD; do
+      test -n "${CMD_NAME}" && print_tool_info "${CMD_NAME}" "${DISP_NAME}" "${VER_CMD}"
+    done
+  fi
+  
+  if test -n "${NOT_INSTALLED_TOOLS}"; then
+    echo "${NOT_INSTALLED_TOOLS}" | while read -r DISP_NAME; do
+      test -n "${DISP_NAME}" && printf "%-12s : ${RED}Not installed${RESET}\n" "${DISP_NAME}"
+    done
+  fi
+}
+
+get_os() {
+  if type lsb_release >/dev/null 2>&1; then
+    lsb_release -d 2>/dev/null | cut -f2 | sed 's/^[[:space:]]*//'
+  else
+    uname -s
+  fi
+}
+
+get_vscode_version() {
+  if type code >/dev/null 2>&1; then
+    code --version | sed ':a;N;$!ba;s/\n/ \/ /g'
+  elif type code-insiders >/dev/null 2>&1; then
+    code-insiders --version | sed ':a;N;$!ba;s/\n/ \/ /g'
+  else
+    echo "${RED}Not installed${RESET}"
+  fi
+}
+
+echo "=== Environment Information ==="
+print_aligned "Kernel" "$(uname -r)"
+print_aligned "OS" "$(get_os)"
+print_aligned "VSCode" "$(get_vscode_version)"
+print_aligned "Host" "$(hostname)"
+print_aligned "User" "$(whoami)"
+print_aligned "PWD" "$(pwd)"
+print_aligned "Time" "$(date '+%Y-%m-%d %H:%M:%S %Z')"
+
+test "${TOOLS}" -eq 1 && {
+  print_section_info "Tools Information" \
+    "git" "git" "git --version | awk '{print \$3}'" \
+    "cmake" "cmake" "cmake --version | head -n1 | awk '{print \$3}'" \
+    "make" "Make" "make --version | head -n1 | awk '{print \$3}'" \
+    "automake" "automake" "automake --version 2>/dev/null | head -n1 | awk '{print \$4}'" \
+    "autoconf" "autoconf" "autoconf --version 2>/dev/null | head -1 | awk '{print \$4}'" \
+    "pkg-config" "pkg-config" "pkg-config --version" \
+    "gcc" "gcc" "gcc --version | head -n1 | sed 's/^gcc (.*) //' | awk '{print \$1}'" \
+    "g++" "g++" "g++ --version | head -n1 | sed 's/^g++ (.*) //' | awk '{print \$1}'" \
+    "clang" "clang" "clang --version | head -n1 | awk '{print \$4}'" \
+    "clang++" "clang++" "clang++ --version | head -n1 | awk '{print \$4}'" \
+    "emcc" "Emscripten" "EMCC_SKIP_SANITY_CHECK=1 emcc --version | head -n1 | awk '{print \$10}'" \
+    "valgrind" "valgrind" "valgrind --version | sed 's/valgrind-//'" \
+    "php" "PHP:" "php --version | head -n1 | awk '{print \$2}'" \
+    "python3" "Python3" "python3 --version | awk '{print \$2}'" \
+    "node" "Node.js" "node --version" \
+    "npm" "npm" "npm --version" \
+    "go" "Go" "go version | head -n1 | awk '{print \$3}' | sed 's/go//g'" \
+    "wasmtime" "Wasmtime" "wasmtime --version | awk '{print \$2}'"
+}
+
+test "${LLM}" -eq 1 && {
+  print_section_info "LLM Information" \
+    "ccusage" "ccusage" "ccusage --version" \
+    "claude" "Claude Code" "claude --version | awk '{print \$1}'"
+}
+
+test "${VSCODE}" -eq 1 && {
+  echo ""
+  echo "=== VSCode Information ==="
+  if type code > /dev/null 2>&1; then
+    CODE_CMD="code"
+  elif type code-insiders > /dev/null 2>&1; then
+    CODE_CMD="code-insiders"
+  fi
+  if test -z "${CODE_CMD}"; then
+    echo "${RED}VSCode is not installed.${RESET}"
+  else
+    ${CODE_CMD} --list-extensions --show-versions 2>/dev/null | grep -E '^[a-zA-Z0-9_.-]+\.[a-zA-Z0-9_.-]+@' | while IFS='@' read -r EXTENSION VERSION; do
+      printf "%-50s : v%-20s : %s\n" "${EXTENSION}" "${VERSION}" "https://marketplace.visualstudio.com/items?itemName=${EXTENSION}"
+    done
+  fi
+}

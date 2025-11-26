@@ -1,0 +1,110 @@
+{
+  "name": "colopresso",
+  "version": "0.0.0",
+  "description": "PNG to Advanced Image Format converter",
+  "main": "build/electron/main.js",
+  "scripts": {
+    "format:web": "prettier --write 'app/shared/**/*.{ts,tsx,js,css,html}' 'app/electron/**/*.{ts,tsx,js,css,html}' 'app/chrome/**/*.{ts,tsx,js,css,html}'",
+    "format:c": "find library/src/ library/utils/ library/tests/ library/include/ -name '*.c' -o -name '*.h' | xargs clang-format -i",
+    "format:rust": "cd library/pngx_bridge && cargo fmt && cd -",
+    "format:header": "python utils/update_licence_header.py",
+    "format": "pnpm run format:web && pnpm run format:c && pnpm run format:rust && pnpm run format:header",
+    "clean": "rm -rf build dist_build",
+    "make": "/bin/sh -c 'PAR=\"${npm_config_j}\"; if test -z \"${PAR}\"; then PAR=\"${npm_config_jobs}\"; fi; RUN=\"pnpm run build\"; if test -n \"${PAR}\"; then RUN=\"${RUN} --parallel=$PAR\"; fi; exec ${RUN}'",
+    "build": "/bin/sh -c 'PAR_FLAG=--parallel; if test -n \"${npm_config_parallel}\"; then PAR_FLAG=\"--parallel=${npm_config_parallel}\"; fi; cmake --build build ${PAR_FLAG}'",
+    "test": "/bin/sh -c 'PAR_FLAG=--parallel; if test -n \"${npm_config_parallel}\"; then PAR_FLAG=\"--parallel=${npm_config_parallel}\"; fi; ctest --test-dir build ${PAR_FLAG}'",
+    "configure": "cmake -B build -DCMAKE_BUILD_TYPE=Release -DCOLOPRESSO_USE_UTILS=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_USE_CLI=ON",
+    "vconfigure": "cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_VALGRIND=ON -DCOLOPRESSO_USE_TESTS=ON",
+    "aconfigure": "cmake -B build -DCMAKE_C_COMPILER=$(which clang) -DCMAKE_CXX_COMPILER=$(which clang++) -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_ASAN=ON -DCOLOPRESSO_USE_TESTS=ON",
+    "mconfigure": "cmake -B build -DCMAKE_C_COMPILER=$(which clang) -DCMAKE_CXX_COMPILER=$(which clang++) -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_MSAN=ON -DCOLOPRESSO_USE_TESTS=ON",
+    "ubconfigure": "cmake -B build -DCMAKE_C_COMPILER=$(which clang) -DCMAKE_CXX_COMPILER=$(which clang++) -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_UBSAN=ON -DCOLOPRESSO_USE_TESTS=ON",
+    "dconfigure": "cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_UTILS=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_USE_CLI=ON",
+    "wconfigure": "emcmake cmake -B build -DCMAKE_BUILD_TYPE=Release -DCOLOPRESSO_USE_UTILS=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_USE_CLI=ON -DCOLOPRESSO_NODE_BUILD=ON",
+    "wdconfigure": "emcmake cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_UTILS=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_USE_CLI=ON -DCOLOPRESSO_NODE_BUILD=ON",
+    "econfigure": "utils/electron_configure.sh Release",
+    "edconfigure": "utils/electron_configure.sh Debug",
+    "cconfigure": "emcmake cmake -B build -DCMAKE_BUILD_TYPE=Release -DCOLOPRESSO_CHROME_EXTENSION=ON",
+    "cdconfigure": "emcmake cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_CHROME_EXTENSION=ON"
+  },
+  "keywords": [
+    "png",
+    "webp",
+    "avif",
+    "converter",
+    "compressor",
+    "electron",
+    "chrome",
+    "colopl"
+  ],
+  "author": "COLOPL, Inc. <g-kudo@colopl.co.jp>",
+  "license": "GPL-3.0-only",
+  "devDependencies": {
+    "@types/chrome": "^0.1.31",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "electron": "^39.2.3",
+    "electron-builder": "^26.3.1",
+    "prettier": "^3.6.2",
+    "tslib": "^2.8.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.4"
+  },
+  "dependencies": {
+    "@reduxjs/toolkit": "^2.11.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-redux": "^9.2.0"
+  },
+  "build": {
+    "appId": "jp.colopl.colopresso",
+    "productName": "colopresso",
+    "publish": null,
+    "files": [
+      "build/electron/**/*"
+    ],
+    "directories": {
+      "output": "dist_build"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "icon": "app/electron/colopresso.icns",
+      "entitlements": "app/electron/entitlements.mac.plist",
+      "entitlementsInherit": "app/electron/entitlements.mac.plist",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}_${arch}.${ext}"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "ia32",
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "app/electron/colopresso.ico",
+      "artifactName": "${productName}-${version}_${arch}.${ext}"
+    },
+    "dmg": {
+      "icon": null,
+      "artifactName": "${productName}-${version}_${arch}.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}_${arch}.${ext}"
+    }
+  }
+}

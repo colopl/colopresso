@@ -1,0 +1,278 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * This file is part of colopresso
+ *
+ * Copyright (C) 2025 COLOPL, Inc.
+ *
+ * Author: Go Kudo <g-kudo@colopl.co.jp>
+ * Developed with AI (LLM) code assistance. See `NOTICE` for details.
+ */
+
+import { TranslationBundle } from '../../types';
+
+const bundle: TranslationBundle = {
+  locale: 'ja-jp',
+  messages: {
+    languages: {
+      en_us: '英語',
+      ja_jp: '日本語',
+    },
+    header: {
+      themeToggle: {
+        title: 'テーマ切替',
+        aria: 'テーマ切替 (ライト/ダーク)',
+        state: {
+          light: 'ライト',
+          dark: 'ダーク',
+        },
+      },
+      settings: {
+        title: '設定',
+      },
+      languageSelect: {
+        title: '言語',
+        aria: '表示言語を選択',
+      },
+    },
+    settingsMenu: {
+      advancedSettings: '詳細設定...',
+      resetAll: '💣️すべての設定をリセット',
+      resetConfirm: '保存したプロファイル含め、すべてのデータを完全に削除します。本当に実行しますか？',
+      resetSuccess: 'すべての設定をリセットしました。アプリケーションを再読み込みします。',
+      resetFailed: '設定のリセットに失敗しました: {error}',
+      schemaResetNotice: '前のバージョンと設定の互換性が失われたため、設定をリセットしました。必要に応じて再度設定してください。',
+    },
+    settingsModal: {
+      ariaLabel: '詳細設定 ({format})',
+      title: '詳細設定 ({format})',
+      closeAria: '閉じる',
+      profileLabel: 'プロファイル:',
+      profileSelectAria: 'プロファイル選択',
+      profileCurrent: '(現在の設定)',
+      buttons: {
+        save: '保存',
+        delete: '削除',
+        export: 'エクスポート',
+        import: 'インポート',
+        reset: 'デフォルトに戻す',
+        apply: '適用',
+      },
+      validation: {
+        numberRequired: '数値を入力してください',
+        min: '{min} 以上',
+        max: '{max} 以下',
+      },
+      alerts: {
+        applyValidationError: '入力エラーがあります。修正してください。',
+        fixBeforeSave: '保存前にエラーを修正してください',
+        duplicateProfile: '設定値が同一のプロファイル "{name}" が既に存在します',
+        profileSaved: 'プロファイル "{name}" を保存しました',
+        profileDifferentFormat: 'このプロファイルは {profileFormat} 用です',
+        deleteConfirm: "プロファイル '{name}' を削除しますか?",
+        profileDeleted: 'プロファイル "{name}" を削除しました',
+        exportSuccess: 'プロファイル "{name}" をエクスポートしました',
+        exportCanceled: 'エクスポートをキャンセルしました',
+        exportFailed: 'エクスポートに失敗しました: {error}',
+        importCanceled: 'インポートをキャンセルしました',
+        importVersionMismatch: '設定ファイルのバージョンが現在のアプリケーションと互換性がありません。すべての設定をリセットします。必要に応じ、再設定をお願いします。',
+        importDifferentFormat: 'このプロファイルは {profileFormat} 用です。\n現在選択中のフォーマット ({currentFormat}) では読み込めません。',
+        importMissingFormat: 'プロファイルファイルにフォーマット情報がありません',
+        importInvalid: 'プロファイルファイルの形式が不正です',
+        importDuplicate: '設定値が同一のプロファイル "{name}" が既に存在します',
+        importSuccess: 'プロファイル "{name}" をインポートしました',
+        importFailed: 'インポート失敗: {error}',
+      },
+      prompts: {
+        profileName: 'プロファイル名を入力',
+        importedProfileName: 'インポートしたプロファイル名',
+        cancel: 'キャンセル',
+        ok: 'OK',
+      },
+      addColor: '+ 色を追加',
+      notes: {
+        pngxMaxColorsPalette: '最大色数は 256 色パレットでのみ利用できます (2〜256)。256 を超える値は 256 に自動調整されます。',
+        pngxMaxColorsBitdepth: '指定できません。自動的に利用可能な最大色数が選択されます。',
+        pngxMaxColorsReduced: '1 で自動 (最良値推定)、2〜32768 で手動で色数を指定できます。',
+        pngxDitherDefault: '0〜100 でディザの強さを設定します (0 で無効、100 で最強)。',
+        pngxDitherLimitedAuto: '「ディザを自動推定」を有効にすることを推奨します。',
+        pngxReducedBitsRgb: 'RGB グリッド(1〜8bit)を指定します。小さいほど圧縮率は向上しますがバンディングが増えます。',
+        pngxReducedAlphaBits: 'アルファグリッド(1〜8bit)を指定します。',
+        pngxDitherReducedUnused: '0〜100 のディザ強度をグリッド量子化で使用します。',
+      },
+      labels: {
+        pngxMaxColorsBase: '最大色数',
+        pngxMaxColorsPalette: '最大色数 (2-256)',
+        pngxMaxColorsReduced: '最大色数 (1=自動 / 2-32768)',
+      },
+    },
+    buildInfo: {
+      loading: '読み込み中...',
+      error: 'ビルド情報の読み込み中にエラーが発生しました',
+    },
+    common: {
+      dropPrompt: 'ファイルをドラッグ&ドロップするか、クリックして選択してください',
+      enableFolderProcessing: 'フォルダ内のファイルを処理するには、設定でフォルダ処理を有効にしてください',
+      processingWait: '処理中です。しばらくお待ちください',
+      noPngFiles: 'PNG ファイルが見つかりませんでした',
+      conversionRunning: '変換を実行中...',
+      zipCreated: 'ZIP ファイルを作成しました',
+      filesConvertedOne: '1個のファイルを変換しました',
+      filesConvertedMany: '{count} 個のファイルを変換しました',
+      unknownError: '不明なエラー',
+      folderSelectFailed: 'フォルダの選択に失敗しました: {error}',
+      pathRetrievalFailed: 'ドロップされたアイテムのパスを取得できませんでした',
+      fileWriteFailed: 'ファイルの書き込みに失敗しました: {path}',
+      zipWriteFailed: 'ZIP ファイルの書き込みに失敗しました: {path}',
+      deletePngFailed: 'PNG ファイルの削除に失敗しました: {path}',
+      conversionFailedUnknown: '変換に失敗しました (詳細不明)',
+      processingUnknownError: '処理中に不明なエラーが発生しました',
+      folderLoading: 'フォルダを読み込み中...',
+      saveDialogCanceled: '保存ダイアログがキャンセルされました',
+      formatErrorMessage: '[{format}] {message}',
+      errorPrefix: 'エラー: {message}',
+      outputDirectory: {
+        label: '指定した出力先へ自動出力',
+        descriptionDefault: '処理前の保存場所の確認を省略し、指定したフォルダにファイルを出力します',
+        descriptionFixed: 'チェックを外すと自動判別できる場合は自動、そうでない場合は保存ダイアログが開きます',
+        missingPath: '出力先が未設定です',
+        changeButton: '別の出力先を選ぶ',
+        lockedOptionNote: '指定した出力先へ自動出力を有効中のため、変更できません。常に指定した出力先に出力され、同名の場合上書きされます',
+      },
+      outputDirectoryReady: '出力先ディレクトリを設定しました',
+      outputDirectoryCleared: '出力先ディレクトリ設定を解除しました',
+      outputDirectorySelectFailed: '出力先ディレクトリの選択に失敗しました: {message}',
+      outputDirectoryWriteFailed: '出力先ディレクトリへの書き込みに失敗しました: {path}',
+    },
+    errors: {
+      outputLarger: '変換エラー: {format} の出力サイズが入力より大きくなりました (入力 {inputSize}, 出力 {outputSize})。',
+      sizeUnknown: 'サイズ不明',
+      copySuccess: 'エラーメッセージをクリップボードにコピーしました',
+      copyFailed: 'エラーメッセージをコピーできませんでした',
+      copyHint: 'クリックでエラーメッセージをコピーできます',
+    },
+    chrome: {
+      title: 'Colopresso',
+      settings: {
+        processFolderLabel: 'ドロップしたフォルダ内の PNG ファイルをすべて処理',
+        processFolderDescription: 'フォルダをドロップすると、含まれるすべての PNG ファイルを変換します',
+        createZipLabel: '複数ファイルを ZIP にまとめる',
+        createZipDescription: '複数のファイルを処理した場合、ZIP ファイルとしてダウンロードします',
+      },
+      dropzone: {
+        text: 'PNG 画像をドロップ',
+        hint: 'または、クリックしてファイルを選択',
+      },
+    },
+    electron: {
+      title: 'Colopresso',
+      settings: {
+        deletePngLabel: 'フォルダ処理後に元の PNG ファイルを削除',
+        deletePngDescription: 'フォルダ処理時、変換後に元の PNG ファイルを削除します',
+        createZipLabel: '複数 PNG ファイル処理時は ZIP で保存',
+        createZipDescription: 'フォルダ処理以外で複数の PNG を変換する際、結果を ZIP にまとめて保存します',
+      },
+      dropzone: {
+        text: 'クリック / ドロップしてフォルダを選択',
+        hint: 'または PNG ファイルをドロップ',
+      },
+    },
+    utils: {
+      progressDone: '✅ 完了',
+      progressProcessing: '処理中... {current} / {total}',
+      status: {
+        pending: '待機中',
+        processing: '処理中',
+        done: '完了',
+        error: 'エラー',
+      },
+    },
+    formats: {
+      common: {
+        sections: {
+          basic: '基本設定',
+          target: 'ターゲット',
+          filter: 'フィルター',
+          alpha: 'アルファチャネル',
+          advanced: '高度',
+          lossy: '画像減色',
+        },
+      },
+      webp: {
+        name: 'WebP',
+        fields: {
+          quality: '品質',
+          lossless: 'ロスレス圧縮',
+          method: '圧縮方法',
+          target_size: '目標サイズ (bytes)',
+          target_psnr: '目標 PSNR',
+          filter_strength: '強度',
+          filter_sharpness: 'シャープネス',
+          filter_type: 'タイプ',
+          filter_type_simple: 'シンプル',
+          filter_type_strong: '強力',
+          autofilter: '自動調整',
+          alpha_compression: '圧縮有効',
+          alpha_filtering: 'フィルタリング',
+          alpha_quality: '品質',
+          segments: 'セグメント数',
+          sns_strength: 'SNS 強度',
+          pass: 'エントロピーパス',
+          preprocessing: '前処理',
+          partitions: 'パーティション',
+          partition_limit: 'パーティション制限',
+          near_lossless: 'ニアロスレス',
+          emulate_jpeg_size: 'JPEG サイズエミュレーション',
+          low_memory: '低メモリモード',
+          exact: '正確なピクセル保持',
+          use_delta_palette: 'デルタパレット',
+          use_sharp_yuv: 'Sharp YUV',
+        },
+      },
+      avif: {
+        name: 'AVIF',
+        fields: {
+          quality: '品質',
+          alpha_quality: 'アルファチャネル品質',
+          lossless: 'ロスレス圧縮',
+          speed: '速度 (0 = 最も高品質)',
+        },
+      },
+      pngx: {
+        name: 'PNG',
+        fields: {
+          level: '最適化レベル (0-6)',
+          strip_safe: '安全チャンク除去',
+          optimize_alpha: 'アルファ最適化',
+          lossy_enable: '有効',
+          lossy_type: '減色タイプ',
+          lossy_max_colors: '最大色数',
+          lossy_reduced_bits_rgb: 'RGB ビット (1-8)',
+          lossy_reduced_alpha_bits: 'A ビット (1-8)',
+          lossy_quality_min: '品質 最低値',
+          lossy_quality_max: '品質 最高値',
+          lossy_speed: '速度 (1=高品質 10=高速)',
+          lossy_dither_level: 'ディザレベル (0-100)',
+          lossy_dither_auto: 'ディザを自動推定',
+          saliency_map: '視覚重要度マップ',
+          chroma_anchor: '高彩度アンカー',
+          adaptive_dither: '適応ディザリング',
+          gradient_boost: 'グラデーションブースト',
+          chroma_weight: '彩度重み付け',
+          postprocess_smooth: 'ポストプロセス平滑化',
+          postprocess_smooth_cutoff: '平滑化重要度しきい値 (-1 で無効)',
+          protected_colors: '保護色 (減色から保護する色)',
+        },
+        options: {
+          lossy_type: {
+            palette256: '256色パレット',
+            limited_rgba16bit: 'Limited RGBA16bit (各チャネル4bit)',
+            reduced_rgba32: 'Reduced RGBA32 (フル RGBA 減色)',
+          },
+        },
+      },
+    },
+  },
+};
+
+export default bundle;
