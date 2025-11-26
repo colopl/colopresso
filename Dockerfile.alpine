@@ -1,0 +1,33 @@
+ARG PLATFORM=${BUILDPLATFORM:-linux/amd64}
+ARG ALPINE_VERSION=3.22
+
+FROM --platform=${PLATFORM} alpine:${ALPINE_VERSION} AS base
+
+# Timezone
+ENV TZ="Asia/Tokyo"
+
+# Install build dependencies
+# Using musl libc (Alpine's default) and GNU libstdc++ (libstdc++)
+RUN apk add --no-cache \
+    "ca-certificates" "tzdata" "curl" \
+    "git" \
+    "gcc" "g++" \
+    "make" "cmake" \
+    "nasm" \
+    "musl-dev" "libstdc++" \
+    "pkgconfig" \
+    "python3" \
+    "perl" \
+    "linux-headers"
+
+# Install Rust
+ENV RUSTUP_HOME="/opt/rust/rustup"
+ENV CARGO_HOME="/opt/rust/cargo"
+ENV PATH="${CARGO_HOME}/bin:${PATH}"
+RUN --mount=type=cache,target=/opt/rust/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/opt/rust/cargo/git,sharing=locked \
+    set -e; \
+    curl --proto '=https' --tlsv1.2 -sSf "https://sh.rustup.rs" | \
+      sh -s -- -y --default-toolchain "stable" --profile "minimal" --no-modify-path
+
+WORKDIR "/workspace"

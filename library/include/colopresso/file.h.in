@@ -1,0 +1,32 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * This file is part of colopresso
+ *
+ * Copyright (C) 2025 COLOPL, Inc.
+ *
+ * Author: Go Kudo <g-kudo@colopl.co.jp>
+ * Developed with AI (LLM) code assistance. See `NOTICE` for details.
+ */
+
+#ifndef COLOPRESSO_FILE_H
+#define COLOPRESSO_FILE_H
+
+#ifndef COLOPRESSO_H
+#include <colopresso.h>
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+cpres_error_t cpres_read_file_to_memory(const char *path, uint8_t **data_out, size_t *size_out);
+cpres_error_t cpres_encode_webp_file(const char *input_path, const char *output_path, const cpres_config_t *config);
+cpres_error_t cpres_encode_avif_file(const char *input_path, const char *output_path, const cpres_config_t *config);
+cpres_error_t cpres_encode_pngx_file(const char *input_path, const char *output_path, const cpres_config_t *config);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* COLOPRESSO_FILE_H */

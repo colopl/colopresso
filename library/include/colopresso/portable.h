@@ -1,0 +1,74 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * This file is part of colopresso
+ *
+ * Copyright (C) 2025 COLOPL, Inc.
+ *
+ * Author: Go Kudo <g-kudo@colopl.co.jp>
+ * Developed with AI (LLM) code assistance. See `NOTICE` for details.
+ */
+
+#ifndef COLOPRESSO_PORTABLE_H
+#define COLOPRESSO_PORTABLE_H
+
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <time.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifdef _WIN32
+
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <windows.h>
+
+struct option {
+  const char *name;
+  int has_arg;
+  int *flag;
+  int val;
+};
+
+#define no_argument 0
+#define required_argument 1
+#define optional_argument 2
+
+extern char *optarg;
+extern int optind;
+extern int opterr;
+extern int optopt;
+
+extern int getopt_long(int argc, char *const argv[], const char *optstring, const struct option *longopts, int *longindex);
+extern struct tm *gmtime_r(const time_t *timer, struct tm *buf);
+
+#define S_ISREG(m) (((m) & _S_IFMT) == _S_IFREG)
+#define stat _stat64
+#define strtok_r strtok_s
+
+#else
+
+#include <getopt.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#endif
+
+uint32_t colopresso_get_cpu_count(void);
+const char *colopresso_extract_extension(const char *path);
+void colopresso_tm_set_gmt_offset(struct tm *tm);
+
+#if COLOPRESSO_WITH_FILE_OPS
+bool colopresso_fseeko(FILE *fp, uint64_t offset, int whence);
+bool colopresso_ftello(FILE *fp, uint64_t *position_out);
+#endif
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* COLOPRESSO_PORTABLE_H */

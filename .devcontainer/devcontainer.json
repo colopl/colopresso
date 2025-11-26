@@ -1,0 +1,31 @@
+{
+  "name": "libcolopresso",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "target": "devcontainer",
+    "context": ".."
+  },
+  "runArgs": [
+    "--cap-add=SYS_PTRACE",
+    "--cap-add=SYS_ADMIN",
+    "--security-opt=seccomp:unconfined",
+    "--privileged"
+  ],
+  "mounts": [
+    "source=${localEnv:HOME}/.claude,target=/root/.claude,type=bind",
+    "source=${localEnv:HOME}/.claude.json,target=/root/.claude.json,type=bind"
+  ],
+    "customizations": {
+    "vscode": {
+      "extensions": [
+        "github.vscode-github-actions",
+        "ms-azuretools.vscode-containers",
+        "ms-vscode.cpptools",
+        "ms-vscode.cpptools-extension-pack",
+        "ms-vscode.cmake-tools",
+        "ms-vscode.makefile-tools",
+        "anthropic.claude-code"
+      ]
+    }
+  }
+}

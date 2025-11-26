@@ -1,0 +1,214 @@
+{
+   rayon_uninit_false_positive
+   Memcheck:Cond
+   ...
+   fun:*rayon*
+}
+
+{
+   rayon_value_false_positive
+   Memcheck:Value8
+   ...
+   fun:*rayon*
+}
+
+{
+   rayon_value4_false_positive
+   Memcheck:Value4
+   ...
+   fun:*rayon*
+}
+
+{
+   imagequant_dither_rayon_cond
+   Memcheck:Cond
+   fun:*imagequant*dither*
+   ...
+   fun:*rayon*
+}
+
+{
+   imagequant_dither_rayon_value8
+   Memcheck:Value8
+   fun:*imagequant*dither*
+   ...
+   fun:*rayon*
+}
+
+{
+   imagequant_remap_rayon_cond
+   Memcheck:Cond
+   fun:*imagequant*remap*
+   ...
+   fun:*rayon*
+}
+
+{
+   imagequant_remap_rayon_value8
+   Memcheck:Value8
+   fun:*imagequant*remap*
+   ...
+   fun:*rayon*
+}
+
+# Rust allocation with rayon scope
+{
+   rust_alloc_rayon_scope
+   Memcheck:Cond
+   ...
+   fun:*alloc*raw_vec*finish_grow*
+   ...
+   fun:*rayon_core*scope*
+}
+
+{
+   rust_alloc_rayon_scope_value8
+   Memcheck:Value8
+   ...
+   fun:*alloc*raw_vec*finish_grow*
+   ...
+   fun:*rayon_core*scope*
+}
+
+{
+   rayon_global_registry_leak
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:*rayon_core*registry*set_global_registry*
+}
+
+{
+   rayon_threadpool_init_leak
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:*pngx_bridge_init_threads*
+}
+
+{
+   rayon_crossbeam_deque_leak
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:*crossbeam_deque*
+   ...
+   fun:*rayon*
+}
+
+{
+   rayon_thread_new_leak
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:*std*thread*Thread*new*
+   ...
+   fun:*rayon*
+}
+
+{
+   rayon_sleep_leak
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:*rayon_core*sleep*Sleep*new*
+}
+
+{
+   rayon_thread_local_leak
+   Memcheck:Leak
+   match-leak-kinds: reachable,possible
+   ...
+   fun:*thread_local*
+   ...
+   fun:*rayon*
+}
+
+{
+   rust_thread_atexit_leak
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:__cxa_thread_atexit_impl
+   ...
+}
+
+{
+   oxipng_crossbeam_leak
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:*crossbeam*
+   ...
+   fun:*oxipng*
+}
+
+{
+   glibc_pthread_create_tls_rayon
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   ...
+   fun:allocate_dtv
+   fun:_dl_allocate_tls
+   ...
+   fun:pthread_create*
+   ...
+   fun:*rayon*
+}
+
+{
+   glibc_pthread_create_tls_rayon_2
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   ...
+   fun:_dl_allocate_tls
+   fun:allocate_stack
+   fun:pthread_create*
+   ...
+   fun:*std*thread*Thread*new*
+   ...
+   fun:*rayon*
+}
+
+{
+   rayon_worker_thread_stack
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   ...
+   fun:*rayon_core*registry*WorkerThread*
+}
+
+{
+   rust_thread_local_cleanup
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:*thread_local*thread_id*ThreadGuard*
+   ...
+   fun:__call_tls_dtors
+}
+
+{
+   glibc_pthread_tls_exact_match
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   ...
+   fun:allocate_dtv
+   fun:_dl_allocate_tls
+   fun:allocate_stack
+   fun:pthread_create@@GLIBC_*
+}
+
+{
+   glibc_pthread_tls_simple
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   ...
+   fun:pthread_create*
+}
