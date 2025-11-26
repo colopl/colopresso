@@ -1,0 +1,11 @@
+language = "C"
+include_version = true
+pragma_once = true
+
+[export]
+item_types = ["functions", "enums", "structs", "typedefs"]
+
+[fn]
+
+[defines]
+TARGET_OS = "linux"

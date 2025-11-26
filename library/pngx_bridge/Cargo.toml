@@ -1,0 +1,27 @@
+[package]
+name = "pngx_bridge"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "GPL-3.0"
+
+[lib]
+crate-type = ["staticlib"]
+name = "pngx_bridge"
+
+[dependencies]
+libc = "0.2"
+
+# Native builds: Enable parallelization with Rayon
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+oxipng = "9.1.5"
+imagequant = "4.4.0"
+rayon = "1.11"
+
+# WebAssembly builds: Disable parallelization (no Rayon)
+[target.'cfg(target_family = "wasm")'.dependencies]
+oxipng = { version = "9.1.5", default-features = false }
+imagequant = { version = "4.4.0", default-features = false }
+
+[build-dependencies]
+cbindgen = "0.29.0"

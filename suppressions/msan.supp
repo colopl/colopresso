@@ -1,0 +1,9 @@
+fun:*std*path*Component*eq*
+fun:*std*path*iter_after*
+fun:*std*path*Path*_starts_with*
+fun:*std*path*Path*starts_with*
+fun:*std*sys*thread*unix*cgroups*quota_v2*
+fun:*std*sys*thread*unix*cgroups*quota*
+fun:*std*sys*thread*unix*available_parallelism*
+fun:*std*thread*available_parallelism*
+fun:*core*cmp*impls*PartialEq*eq*

@@ -1,0 +1,379 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  Prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      emsdk_version: ${{ steps.get_emsdk_version.outputs.emsdk_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+          fetch-depth: 1
+      - name: EMSDK require full checkout
+        id: get_emsdk_version
+        working-directory: "third_party/emsdk"
+        run: |
+          git fetch --unshallow
+          echo "emsdk_version=$(git describe --tags --abbrev=0)" >> "${GITHUB_OUTPUT}"
+      - name: Dummy versioning
+        run: |
+          sed -i "s|/\* COLOPL_VERSION_START \*/.*/\* COLOPL_VERSION_END \*/|999999998|" "library/include/colopresso.h"
+          sed -i "s|VERSION 0.0.0|VERSION 999.999.998|" "CMakeLists.txt"
+          sed -i "s|0.0.0|999.999.998|" "app/chrome/manifest.json"
+          sed -i "s|0.0.0|999.999.998|" "package.json"
+      - name: Tar dummy versioned code
+        run: |
+          tar -czf "../dummy-versioned-code.tar.gz" -C .. "$(basename "$PWD")"
+          mv "../dummy-versioned-code.tar.gz" "./dummy-versioned-code.tar.gz"
+      - name: Upload versioned code
+        uses: actions/upload-artifact@v5
+        with:
+          name: dummy-versioned-code
+          path: ./dummy-versioned-code.tar.gz
+          retention-days: 1
+  LinuxAndChromeExtension:
+    needs: Prepare
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runs-on: ubuntu-24.04
+          - arch: arm64
+            platform: linux/arm64
+            runs-on: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - name: Download dummy versioned code
+        uses: actions/download-artifact@v6
+        with:
+          name: dummy-versioned-code
+          path: .
+      - name: Extract dummy versioned code
+        run: |
+          tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
+          rm -rf "dummy-versioned-code.tar.gz"
+      - name: Build container
+        run: |
+          docker build \
+            --file Dockerfile \
+            --build-arg PLATFORM="${{ matrix.platform }}" \
+            --build-arg ENABLE_VALGRIND="1" \
+            --build-arg ENABLE_CLANG="1" \
+            --build-arg ENABLE_EMSDK="1" \
+            --build-arg EMSDK_VERSION="${{ needs.Prepare.outputs.emsdk_version }}" \
+            --target base \
+            --tag ci \
+            .
+      - name: Build and test on container
+        run: |
+          docker run \
+            --rm \
+            --volume "${PWD}:/workspace" \
+            --workdir "/workspace" \
+            ci \
+            /bin/bash -lc '
+              rm -rf "build" && \
+              cmake -B "build" -DCMAKE_BUILD_TYPE="Release" -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_USE_UTILS=ON -DCOLOPRESSO_USE_CLI=ON && \
+              cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))" && \
+              ctest --test-dir "build" --output-on-failure --parallel && \
+              \
+              rm -rf "build" && \
+              cmake -B "build" \
+                -DCMAKE_BUILD_TYPE="Debug" \
+                -DCOLOPRESSO_USE_VALGRIND=ON \
+                -DCOLOPRESSO_USE_TESTS=ON \
+                -DCOLOPRESSO_USE_UTILS=ON \
+                -DCOLOPRESSO_USE_CLI=ON && \
+              cmake --build "build" --config "Debug" --parallel="$(($(nproc)-1))" && \
+              ctest --test-dir "build" --output-on-failure --parallel && \
+              \
+              for OPTS in ASAN MSAN UBSAN; do \
+                rm -rf "build" && \
+                cmake -B "build" \
+                  -DCMAKE_C_COMPILER="$(which "clang")" \
+                  -DCMAKE_CXX_COMPILER="$(which "clang++")" \
+                  -DCMAKE_BUILD_TYPE="Debug" \
+                  -DCOLOPRESSO_USE_TESTS=ON \
+                  -DCOLOPRESSO_USE_UTILS=ON \
+                  -DCOLOPRESSO_USE_CLI=ON \
+                  -DCOLOPRESSO_USE_${OPTS}=ON && \
+                cmake --build "build" --config "Debug" --parallel="$(($(nproc)-1))" && \
+                ctest --test-dir "build" --output-on-failure --parallel; \
+              done
+              \
+              rm -rf "build" && \
+              emcmake cmake -B "build" \
+                -DCMAKE_BUILD_TYPE="Release" \
+                -DCOLOPRESSO_NODE_BUILD=ON && \
+                -DCOLOPRESSO_USE_TESTS=ON \
+                -DCOLOPRESSO_USE_UTILS=ON \
+                -DCOLOPRESSO_USE_CLI=ON && \
+              cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))" && \
+              ctest --test-dir "build" --output-on-failure --parallel
+              \
+              rm -rf "build" && \
+              emcmake cmake -B "build" \
+                -DCMAKE_BUILD_TYPE="Release" \
+                -DCOLOPRESSO_CHROME_EXTENSION=ON && \
+              cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
+            '
+  WindowsElectron:
+    needs: Prepare
+    runs-on: windows-latest
+    steps:
+      - name: Download dummy versioned code
+        uses: actions/download-artifact@v6
+        with:
+          name: dummy-versioned-code
+      - name: Extract versioned code
+        run: |
+          tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
+          Remove-Item "dummy-versioned-code.tar.gz" -Force
+      - name: Setup pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+        with:
+          version: 10
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-emscripten
+      - name: Setup emsdk
+        shell: powershell
+        working-directory: "third_party/emsdk"
+        run: |
+          ./emsdk.ps1 install "${{ needs.Prepare.outputs.emsdk_version }}"
+          ./emsdk.ps1 activate "${{ needs.Prepare.outputs.emsdk_version }}"
+          . "./emsdk_env.ps1"
+          Get-ChildItem env: | Where-Object { $_.Name -match '^(EMSDK|EM_|BINARYEN)' } | ForEach-Object {
+            "$($_.Name)=$($_.Value)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          }
+          "$env:EMSDK" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "$env:EMSDK\upstream\emscripten" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "$env:EMSDK\node\$(Get-ChildItem "$env:EMSDK\node" | Select-Object -First 1 -ExpandProperty Name)_64bit\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Build Electron app
+        shell: powershell
+        run: |
+          emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--win"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build "build" --config "Release" --parallel
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  macOSElectron:
+    needs: Prepare
+    runs-on: macos-latest
+    steps:
+      - name: Download dummy versioned code
+        uses: actions/download-artifact@v6
+        with:
+          name: dummy-versioned-code
+          path: .
+      - name: Extract dummy versioned code
+        run: |
+          tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
+          rm -rf "dummy-versioned-code.tar.gz"
+      - name: Setup pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+        with:
+          version: 10
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-emscripten
+      - name: Setup emsdk
+        working-directory: "third_party/emsdk"
+        run: |
+          ./emsdk install "${{ needs.Prepare.outputs.emsdk_version }}"
+          ./emsdk activate "${{ needs.Prepare.outputs.emsdk_version }}"
+          . "./emsdk_env.sh"
+          env | grep -E '^(EMSDK|EM_|BINARYEN)' | while IFS='=' read -r key value; do
+            echo "${key}=${value}" >> "${GITHUB_ENV}"
+          done
+          echo "${EMSDK}" >> "${GITHUB_PATH}"
+          echo "${EMSDK}/upstream/emscripten" >> "${GITHUB_PATH}"
+          echo "${EMSDK}/node/$(ls "${EMSDK}/node" | head -n 1)_64bit/bin" >> "${GITHUB_PATH}"
+      - name: Build Electron app
+        run: |
+          emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--mac" && \
+          cmake --build "build" --config "Release" --parallel
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  WindowsCLI:
+    needs: Prepare
+    runs-on: windows-latest
+    steps:
+      - name: Download dummy versioned code
+        uses: actions/download-artifact@v6
+        with:
+          name: dummy-versioned-code
+      - name: Extract versioned code
+        run: |
+          tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
+          Remove-Item "dummy-versioned-code.tar.gz" -Force
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
+        with:
+          toolchain: stable
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE="Release" -DCOLOPRESSO_USE_CLI=ON -DCOLOPRESSO_USE_TESTS=ON
+      - name: Build
+        run: cmake --build "build" --config "Release" --parallel
+      - name: Test
+        run: ctest --test-dir "build" --build-config "Release" --output-on-failure
+      - name: Test CLI
+        run: build\cli\Release\colopresso.exe --version
+  macOSCLI:
+    needs: Prepare
+    strategy:
+      matrix:
+        arch:
+          - name: intel
+            cmake_arch: x86_64
+            rust_target: x86_64-apple-darwin
+          - name: apple_silicon
+            cmake_arch: arm64
+            rust_target: aarch64-apple-darwin
+    runs-on: macos-latest
+    steps:
+      - name: Download dummy versioned code
+        uses: actions/download-artifact@v6
+        with:
+          name: dummy-versioned-code
+          path: .
+      - name: Extract dummy versioned code
+        run: |
+          tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
+          rm -rf "dummy-versioned-code.tar.gz"
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
+        with:
+          toolchain: stable
+          targets: ${{ matrix.arch.rust_target }}
+      - name: Install dependencies (for x86_64)
+        if: matrix.arch.cmake_arch == 'x86_64'
+        run: |
+          if test ! -f /usr/local/bin/brew; then
+            arch -x86_64 /bin/bash -c "$(/usr/bin/curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" < /dev/null
+          fi
+          arch -x86_64 /usr/local/bin/brew install "cmake"
+      - name: Configure CMake
+        run: |
+          if test "${{ matrix.arch.cmake_arch }}" = "x86_64"; then
+            arch -x86_64 /usr/local/bin/cmake -B build \
+              -DCMAKE_BUILD_TYPE="Release" \
+              -DCOLOPRESSO_USE_CLI=ON \
+              -DCOLOPRESSO_USE_TESTS=ON \
+              -DCMAKE_APPLE_SILICON_PROCESSOR=x86_64 \
+              -DAOM_TARGET_CPU=generic
+          else
+            cmake -B build \
+              -DCMAKE_BUILD_TYPE="Release" \
+              -DCOLOPRESSO_USE_CLI=ON \
+              -DCOLOPRESSO_USE_TESTS=ON
+          fi
+      - name: Build
+        run: |
+          if test "${{ matrix.arch.cmake_arch }}" = "x86_64"; then
+            arch -x86_64 /usr/local/bin/cmake --build "build" --config "Release" --parallel
+          else
+            cmake --build "build" --config "Release" --parallel
+          fi
+      - name: Test
+        run: ctest --test-dir "build" --output-on-failure --parallel
+      - name: Test CLI
+        run: ./build/cli/colopresso --version
+  LinuxCLI:
+    needs: Prepare
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runs-on: ubuntu-24.04
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - name: Download dummy versioned code
+        uses: actions/download-artifact@v6
+        with:
+          name: dummy-versioned-code
+          path: .
+      - name: Extract dummy versioned code
+        run: |
+          tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
+          rm -rf "dummy-versioned-code.tar.gz"
+      - name: Build container
+        run: |
+          docker build \
+            --file Dockerfile.alpine \
+            --tag cli \
+            .
+      - name: Build CLI in container
+        run: |
+          docker run \
+            --rm \
+            --volume "${PWD}:/workspace" \
+            --workdir "/workspace" \
+            cli \
+            /bin/sh -c '
+              cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS="-static" -DCOLOPRESSO_USE_CLI=ON -DCOLOPRESSO_USE_TESTS=ON && \
+              cmake --build build --config Release --target colopresso_cli --parallel=$(($(nproc)-1)) && \
+              strip build/cli/colopresso && \
+              build/cli/colopresso --version && \
+              build/cli/colopresso --verbose --format=webp assets/example.png /tmp/example.webp && \
+              build/cli/colopresso --verbose --format=avif assets/example.png /tmp/example.avif && \
+              build/cli/colopresso --verbose --format=pngx assets/example.png /tmp/example.png
+            '
+      - name: Test binary in minimal container
+        run: |
+          docker run \
+            --rm \
+            --volume "${PWD}/build/cli/colopresso:/colopresso:ro" \
+            --volume "${PWD}/assets:/assets:ro" \
+            alpine:latest \
+            /bin/sh -c '
+              /colopresso --version && \
+              /colopresso --verbose --format=webp /assets/example.png /tmp/example.webp && \
+              /colopresso --verbose --format=avif /assets/example.png /tmp/example.avif && \
+              /colopresso --verbose --format=pngx /assets/example.png /tmp/example.png && \
+              /colopresso --verbose --format=pngx /assets/increase.png /tmp/increase.png; EXIT_CODE=$?; \
+              if test ${EXIT_CODE} -ne 2; then echo "Error: Expected exit code 2, got ${EXIT_CODE}"; exit 1; fi
+            ' && \
+          docker run \
+            --rm \
+            --volume "${PWD}/build/cli/colopresso:/colopresso:ro" \
+            --volume "${PWD}/assets:/assets:ro" \
+            busybox:musl \
+            /bin/sh -c '
+              /colopresso --version && \
+              /colopresso --verbose --format=webp /assets/example.png /tmp/example.webp && \
+              /colopresso --verbose --format=avif /assets/example.png /tmp/example.avif && \
+              /colopresso --verbose --format=pngx /assets/example.png /tmp/example.png && \
+              /colopresso --verbose --format=pngx /assets/increase.png /tmp/increase.png; EXIT_CODE=$?; \
+              if test ${EXIT_CODE} -ne 2; then echo "Error: Expected exit code 2, got ${EXIT_CODE}"; exit 1; fi
+            '

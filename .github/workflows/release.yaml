@@ -1,0 +1,721 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  Prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      full_version: ${{ steps.generate_version.outputs.full_version }}
+      version: ${{ steps.generate_version.outputs.version }}
+      version_int: ${{ steps.generate_version.outputs.version_int }}
+      is_test: ${{ steps.generate_version.outputs.is_test }}
+      emsdk_version: ${{ steps.get_emsdk_version.outputs.emsdk_version }}
+    steps:
+      - name: Generate version
+        id: generate_version
+        run: |
+          if ! echo "${{ github.ref_name }}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "full_version=v999.999.999" >> "${GITHUB_OUTPUT}"
+            echo "version=999.999.999" >> "${GITHUB_OUTPUT}"
+            echo "version_int=999999999" >> "${GITHUB_OUTPUT}"
+            echo "is_test=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "full_version="${{ github.ref_name }}"" >> "${GITHUB_OUTPUT}"
+            echo "version=$(echo "${{ github.ref_name }}" | cut -c 2-)" >> "${GITHUB_OUTPUT}"
+            echo "version_int=$(echo "${{ github.ref_name }}" | cut -c 2- | awk -F. '{printf "%d\n", sprintf("%03d%03d%03d", $1, $2, $3)}')" >> "${GITHUB_OUTPUT}"
+            echo "is_test=false" >> "${GITHUB_OUTPUT}"
+          fi
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+          fetch-depth: 1
+      - name: Get EMSDK version
+        id: get_emsdk_version
+        working-directory: "third_party/emsdk"
+        run: |
+          git fetch --unshallow
+          echo "emsdk_version=$(git describe --tags --abbrev=0)" >> "${GITHUB_OUTPUT}"
+      - name: Versioning
+        run: |
+          sed -i "s|/\* COLOPL_VERSION_START \*/.*/\* COLOPL_VERSION_END \*/|${{ steps.generate_version.outputs.version_int }}|" "library/include/colopresso.h"
+          sed -i "s|VERSION 0.0.0|VERSION ${{ steps.generate_version.outputs.version }}|" "CMakeLists.txt"
+          sed -i "s|0.0.0|${{ steps.generate_version.outputs.version }}|" "app/chrome/manifest.json"
+          sed -i "s|0.0.0|${{ steps.generate_version.outputs.version }}|" "package.json"
+      - name: Tar versioned code
+        run: |
+          tar -czf "../versioned-code.tar.gz" -C .. "$(basename "$PWD")"
+          mv "../versioned-code.tar.gz" "./versioned-code.tar.gz"
+      - name: Upload versioned code
+        uses: actions/upload-artifact@v5
+        with:
+          name: versioned-code
+          path: ./versioned-code.tar.gz
+          retention-days: 1
+  Source:
+    needs: Prepare
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download versioned code
+        uses: actions/download-artifact@v6
+        with:
+          name: versioned-code
+          path: .
+      - name: Extract versioned code
+        run: |
+          tar -xzf "versioned-code.tar.gz" --strip-components=1
+          rm -rf "versioned-code.tar.gz"
+      - name: Create versioned source code
+        run: |
+          cp -a . "/tmp/colopresso"
+          cd "/tmp/colopresso"
+            rm -rf "build"
+            rm -rf "third_party"
+          cd -
+          mkdir -p "${{ github.workspace }}/dist"
+          tar -czf "${{ github.workspace }}/dist/colopresso_source.tar.gz" -C "/tmp" "colopresso"
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: colopresso-source
+          path: dist/
+  WindowsElectron:
+    needs: Prepare
+    runs-on: windows-latest
+    steps:
+      - name: Download versioned code
+        uses: actions/download-artifact@v6
+        with:
+          name: versioned-code
+          path: .
+      - name: Extract versioned code
+        run: |
+          tar -xzf "versioned-code.tar.gz" --strip-components=1
+          Remove-Item "versioned-code.tar.gz" -Force
+      - name: Setup pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+        with:
+          version: 10
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-emscripten
+      - name: Setup emsdk
+        shell: powershell
+        working-directory: "third_party/emsdk"
+        run: |
+          ./emsdk.ps1 install "${{ needs.Prepare.outputs.emsdk_version }}"
+          ./emsdk.ps1 activate "${{ needs.Prepare.outputs.emsdk_version }}"
+          . "./emsdk_env.ps1"
+          Get-ChildItem env: | Where-Object { $_.Name -match '^(EMSDK|EM_|BINARYEN)' } | ForEach-Object {
+            "$($_.Name)=$($_.Value)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          }
+          "$env:EMSDK" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "$env:EMSDK\upstream\emscripten" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "$env:EMSDK\node\$(Get-ChildItem "$env:EMSDK\node" | Select-Object -First 1 -ExpandProperty Name)_64bit\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Build Electron app
+        shell: powershell
+        run: |
+          emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--win"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build "build" --config "Release" --parallel
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Rename artifacts
+        shell: powershell
+        run: |
+          New-Item "dist" -ItemType Directory -ErrorAction SilentlyContinue
+          if (Test-Path "dist_build\colopresso-${{ needs.Prepare.outputs.version }}_ia32.exe") {
+            Move-Item "dist_build\colopresso-${{ needs.Prepare.outputs.version }}_ia32.exe" "dist\colopresso_windows-electron-gui_x86_32bit.exe"
+          }
+          if (Test-Path "dist_build\colopresso-${{ needs.Prepare.outputs.version }}_x64.exe") {
+            Move-Item "dist_build\colopresso-${{ needs.Prepare.outputs.version }}_x64.exe" "dist\colopresso_windows-electron-gui_x64_64bit.exe"
+          }
+          if (Test-Path "dist_build\colopresso-${{ needs.Prepare.outputs.version }}_arm64.exe") {
+            Move-Item "dist_build\colopresso-${{ needs.Prepare.outputs.version }}_arm64.exe" "dist\colopresso_windows-electron-gui_arm64_64bit.exe"
+          }
+      - name: Sign internal Electron binaries
+        shell: powershell
+        env:
+          WIN_CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if ($env:WIN_CSC_LINK) {
+            Write-Host "Certificate found, creating signed internal copies..."
+            $certBytes = [Convert]::FromBase64String($env:WIN_CSC_LINK)
+            $certPath = "$env:RUNNER_TEMP\certificate.pfx"
+            [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+            $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\" -Recurse -Filter "signtool.exe" | Where-Object { $_.FullName -match "x64" } | Select-Object -First 1 -ExpandProperty FullName
+            Get-ChildItem "dist" -Filter *.exe | ForEach-Object {
+              $signedPath = Join-Path $_.DirectoryName ($_.BaseName + "_colopl_internal" + $_.Extension)
+              Copy-Item $_.FullName $signedPath -Force
+              & $signtool sign /f "$certPath" /p "$env:WIN_CSC_KEY_PASSWORD" /fd sha256 "$signedPath"
+            }
+
+            Remove-Item "$certPath" -Force
+            Write-Host "Signed internal binaries generated"
+          } else {
+            Write-Host "No certificate found, skipping internal signing"
+          }
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: colopresso-electron-windows
+          path: dist/
+          if-no-files-found: error
+  macOSElectron:
+    needs: Prepare
+    runs-on: macos-latest
+    steps:
+      - name: Download versioned code
+        uses: actions/download-artifact@v6
+        with:
+          name: versioned-code
+          path: .
+      - name: Extract versioned code
+        run: |
+          tar -xzf "versioned-code.tar.gz" --strip-components=1
+          rm -rf "versioned-code.tar.gz"
+      - name: Setup pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+        with:
+          version: 10
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-emscripten
+      - name: Setup emsdk
+        working-directory: "third_party/emsdk"
+        run: |
+          ./emsdk install "${{ needs.Prepare.outputs.emsdk_version }}"
+          ./emsdk activate "${{ needs.Prepare.outputs.emsdk_version }}"
+          . "./emsdk_env.sh"
+          env | grep -E '^(EMSDK|EM_|BINARYEN)' | while IFS='=' read -r key value; do
+            echo "${key}=${value}" >> "${GITHUB_ENV}"
+          done
+          echo "${EMSDK}" >> "${GITHUB_PATH}"
+          echo "${EMSDK}/upstream/emscripten" >> "${GITHUB_PATH}"
+          echo "${EMSDK}/node/$(ls "${EMSDK}/node" | head -n 1)_64bit/bin" >> "${GITHUB_PATH}"
+      - name: Detect macOS signing configuration
+        id: macos_signing
+        shell: bash
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          HAS_CERT=false
+          HAS_NOTARY=false
+
+          if test -n "${MACOS_CERTIFICATE}" && test -n "${MACOS_CERTIFICATE_PWD}"; then
+            HAS_CERT=true
+          fi
+
+          if test -n "${APPLE_API_KEY}" && test -n "${APPLE_API_KEY_ID}" && test -n "${APPLE_API_ISSUER}"; then
+            HAS_NOTARY=true
+          fi
+
+          echo "HAS_CERT=${HAS_CERT}" >> "${GITHUB_OUTPUT}"
+          echo "HAS_NOTARY=${HAS_NOTARY}" >> "${GITHUB_OUTPUT}"
+
+          if test "${HAS_CERT}" != "true"; then
+            echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> "${GITHUB_ENV}"
+          fi
+      - name: Prepare Apple API Key for notarization
+        id: prepare_apple_key
+        if: ${{ steps.macos_signing.outputs.HAS_NOTARY == 'true' }}
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        run: |
+          mkdir -p "${RUNNER_TEMP}/private_keys"
+          key_path="${RUNNER_TEMP}/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8"
+          printf '%s' "${APPLE_API_KEY}" > "${key_path}"
+          chmod 600 "${key_path}"
+          echo "key_path=${key_path}" >> "${GITHUB_OUTPUT}"
+      - name: Build Electron app (signed & notarized)
+        run: |
+          if test "${HAS_CERT}" = "true"; then
+            export CSC_LINK="${MACOS_CERTIFICATE}"
+            export CSC_KEY_PASSWORD="${MACOS_CERTIFICATE_PWD}"
+          else
+            unset CSC_LINK
+            unset CSC_KEY_PASSWORD
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          fi
+
+          if test "${HAS_NOTARY}" = "true"; then
+            export APPLE_API_KEY="${NOTARY_KEY_PATH}"
+            export APPLE_API_KEY_ID="${APPLE_API_KEY_ID}"
+            export APPLE_API_ISSUER="${APPLE_API_ISSUER}"
+          else
+            unset APPLE_API_KEY
+            unset APPLE_API_KEY_ID
+            unset APPLE_API_ISSUER
+          fi
+
+          emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--mac" && \
+          cmake --build "build" --config "Release" --parallel
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HAS_CERT: ${{ steps.macos_signing.outputs.HAS_CERT }}
+          HAS_NOTARY: ${{ steps.macos_signing.outputs.HAS_NOTARY }}
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          NOTARY_KEY_PATH: ${{ steps.prepare_apple_key.outputs.key_path }}
+      - name: Clean up Apple API Key
+        if: ${{ always() && steps.macos_signing.outputs.HAS_NOTARY == 'true' }}
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        run: rm -f "${RUNNER_TEMP}/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8"
+      - name: Rename artifacts
+        run: |
+          mkdir -p "dist"
+          if test -f "dist_build/colopresso-${{ needs.Prepare.outputs.version }}_x64.dmg"; then
+            mv "dist_build/colopresso-${{ needs.Prepare.outputs.version }}_x64.dmg" "dist/colopresso_macos-electron-gui_intel.dmg"
+          fi
+          if test -f "dist_build/colopresso-${{ needs.Prepare.outputs.version }}_arm64.dmg"; then
+            mv "dist_build/colopresso-${{ needs.Prepare.outputs.version }}_arm64.dmg" "dist/colopresso_macos-electron-gui_apple_silicon.dmg"
+          fi
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: colopresso-macos-electron
+          path: dist/
+          if-no-files-found: error
+  ChromeExtension:
+    needs: Prepare
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download versioned code
+        uses: actions/download-artifact@v6
+        with:
+          name: versioned-code
+          path: .
+      - name: Extract versioned code
+        run: |
+          tar -xzf "versioned-code.tar.gz" --strip-components=1
+          rm -rf "versioned-code.tar.gz"
+      - name: Setup builder
+        run: |
+          docker build \
+            --file Dockerfile \
+            --tag "chrome" \
+            --build-arg ENABLE_VALGRIND=0 \
+            --build-arg ENABLE_CLANG=0 \
+            --build-arg ENABLE_EMSDK=1 \
+            --build-arg EMSDK_VERSION="${{ needs.Prepare.outputs.emsdk_version }}" \
+            --target base \
+            .
+      - name: Build Chrome Extension
+        run: |
+          docker run \
+            --rm \
+            --volume "${PWD}:/workspace" \
+            --workdir "/workspace" \
+            chrome \
+            /bin/bash -lc '
+              rm -rf "build" && \
+              emcmake cmake -B "build" \
+                -DCMAKE_BUILD_TYPE="Release" \
+                -DCOLOPRESSO_CHROME_EXTENSION=ON && \
+              cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
+            '
+          mkdir -p "dist"
+          tar -czf "dist/colopresso_chrome.tar.gz" -C "${PWD}/build" "chrome"
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: colopresso-chrome-extension
+          path: dist/
+  WindowsCLI:
+    needs: Prepare
+    runs-on: windows-latest
+    env:
+      COLOPRESSO_CLI_EXE: 'build\cli\Release\colopresso.exe'
+    steps:
+      - name: Download versioned code
+        uses: actions/download-artifact@v6
+        with:
+          name: versioned-code
+      - name: Extract versioned code
+        run: |
+          tar -xzf "versioned-code.tar.gz" --strip-components=1
+          Remove-Item "versioned-code.tar.gz" -Force
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
+        with:
+          toolchain: stable
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE="Release" -DCOLOPRESSO_USE_CLI=ON
+      - name: Build
+        run: cmake --build "build" --config "Release" --target colopresso_cli --parallel
+      - name: Test
+        run: ctest --test-dir "build" --build-config "Release" --output-on-failure
+      - name: Check CLI
+        shell: powershell
+        run: |
+          & "${env:COLOPRESSO_CLI_EXE}" --version
+      - name: Sign binary
+        shell: powershell
+        env:
+          WIN_CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $exePath = "${env:COLOPRESSO_CLI_EXE}"
+
+          if ($env:WIN_CSC_LINK) {
+            Write-Host "Certificate found, creating signed internal binary..."
+            $certBytes = [Convert]::FromBase64String($env:WIN_CSC_LINK)
+            $certPath = "$env:RUNNER_TEMP\certificate.pfx"
+            [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+            $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\" -Recurse -Filter "signtool.exe" | Where-Object { $_.FullName -match "x64" } | Select-Object -First 1 -ExpandProperty FullName
+            $signedPath = Join-Path (Split-Path $exePath -Parent) (([System.IO.Path]::GetFileNameWithoutExtension($exePath)) + "_colopl_internal.exe")
+            Copy-Item $exePath $signedPath -Force
+            & $signtool sign /f "$certPath" /p "$env:WIN_CSC_KEY_PASSWORD" /fd sha256 "$signedPath"
+
+            Remove-Item "$certPath" -Force
+            Write-Host "Signed internal binary generated"
+          } else {
+            Write-Host "No certificate found, skipping signing"
+          }
+      - name: Prepare artifact
+        shell: powershell
+        run: |
+          $exePath = "${env:COLOPRESSO_CLI_EXE}"
+          $signedPath = Join-Path (Split-Path $exePath -Parent) (([System.IO.Path]::GetFileNameWithoutExtension($exePath)) + "_colopl_internal.exe")
+          New-Item -ItemType Directory -Force -Path "artifact"
+          Copy-Item $exePath "artifact\colopresso-cli-windows-amd64.exe"
+          if (Test-Path $signedPath) {
+            Copy-Item $signedPath "artifact\colopresso-cli-windows-amd64_colopl_internal.exe"
+          }
+      - name: Upload artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: colopresso-cli-windows-amd64
+          path: artifact/
+          if-no-files-found: error
+  macOSCLI:
+    needs: Prepare
+    strategy:
+      matrix:
+        arch:
+          - name: intel
+            cmake_arch: x86_64
+            rust_target: x86_64-apple-darwin
+          - name: apple_silicon
+            cmake_arch: arm64
+            rust_target: aarch64-apple-darwin
+    runs-on: macos-latest
+    steps:
+      - name: Download versioned code
+        uses: actions/download-artifact@v6
+        with:
+          name: versioned-code
+          path: .
+      - name: Extract versioned code
+        run: |
+          tar -xzf "versioned-code.tar.gz" --strip-components=1
+          rm -rf "versioned-code.tar.gz"
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
+        with:
+          toolchain: stable
+          targets: ${{ matrix.arch.rust_target }}
+      - name: Install dependencies (for x86_64)
+        if: matrix.arch.cmake_arch == 'x86_64'
+        run: |
+          if test ! -f /usr/local/bin/brew; then
+            arch -x86_64 /bin/bash -c "$(/usr/bin/curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" < /dev/null
+          fi
+          arch -x86_64 /usr/local/bin/brew install "cmake"
+      - name: Detect macOS CLI signing configuration
+        id: macos_cli_signing
+        shell: bash
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          HAS_CERT=false
+          HAS_NOTARY=false
+
+          if test -n "${MACOS_CERTIFICATE}" && test -n "${MACOS_CERTIFICATE_PWD}"; then
+            HAS_CERT=true
+          fi
+
+          if test -n "${APPLE_API_KEY}" && test -n "${APPLE_API_KEY_ID}" && test -n "${APPLE_API_ISSUER}"; then
+            HAS_NOTARY=true
+          fi
+
+          echo "HAS_CERT=${HAS_CERT}" >> "${GITHUB_OUTPUT}"
+          echo "HAS_NOTARY=${HAS_NOTARY}" >> "${GITHUB_OUTPUT}"
+      - name: Configure CMake
+        run: |
+          if test "${{ matrix.arch.cmake_arch }}" = "x86_64"; then
+            arch -x86_64 /usr/local/bin/cmake -B build \
+              -DCMAKE_BUILD_TYPE="Release" \
+              -DCOLOPRESSO_USE_CLI=ON \
+              -DCOLOPRESSO_USE_TESTS=ON \
+              -DCMAKE_APPLE_SILICON_PROCESSOR=x86_64 \
+              -DAOM_TARGET_CPU=generic
+          else
+            cmake -B build \
+              -DCMAKE_BUILD_TYPE="Release" \
+              -DCOLOPRESSO_USE_CLI=ON \
+              -DCOLOPRESSO_USE_TESTS=ON
+          fi
+      - name: Build
+        run: |
+          if test "${{ matrix.arch.cmake_arch }}" = "x86_64"; then
+            arch -x86_64 /usr/local/bin/cmake --build "build" --config "Release" --parallel
+          else
+            cmake --build "build" --config "Release" --parallel
+          fi
+      - name: Check CLI
+        run: ./build/cli/colopresso --version
+      - name: Sign and notarize binary
+        env:
+          HAS_CERT: ${{ steps.macos_cli_signing.outputs.HAS_CERT }}
+          HAS_NOTARY: ${{ steps.macos_cli_signing.outputs.HAS_NOTARY }}
+          CSC_LINK: ${{ steps.macos_cli_signing.outputs.HAS_CERT == 'true' && secrets.MACOS_CERTIFICATE || '' }}
+          CSC_KEY_PASSWORD: ${{ steps.macos_cli_signing.outputs.HAS_CERT == 'true' && secrets.MACOS_CERTIFICATE_PWD || '' }}
+          APPLE_API_KEY: ${{ steps.macos_cli_signing.outputs.HAS_NOTARY == 'true' && secrets.APPLE_API_KEY || '' }}
+          APPLE_API_KEY_ID: ${{ steps.macos_cli_signing.outputs.HAS_NOTARY == 'true' && secrets.APPLE_API_KEY_ID || '' }}
+          APPLE_API_ISSUER: ${{ steps.macos_cli_signing.outputs.HAS_NOTARY == 'true' && secrets.APPLE_API_ISSUER || '' }}
+        run: |
+          if test "${HAS_CERT}" = "true"; then
+            echo "Certificate found, signing binary..."
+            echo "${CSC_LINK}" | base64 --decode > certificate.p12
+            security create-keychain -p actions build.keychain
+            security default-keychain -s build.keychain
+            security unlock-keychain -p actions build.keychain
+            security import certificate.p12 -k build.keychain -P "${CSC_KEY_PASSWORD}" -T "/usr/bin/codesign"
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions build.keychain
+            rm certificate.p12
+
+            codesign --force --options runtime --sign "Developer ID Application" --timestamp "build/cli/colopresso"
+            codesign --verify --verbose "build/cli/colopresso"
+            echo "Binary signed successfully"
+          else
+            echo "No certificate found, skipping signing"
+          fi
+
+          if test "${HAS_NOTARY}" = "true"; then
+            echo "API key found, notarizing binary..."
+            mkdir -p "${RUNNER_TEMP}/private_keys"
+            echo "${APPLE_API_KEY}" > "${RUNNER_TEMP}/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8"
+            chmod 600 "${RUNNER_TEMP}/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8"
+
+            ditto -c -k --keepParent "build/cli/colopresso" "colopresso.zip"
+            xcrun notarytool submit "colopresso.zip" \
+              --key "${RUNNER_TEMP}/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8" \
+              --key-id "${APPLE_API_KEY_ID}" \
+              --issuer "${APPLE_API_ISSUER}" \
+              --wait
+
+            rm "colopresso.zip"
+            echo "Binary notarized successfully"
+          else
+            echo "No API key found, skipping notarization"
+          fi
+      - name: Clean up
+        if: always()
+        env:
+          HAS_NOTARY: ${{ steps.macos_cli_signing.outputs.HAS_NOTARY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        run: |
+          if test "${HAS_NOTARY}" = "true"; then
+            rm -f "${RUNNER_TEMP}/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8"
+          fi
+          security delete-keychain build.keychain 2>/dev/null || true
+      - name: Prepare artifact
+        run: |
+          mkdir -p "artifact"
+          cp "build/cli/colopresso" "artifact/colopresso-cli-macos-${{ matrix.arch.name }}"
+      - name: Upload artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: colopresso-cli-macos-${{ matrix.arch.name }}
+          path: artifact/
+          if-no-files-found: error
+  LinuxCLI:
+    needs: Prepare
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runs-on: ubuntu-24.04
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - name: Download versioned code
+        uses: actions/download-artifact@v6
+        with:
+          name: versioned-code
+          path: .
+      - name: Extract versioned code
+        run: |
+          tar -xzf "versioned-code.tar.gz" --strip-components=1
+          rm -rf "versioned-code.tar.gz"
+      - name: Build container
+        run: |
+          docker build \
+            --file Dockerfile.alpine \
+            --tag cli-${{ matrix.arch }} \
+            .
+      - name: Build CLI in container
+        run: |
+          docker run \
+            --rm \
+            --volume "${PWD}:/workspace" \
+            --workdir "/workspace" \
+            cli-${{ matrix.arch }} \
+            sh -c '
+              cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS="-static" -DCOLOPRESSO_USE_CLI=ON && \
+              cmake --build build --config Release --target colopresso_cli --parallel=$(($(nproc)-1)) && \
+              strip build/cli/colopresso && \
+              build/cli/colopresso --version
+            '
+      - name: Test binary in minimal container
+        run: |
+          docker run \
+            --rm \
+            --volume "${PWD}/build/cli/colopresso:/colopresso:ro" \
+            busybox:musl \
+            /colopresso --version
+      - name: Prepare artifact
+        run: |
+          mkdir -p "artifact"
+          cp "build/cli/colopresso" "artifact/colopresso-cli-linux-${{ matrix.arch }}"
+      - name: Upload artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: colopresso-cli-linux-${{ matrix.arch }}
+          path: artifact/
+          if-no-files-found: error
+  Release:
+    needs:
+      - Prepare
+      - WindowsElectron
+      - macOSElectron
+      - ChromeExtension
+      - Source
+      - WindowsCLI
+      - macOSCLI
+      - LinuxCLI
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: false
+          fetch-depth: 1
+      - name: Create Release
+        id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ needs.Prepare.outputs.version }}" \
+            --generate-notes \
+            --draft="${{ needs.Prepare.outputs.is_test }}"
+          for RETRY in {1..10}; do
+            if gh release view "${{ github.ref_name }}" > /dev/null 2>&1; then
+              echo "Release is ready"
+              gh release view "${{ github.ref_name }}"
+              break
+            fi
+            echo "Waiting for release to be available... (${RETRY}/10)"
+            sleep 2
+          done
+      - name: Download Windows Artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: colopresso-electron-windows
+          path: artifacts/
+      - name: Download macOS Artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: colopresso-macos-electron
+          path: artifacts/
+      - name: Download Chrome Extension Artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: colopresso-chrome-extension
+          path: artifacts/
+      - name: Download Source Artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: colopresso-source
+          path: artifacts/
+      - name: Download CLI Windows Artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: colopresso-cli-windows-amd64
+          path: artifacts/
+      - name: Download CLI macOS Apple Silicon Artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: colopresso-cli-macos-apple_silicon
+          path: artifacts/
+      - name: Download CLI macOS Intel Artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: colopresso-cli-macos-intel
+          path: artifacts/
+      - name: Download CLI Linux amd64 Artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: colopresso-cli-linux-amd64
+          path: artifacts/
+      - name: Download CLI Linux arm64 Artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: colopresso-cli-linux-arm64
+          path: artifacts/
+      - name: Generate and upload checksums
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd "artifacts"
+          find . -type f -exec sh -c 'echo "$(sha256sum "$1" | cut -d" " -f1)  $(basename "$1")"' _ {} \; > "checksums.txt"
+          gh release upload "${{ github.ref_name }}" "checksums.txt" --clobber
+      - name: Upload Release Assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for FILE in "${{ github.workspace }}/artifacts"/*; do
+            if test -f "${FILE}"; then
+              gh release upload "${{ github.ref_name }}" "${FILE}" --clobber
+            fi
+          done

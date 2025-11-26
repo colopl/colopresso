@@ -1,0 +1,279 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * This file is part of colopresso
+ *
+ * Copyright (C) 2025 COLOPL, Inc.
+ *
+ * Author: Go Kudo <g-kudo@colopl.co.jp>
+ * Developed with AI (LLM) code assistance. See `NOTICE` for details.
+ */
+
+import { TranslationBundle } from '../../types';
+
+const bundle: TranslationBundle = {
+  locale: 'en-us',
+  messages: {
+    languages: {
+      en_us: 'English',
+      ja_jp: 'Japanese',
+    },
+    header: {
+      themeToggle: {
+        title: 'Toggle theme',
+        aria: 'Toggle theme (light/dark)',
+        state: {
+          light: 'Light',
+          dark: 'Dark',
+        },
+      },
+      settings: {
+        title: 'Settings',
+      },
+      languageSelect: {
+        title: 'Language',
+        aria: 'Select display language',
+      },
+    },
+    settingsMenu: {
+      advancedSettings: 'Advanced settings...',
+      resetAll: '\uD83D\uDCA3\uFE0F Reset all settings',
+      resetConfirm: 'This will permanently delete all data, including saved profiles. Proceed?',
+      resetSuccess: 'All settings were reset. Reloading the application.',
+      resetFailed: 'Failed to reset settings: {error}',
+      schemaResetNotice: 'Settings were reset because compatibility with the previous version was lost. Reconfigure them if needed.',
+    },
+    settingsModal: {
+      ariaLabel: 'Advanced settings ({format})',
+      title: 'Advanced settings ({format})',
+      closeAria: 'Close',
+      profileLabel: 'Profile:',
+      profileSelectAria: 'Select profile',
+      profileCurrent: '(Current settings)',
+      buttons: {
+        save: 'Save',
+        delete: 'Delete',
+        export: 'Export',
+        import: 'Import',
+        reset: 'Reset to defaults',
+        apply: 'Apply',
+      },
+      validation: {
+        numberRequired: 'Please enter a number',
+        min: 'At least {min}',
+        max: 'At most {max}',
+      },
+      alerts: {
+        applyValidationError: 'There are input errors. Please fix them.',
+        fixBeforeSave: 'Please fix validation errors before saving.',
+        duplicateProfile: 'A profile with identical settings "{name}" already exists.',
+        profileSaved: 'Saved profile "{name}"',
+        profileDifferentFormat: 'This profile is for {profileFormat}.',
+        deleteConfirm: "Delete profile '{name}'?",
+        profileDeleted: 'Deleted profile "{name}"',
+        exportSuccess: 'Exported profile "{name}"',
+        exportCanceled: 'Export was canceled',
+        exportFailed: 'Export failed: {error}',
+        importCanceled: 'Import was canceled',
+        importVersionMismatch: 'The settings file version is incompatible with the current application. All settings will be reset. Please reconfigure as needed.',
+        importDifferentFormat: 'This profile targets {profileFormat}.\nIt cannot be loaded for the current format ({currentFormat}).',
+        importMissingFormat: 'The profile file does not include format information.',
+        importInvalid: 'The profile file format is invalid.',
+        importDuplicate: 'A profile with identical settings "{name}" already exists.',
+        importSuccess: 'Imported profile "{name}"',
+        importFailed: 'Import failed: {error}',
+      },
+      prompts: {
+        profileName: 'Enter profile name',
+        importedProfileName: 'Imported profile name',
+        cancel: 'Cancel',
+        ok: 'OK',
+      },
+      addColor: '+ Add color',
+      notes: {
+        pngxMaxColorsPalette: 'Max colors can only be used with the 256-color palette (2-256). Values above 256 are automatically clamped to 256.',
+        pngxMaxColorsBitdepth: 'Cannot be specified. The maximum available color count is selected automatically.',
+        pngxMaxColorsReduced: 'Enter 1 for auto (best estimate) or specify 2-32768 to set the color count manually.',
+        pngxDitherDefault: 'Set dithering strength between 0 and 100 (0 disables, 100 is strongest).',
+        pngxDitherLimitedAuto: 'Enabling "Auto estimate dithering" is recommended.',
+        pngxReducedBitsRgb: 'Specify the RGB grid (1-8 bits). Lower values improve compression but increase banding.',
+        pngxReducedAlphaBits: 'Specify the alpha grid (1-8 bits).',
+        pngxDitherReducedUnused: 'Use 0-100 dithering strength for grid quantization.',
+      },
+      labels: {
+        pngxMaxColorsBase: 'Max colors',
+        pngxMaxColorsPalette: 'Max colors (2-256)',
+        pngxMaxColorsReduced: 'Max colors (1=auto / 2-32768)',
+      },
+    },
+    buildInfo: {
+      loading: 'Loading...',
+      error: 'An error occurred while loading build information',
+    },
+    common: {
+      dropPrompt: 'Drag and drop files or click to select.',
+      enableFolderProcessing: 'Enable folder processing in settings to handle files inside folders.',
+      processingWait: 'Processing in progress. Please wait.',
+      noPngFiles: 'No PNG files were found.',
+      conversionRunning: 'Running conversion...',
+      zipCreated: 'Created ZIP file.',
+      filesConvertedOne: 'Converted 1 file.',
+      filesConvertedMany: 'Converted {count} files.',
+      unknownError: 'Unknown error',
+      folderSelectFailed: 'Failed to select folder: {error}',
+      pathRetrievalFailed: 'Could not get the path of the dropped item.',
+      fileWriteFailed: 'Failed to write file: {path}',
+      zipWriteFailed: 'Failed to write ZIP file: {path}',
+      deletePngFailed: 'Failed to delete PNG file: {path}',
+      conversionFailedUnknown: 'Conversion failed (details unavailable)',
+      processingUnknownError: 'An unknown error occurred during processing.',
+      folderLoading: 'Loading folder...',
+      saveDialogCanceled: 'Save dialog was canceled.',
+      formatErrorMessage: '[{format}] {message}',
+      errorPrefix: 'Error: {message}',
+      outputDirectory: {
+        label: 'Automatically output to the selected destination',
+        descriptionDefault: 'Skip the save location confirmation and output files directly to the specified folder.',
+        descriptionFixed: 'When unchecked, output automatically if it can be determined, otherwise a save dialog will open.',
+        missingPath: 'Destination is not configured',
+        changeButton: 'Choose another destination',
+        lockedOptionNote:
+          'Cannot be changed while automatic output to a fixed destination is enabled. Files will always be saved to the specified destination and overwritten if they have the same name.',
+      },
+      outputDirectoryReady: 'Destination directory configured.',
+      outputDirectoryCleared: 'Destination directory setting cleared.',
+      outputDirectorySelectFailed: 'Failed to select destination directory: {message}',
+      outputDirectoryWriteFailed: 'Failed to write to destination directory: {path}',
+    },
+    errors: {
+      outputLarger: 'Conversion error: {format} output size exceeded the input (input {inputSize}, output {outputSize}).',
+      sizeUnknown: 'Size unknown',
+      copySuccess: 'Copied error message to clipboard.',
+      copyFailed: 'Failed to copy error message.',
+      copyHint: 'Click to copy the error message.',
+    },
+    chrome: {
+      title: 'Colopresso',
+      settings: {
+        processFolderLabel: 'Process every PNG file inside dropped folders',
+        processFolderDescription: 'When you drop a folder, convert all PNG files it contains.',
+        createZipLabel: 'Bundle multiple files into a ZIP',
+        createZipDescription: 'When multiple files are processed, download them as a ZIP file.',
+      },
+      dropzone: {
+        text: 'Drop PNG images',
+        hint: 'Or click to select files',
+      },
+    },
+    electron: {
+      title: 'Colopresso',
+      settings: {
+        deletePngLabel: 'Delete original PNG files after folder processing',
+        deletePngDescription: 'When processing folders, delete the original PNG files after conversion.',
+        createZipLabel: 'Save ZIP when processing multiple PNG files',
+        createZipDescription: 'When converting multiple PNG files outside folder mode, save the results as a ZIP file.',
+      },
+      dropzone: {
+        text: 'Click / drop to select a folder',
+        hint: 'Or drop PNG files',
+      },
+    },
+    utils: {
+      progressDone: '\u2705 Done',
+      progressProcessing: 'Processing... {current} / {total}',
+      status: {
+        pending: 'Pending',
+        processing: 'Processing',
+        done: 'Done',
+        error: 'Error',
+      },
+    },
+    formats: {
+      common: {
+        sections: {
+          basic: 'Basic settings',
+          target: 'Target',
+          filter: 'Filter',
+          alpha: 'Alpha channel',
+          advanced: 'Advanced',
+          lossy: 'Lossy reduction',
+        },
+      },
+      webp: {
+        name: 'WebP',
+        fields: {
+          quality: 'Quality',
+          lossless: 'Lossless compression',
+          method: 'Compression method',
+          target_size: 'Target size (bytes)',
+          target_psnr: 'Target PSNR',
+          filter_strength: 'Strength',
+          filter_sharpness: 'Sharpness',
+          filter_type: 'Type',
+          filter_type_simple: 'Simple',
+          filter_type_strong: 'Strong',
+          autofilter: 'Auto adjust',
+          alpha_compression: 'Enable compression',
+          alpha_filtering: 'Filtering',
+          alpha_quality: 'Quality',
+          segments: 'Segment count',
+          sns_strength: 'SNS strength',
+          pass: 'Entropy passes',
+          preprocessing: 'Preprocessing',
+          partitions: 'Partitions',
+          partition_limit: 'Partition limit',
+          near_lossless: 'Near-lossless',
+          emulate_jpeg_size: 'Emulate JPEG size',
+          low_memory: 'Low memory mode',
+          exact: 'Preserve exact pixels',
+          use_delta_palette: 'Delta palette',
+          use_sharp_yuv: 'Sharp YUV',
+        },
+      },
+      avif: {
+        name: 'AVIF',
+        fields: {
+          quality: 'Quality',
+          alpha_quality: 'Alpha channel quality',
+          lossless: 'Lossless compression',
+          speed: 'Speed (0 = highest quality)',
+        },
+      },
+      pngx: {
+        name: 'PNG',
+        fields: {
+          level: 'Optimization level (0-6)',
+          strip_safe: 'Strip safe chunks',
+          optimize_alpha: 'Optimize alpha',
+          lossy_enable: 'Enabled',
+          lossy_type: 'Reduction type',
+          lossy_max_colors: 'Max colors',
+          lossy_reduced_bits_rgb: 'Reduced RGB bits (1-8)',
+          lossy_reduced_alpha_bits: 'Reduced alpha bits (1-8)',
+          lossy_quality_min: 'Minimum quality',
+          lossy_quality_max: 'Maximum quality',
+          lossy_speed: 'Speed (1 = best quality, 10 = fastest)',
+          lossy_dither_level: 'Dither level (0-100)',
+          lossy_dither_auto: 'Auto estimate dithering',
+          saliency_map: 'Saliency map',
+          chroma_anchor: 'High chroma anchor',
+          adaptive_dither: 'Adaptive dithering',
+          gradient_boost: 'Gradient boost',
+          chroma_weight: 'Chroma weighting',
+          postprocess_smooth: 'Post-process smoothing',
+          postprocess_smooth_cutoff: 'Smoothing importance cutoff (-1 disables)',
+          protected_colors: 'Protected colors (exclude from quantization)',
+        },
+        options: {
+          lossy_type: {
+            palette256: 'Palette (256 colors)',
+            limited_rgba16bit: 'Limited RGBA16bit (4 bits/channel)',
+            reduced_rgba32: 'Reduced RGBA32 (full RGBA quantization)',
+          },
+        },
+      },
+    },
+  },
+};
+
+export default bundle;

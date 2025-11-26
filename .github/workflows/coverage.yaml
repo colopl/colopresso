@@ -1,0 +1,52 @@
+name: Coverage
+
+on:
+  workflow_dispatch:
+  push:    
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  Coverage:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+          fetch-depth: 1
+      - name: Install dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+          CTEST_OUTPUT_ON_FAILURE: 1
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends "cmake" "gcc" "lcov" "nasm"
+          cmake -B "build" -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_COVERAGE=ON -DCOLOPRESSO_USE_TESTS=ON
+          cmake --build "build" --parallel
+          cmake --build "build" --target coverage
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: build/coverage/html
+  Deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: Coverage
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

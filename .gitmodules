@@ -1,0 +1,30 @@
+[submodule "third_party/emsdk"]
+	path = third_party/emsdk
+	url = https://github.com/emscripten-core/emsdk.git
+	branch = 4.0.20
+[submodule "third_party/libpng"]
+	path = third_party/libpng
+	url = https://github.com/pnggroup/libpng.git
+	branch = v1.6.51
+[submodule "third_party/libwebp"]
+	path = third_party/libwebp
+	url = https://github.com/webmproject/libwebp.git
+	branch = v1.6.0
+[submodule "third_party/libavif"]
+	path = third_party/libavif
+	url = https://github.com/AOMediaCodec/libavif.git
+	branch = v1.3.0
+[submodule "third_party/zlib"]
+	path = third_party/zlib
+	url = https://github.com/madler/zlib.git
+	branch = v1.3.1
+	ignore = dirty
+[submodule "third_party/unity"]
+	path = third_party/unity
+	url = https://github.com/ThrowTheSwitch/Unity.git
+	branch = v2.6.1
+[submodule "third_party/valgrind"]
+	path = third_party/valgrind
+	url = https://sourceware.org/git/valgrind.git
+	branch = VALGRIND_3_26_0
+

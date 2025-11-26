@@ -1,0 +1,13 @@
+{
+  "configurations": [
+    {
+      "name": "Linux",
+      "includePath": [
+        "${workspaceFolder}/**",
+        "${workspaceFolder}/library/include/**"
+      ],
+      "cStandard": "c99"
+    }
+  ],
+  "version": 4
+}
