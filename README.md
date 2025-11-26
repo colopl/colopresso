@@ -4,6 +4,13 @@ PNG to Advanced Format converter and optimizer library and application.
 
 [日本語版](./README_ja.md)
 
+<p align="center">
+  <img src="resources/icon.png" alt="colopresso icon" />
+</p>
+<p align="center">
+  <img src="resources/screenshot.png" alt="colopresso screenshot" width="50%" />
+</p>
+
 ## Table of Contents
 
 - [Overview](#overview)

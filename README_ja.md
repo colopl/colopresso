@@ -2,6 +2,13 @@
 
 PNG 画像を新しいフォーマットに変換または最適化するライブラリ (兼 アプリケーション)
 
+<p align="center">
+  <img src="resources/icon.png" alt="colopresso icon" />
+</p>
+<p align="center">
+  <img src="resources/screenshot_ja.png" alt="colopresso screenshot (japanese)" width="50%" />
+</p>
+
 ## 目次
 
 - [概要](#概要)
