@@ -274,15 +274,13 @@ jobs:
         with:
           toolchain: stable
           targets: ${{ matrix.arch.rust_target }}
-      - name: Install dependencies (for intel)
-        if: matrix.arch.name == 'intel'
-        run: brew install "nasm"
       - name: Configure CMake
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE="Release" \
             -DCOLOPRESSO_USE_CLI=ON \
-            -DCOLOPRESSO_USE_TESTS=ON
+            -DCOLOPRESSO_USE_TESTS=ON \
+            ${{ matrix.arch.name == 'intel' && '-DAOM_TARGET_CPU=generic' || '' }}
       - name: Build
         run: cmake --build "build" --config "Release" --parallel
       - name: Test
