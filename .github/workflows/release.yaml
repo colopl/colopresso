@@ -426,13 +426,13 @@ jobs:
     strategy:
       matrix:
         arch:
-          - name: intel
-            cmake_arch: x86_64
-            rust_target: x86_64-apple-darwin
           - name: apple_silicon
-            cmake_arch: arm64
             rust_target: aarch64-apple-darwin
-    runs-on: macos-latest
+            runs-on: macos-15
+          - name: intel
+            rust_target: x86_64-apple-darwin
+            runs-on: macos-15-intel
+    runs-on: ${{ matrix.arch.runs-on }}
     steps:
       - name: Download versioned code
         uses: actions/download-artifact@v6
@@ -448,13 +448,6 @@ jobs:
         with:
           toolchain: stable
           targets: ${{ matrix.arch.rust_target }}
-      - name: Install dependencies (for x86_64)
-        if: matrix.arch.cmake_arch == 'x86_64'
-        run: |
-          if test ! -f /usr/local/bin/brew; then
-            arch -x86_64 /bin/bash -c "$(/usr/bin/curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" < /dev/null
-          fi
-          arch -x86_64 /usr/local/bin/brew install "cmake"
       - name: Detect macOS CLI signing configuration
         id: macos_cli_signing
         shell: bash
@@ -480,26 +473,13 @@ jobs:
           echo "HAS_NOTARY=${HAS_NOTARY}" >> "${GITHUB_OUTPUT}"
       - name: Configure CMake
         run: |
-          if test "${{ matrix.arch.cmake_arch }}" = "x86_64"; then
-            arch -x86_64 /usr/local/bin/cmake -B build \
-              -DCMAKE_BUILD_TYPE="Release" \
-              -DCOLOPRESSO_USE_CLI=ON \
-              -DCOLOPRESSO_USE_TESTS=ON \
-              -DCMAKE_APPLE_SILICON_PROCESSOR=x86_64 \
-              -DAOM_TARGET_CPU=generic
-          else
-            cmake -B build \
-              -DCMAKE_BUILD_TYPE="Release" \
-              -DCOLOPRESSO_USE_CLI=ON \
-              -DCOLOPRESSO_USE_TESTS=ON
-          fi
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE="Release" \
+            -DCOLOPRESSO_USE_CLI=ON \
+            -DCOLOPRESSO_USE_TESTS=ON \
+            ${{ matrix.arch.name == 'intel' && '-DAOM_TARGET_CPU=generic' || '' }}
       - name: Build
-        run: |
-          if test "${{ matrix.arch.cmake_arch }}" = "x86_64"; then
-            arch -x86_64 /usr/local/bin/cmake --build "build" --config "Release" --parallel
-          else
-            cmake --build "build" --config "Release" --parallel
-          fi
+        run: cmake --build "build" --config "Release" --parallel
       - name: Check CLI
         run: ./build/cli/colopresso --version
       - name: Sign and notarize binary
