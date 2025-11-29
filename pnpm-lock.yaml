@@ -44,7 +44,7 @@ importers:
         version: 26.3.1(electron-builder-squirrel-windows@26.3.0)
       prettier:
         specifier: ^3.6.2
-        version: 3.7.1
+        version: 3.7.3
       tslib:
         specifier: ^2.8.1
         version: 2.8.1
@@ -1493,8 +1493,8 @@ packages:
     engines: {node: '>=14.0.0'}
     hasBin: true
 
-  prettier@3.7.1:
-    resolution: {integrity: sha512-RWKXE4qB3u5Z6yz7omJkjWwmTfLdcbv44jUVHC5NpfXwFGzvpQM798FGv/6WNK879tc+Cn0AAyherCl1KjbyZQ==}
+  prettier@3.7.3:
+    resolution: {integrity: sha512-QgODejq9K3OzoBbuyobZlUhznP5SKwPqp+6Q6xw6o8gnhr4O85L2U915iM2IDcfF2NPXVaM9zlo9tdwipnYwzg==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -3542,7 +3542,7 @@ snapshots:
       commander: 9.5.0
     optional: true
 
-  prettier@3.7.1: {}
+  prettier@3.7.3: {}
 
   proc-log@5.0.0: {}
 
