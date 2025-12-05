@@ -41,7 +41,7 @@ importers:
         version: 39.2.5
       electron-builder:
         specifier: ^26.3.1
-        version: 26.3.2(electron-builder-squirrel-windows@26.3.0)
+        version: 26.3.4(electron-builder-squirrel-windows@26.3.0)
       prettier:
         specifier: ^3.6.2
         version: 3.7.1
@@ -655,12 +655,12 @@ packages:
       dmg-builder: 26.3.0
       electron-builder-squirrel-windows: 26.3.0
 
-  app-builder-lib@26.3.2:
-    resolution: {integrity: sha512-ZG4wzxbmmiLUm+W0wXMlMI0LHXK/fsR+Rf21SUs7avujGQ7ZCFLgmIvvWaQ69u1EFnSkYZ2sefKqk1yW/HXeuw==}
+  app-builder-lib@26.3.4:
+    resolution: {integrity: sha512-aPHW+QT5y0cbADR+66w51FUsiLXHfuK+DRndPjDTj/V/GnzoIsOnlaiUb4XCEdvIyjZA4iV+wrX3fV7OaMo9rw==}
     engines: {node: '>=14.0.0'}
     peerDependencies:
-      dmg-builder: 26.3.2
-      electron-builder-squirrel-windows: 26.3.2
+      dmg-builder: 26.3.4
+      electron-builder-squirrel-windows: 26.3.4
 
   argparse@2.0.1:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
@@ -731,8 +731,8 @@ packages:
   builder-util@26.3.0:
     resolution: {integrity: sha512-rhvMS0SJgDeZYZY/YOJTu1VZFKToK8qq51r2vbttdLuR3wISTf3i63CUCWinHc2qt8M3vdcwOQf2rcX4FRuE2g==}
 
-  builder-util@26.3.1:
-    resolution: {integrity: sha512-pplZEYBx1g15qvIOshpR1WTwjAwQM4ukhGgSNdYPnbuM6wLePq3+njy1sGfekCrJmUP+2xfuwuT9zEoUWfX5zQ==}
+  builder-util@26.3.4:
+    resolution: {integrity: sha512-aRn88mYMktHxzdqDMF6Ayj0rKoX+ZogJ75Ck7RrIqbY/ad0HBvnS2xA4uHfzrGr5D2aLL3vU6OBEH4p0KMV2XQ==}
 
   cacache@19.0.1:
     resolution: {integrity: sha512-hdsUxulXCi5STId78vRVYEtDAjq99ICAUktLTeTYsLoTE6Z8dS0c8pWNCxwdrk9YfJeobDZc2Y186hD/5ZQgFQ==}
@@ -882,8 +882,8 @@ packages:
   dir-compare@4.2.0:
     resolution: {integrity: sha512-2xMCmOoMrdQIPHdsTawECdNPwlVFB9zGcz3kuhmBO6U3oU+UQjsue0i8ayLKpgBcm+hcXPMVSGUN9d+pvJ6+VQ==}
 
-  dmg-builder@26.3.2:
-    resolution: {integrity: sha512-UM7/WRmESXnKXBShmKJ+xiEQ3U82/zb/tyaCKGn4Y4cf+WynLzQPeBToZtrIXTs3ZPyJQBIf+btkoCzVVnhO4g==}
+  dmg-builder@26.3.4:
+    resolution: {integrity: sha512-TxdHQCzo4wPaydV/g5VAwnX5jhzipenR0TQRZXiIIjY31Grv3NjChUFzedj4lmeDdd95WosjCIUl2MWZBqJVGw==}
 
   dmg-license@1.0.11:
     resolution: {integrity: sha512-ZdzmqwKmECOWJpqefloC5OJy1+WZBBse5+MR88z9g9Zn4VY+WYUkAyojmhzJckH5YbbZGcYIuGAkY5/Ys5OM2Q==}
@@ -914,16 +914,16 @@ packages:
   electron-builder-squirrel-windows@26.3.0:
     resolution: {integrity: sha512-vTBLx96gXO2y7QoPhzgZK7dT7jbqNT3JpdZgE30gNWzQPRDzaxSh/u7LNIBx04jdsg3wWoJfhS6FxyCQHB4TSQ==}
 
-  electron-builder@26.3.2:
-    resolution: {integrity: sha512-Lbfw8KHx1gxmg0tRFKb67hdvqzaz+ha4Ab5l6iQWo3o2yoVImiiJeifs8PSM5evo3BQWCLKtSQaSdZxg1ldIdg==}
+  electron-builder@26.3.4:
+    resolution: {integrity: sha512-LV4HhKLa67VS6tap/PVfrtgNiNEtY+C0A7BLbsHeMf9ro1SFQplNsXBK/0WjEVgVQT88rEDyEfkv+R5gceK3rw==}
     engines: {node: '>=14.0.0'}
     hasBin: true
 
   electron-publish@26.3.0:
     resolution: {integrity: sha512-n9VmIc/gc+50Xwgq9YDE8sHuqebrdlU6bLMdrgluSU5VkF3JcR/7whvsP3JN4AobMSAuhWFL4cv4mKv33hgScw==}
 
-  electron-publish@26.3.1:
-    resolution: {integrity: sha512-XYGYL/fpQULLW9slTVPelaUOGlKfOTmV2Uda3K+qzFzvNnkGJCj7L0nLVvMuj5cgxpAX+3BhO5HOUb4rv6jikA==}
+  electron-publish@26.3.4:
+    resolution: {integrity: sha512-5/ouDPb73SkKuay2EXisPG60LTFTMNHWo2WLrK5GDphnWK9UC+yzYrzVeydj078Yk4WUXi0+TaaZsNd6Zt5k/A==}
 
   electron-to-chromium@1.5.260:
     resolution: {integrity: sha512-ov8rBoOBhVawpzdre+Cmz4FB+y66Eqrk6Gwqd8NGxuhv99GQ8XqMAr351KEkOt7gukXWDg6gJWEMKgL2RLMPtA==}
@@ -2492,7 +2492,7 @@ snapshots:
 
   app-builder-bin@5.0.0-alpha.12: {}
 
-  app-builder-lib@26.3.0(dmg-builder@26.3.2)(electron-builder-squirrel-windows@26.3.0):
+  app-builder-lib@26.3.0(dmg-builder@26.3.4)(electron-builder-squirrel-windows@26.3.0):
     dependencies:
       '@develar/schema-utils': 2.6.5
       '@electron/asar': 3.4.1
@@ -2509,11 +2509,11 @@ snapshots:
       chromium-pickle-js: 0.2.0
       ci-info: 4.3.1
       debug: 4.4.3
-      dmg-builder: 26.3.2(electron-builder-squirrel-windows@26.3.0)
+      dmg-builder: 26.3.4(electron-builder-squirrel-windows@26.3.0)
       dotenv: 16.6.1
       dotenv-expand: 11.0.7
       ejs: 3.1.10
-      electron-builder-squirrel-windows: 26.3.0(dmg-builder@26.3.2)
+      electron-builder-squirrel-windows: 26.3.0(dmg-builder@26.3.4)
       electron-publish: 26.3.0
       fs-extra: 10.1.0
       hosted-git-info: 4.1.0
@@ -2533,7 +2533,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  app-builder-lib@26.3.2(dmg-builder@26.3.2)(electron-builder-squirrel-windows@26.3.0):
+  app-builder-lib@26.3.4(dmg-builder@26.3.4)(electron-builder-squirrel-windows@26.3.0):
     dependencies:
       '@develar/schema-utils': 2.6.5
       '@electron/asar': 3.4.1
@@ -2545,17 +2545,17 @@ snapshots:
       '@malept/flatpak-bundler': 0.4.0
       '@types/fs-extra': 9.0.13
       async-exit-hook: 2.0.1
-      builder-util: 26.3.1
+      builder-util: 26.3.4
       builder-util-runtime: 9.5.1
       chromium-pickle-js: 0.2.0
       ci-info: 4.3.1
       debug: 4.4.3
-      dmg-builder: 26.3.2(electron-builder-squirrel-windows@26.3.0)
+      dmg-builder: 26.3.4(electron-builder-squirrel-windows@26.3.0)
       dotenv: 16.6.1
       dotenv-expand: 11.0.7
       ejs: 3.1.10
-      electron-builder-squirrel-windows: 26.3.0(dmg-builder@26.3.2)
-      electron-publish: 26.3.1
+      electron-builder-squirrel-windows: 26.3.0(dmg-builder@26.3.4)
+      electron-publish: 26.3.4
       fs-extra: 10.1.0
       hosted-git-info: 4.1.0
       isbinaryfile: 5.0.7
@@ -2660,14 +2660,13 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  builder-util@26.3.1:
+  builder-util@26.3.4:
     dependencies:
       7zip-bin: 5.2.0
       '@types/debug': 4.1.12
       app-builder-bin: 5.0.0-alpha.12
       builder-util-runtime: 9.5.1
       chalk: 4.1.2
-      ci-info: 4.3.1
       cross-spawn: 7.0.6
       debug: 4.4.3
       fs-extra: 10.1.0
@@ -2833,10 +2832,10 @@ snapshots:
       minimatch: 3.1.2
       p-limit: 3.1.0
 
-  dmg-builder@26.3.2(electron-builder-squirrel-windows@26.3.0):
+  dmg-builder@26.3.4(electron-builder-squirrel-windows@26.3.0):
     dependencies:
-      app-builder-lib: 26.3.2(dmg-builder@26.3.2)(electron-builder-squirrel-windows@26.3.0)
-      builder-util: 26.3.1
+      app-builder-lib: 26.3.4(dmg-builder@26.3.4)(electron-builder-squirrel-windows@26.3.0)
+      builder-util: 26.3.4
       fs-extra: 10.1.0
       iconv-lite: 0.6.3
       js-yaml: 4.1.1
@@ -2876,23 +2875,23 @@ snapshots:
     dependencies:
       jake: 10.9.4
 
-  electron-builder-squirrel-windows@26.3.0(dmg-builder@26.3.2):
+  electron-builder-squirrel-windows@26.3.0(dmg-builder@26.3.4):
     dependencies:
-      app-builder-lib: 26.3.0(dmg-builder@26.3.2)(electron-builder-squirrel-windows@26.3.0)
+      app-builder-lib: 26.3.0(dmg-builder@26.3.4)(electron-builder-squirrel-windows@26.3.0)
       builder-util: 26.3.0
       electron-winstaller: 5.4.0
     transitivePeerDependencies:
       - dmg-builder
       - supports-color
 
-  electron-builder@26.3.2(electron-builder-squirrel-windows@26.3.0):
+  electron-builder@26.3.4(electron-builder-squirrel-windows@26.3.0):
     dependencies:
-      app-builder-lib: 26.3.2(dmg-builder@26.3.2)(electron-builder-squirrel-windows@26.3.0)
-      builder-util: 26.3.1
+      app-builder-lib: 26.3.4(dmg-builder@26.3.4)(electron-builder-squirrel-windows@26.3.0)
+      builder-util: 26.3.4
       builder-util-runtime: 9.5.1
       chalk: 4.1.2
       ci-info: 4.3.1
-      dmg-builder: 26.3.2(electron-builder-squirrel-windows@26.3.0)
+      dmg-builder: 26.3.4(electron-builder-squirrel-windows@26.3.0)
       fs-extra: 10.1.0
       lazy-val: 1.0.5
       simple-update-notifier: 2.0.0
@@ -2914,10 +2913,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  electron-publish@26.3.1:
+  electron-publish@26.3.4:
     dependencies:
       '@types/fs-extra': 9.0.13
-      builder-util: 26.3.1
+      builder-util: 26.3.4
       builder-util-runtime: 9.5.1
       chalk: 4.1.2
       form-data: 4.0.5
