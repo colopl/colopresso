@@ -2,6 +2,19 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      major_version:
+        description: "Major"
+        required: false
+        default: "999"
+      minor_version:
+        description: "Minor"
+        required: false
+        default: "999"
+      patch_version:
+        description: "Patch"
+        required: false
+        default: "999"
   push:
     tags:
       - "v*"
@@ -17,22 +30,40 @@ jobs:
       version: ${{ steps.generate_version.outputs.version }}
       version_int: ${{ steps.generate_version.outputs.version_int }}
       is_test: ${{ steps.generate_version.outputs.is_test }}
+      update_channel: ${{ steps.generate_version.outputs.update_channel }}
       emsdk_version: ${{ steps.get_emsdk_version.outputs.emsdk_version }}
     steps:
       - name: Generate version
         id: generate_version
         run: |
-          if ! echo "${{ github.ref_name }}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "full_version=v999.999.999" >> "${GITHUB_OUTPUT}"
-            echo "version=999.999.999" >> "${GITHUB_OUTPUT}"
-            echo "version_int=999999999" >> "${GITHUB_OUTPUT}"
-            echo "is_test=true" >> "${GITHUB_OUTPUT}"
+          MAJOR="${{ inputs.major_version }}"
+          MINOR="${{ inputs.minor_version }}"
+          PATCH="${{ inputs.patch_version }}"
+
+          if echo "${{ github.ref_name }}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            VER="$(echo "${{ github.ref_name }}" | cut -c 2-)"
+            CHANNEL="latest"
+            IS_TEST=false
+          elif test -n "${MAJOR}" || test -n "${MINOR}" || test -n "${PATCH}"; then
+            MAJOR_PAD="${MAJOR:-999}"
+            MINOR_PAD="${MINOR:-999}"
+            PATCH_PAD="${PATCH:-999}"
+            VER="${MAJOR_PAD}.${MINOR_PAD}.${PATCH_PAD}"
+            CHANNEL="canary"
+            IS_TEST=true
           else
-            echo "full_version="${{ github.ref_name }}"" >> "${GITHUB_OUTPUT}"
-            echo "version=$(echo "${{ github.ref_name }}" | cut -c 2-)" >> "${GITHUB_OUTPUT}"
-            echo "version_int=$(echo "${{ github.ref_name }}" | cut -c 2- | awk -F. '{printf "%d\n", sprintf("%03d%03d%03d", $1, $2, $3)}')" >> "${GITHUB_OUTPUT}"
-            echo "is_test=false" >> "${GITHUB_OUTPUT}"
+            VER="999.999.999"
+            CHANNEL="unknown"
+            IS_TEST=true
           fi
+
+          VER_INT=$(echo "${VER}" | awk -F. '{printf "%d\n", sprintf("%03d%03d%03d", $1, $2, $3)}')
+
+          echo "full_version=v${VER}" >> "${GITHUB_OUTPUT}"
+          echo "version=${VER}" >> "${GITHUB_OUTPUT}"
+          echo "version_int=${VER_INT}" >> "${GITHUB_OUTPUT}"
+          echo "is_test=${IS_TEST}" >> "${GITHUB_OUTPUT}"
+          echo "update_channel=${CHANNEL}" >> "${GITHUB_OUTPUT}"
       - name: Checkout
         uses: actions/checkout@v6
         with:
@@ -50,6 +81,7 @@ jobs:
           sed -i "s|VERSION 0.0.0|VERSION ${{ steps.generate_version.outputs.version }}|" "CMakeLists.txt"
           sed -i "s|0.0.0|${{ steps.generate_version.outputs.version }}|" "app/chrome/manifest.json"
           sed -i "s|0.0.0|${{ steps.generate_version.outputs.version }}|" "package.json"
+          sed -i "s|\"channel\": \"[^\"]*\"|\"channel\": \"${{ steps.generate_version.outputs.update_channel }}\"|" "package.json"
       - name: Tar versioned code
         run: |
           tar -czf "../versioned-code.tar.gz" -C .. "$(basename "$PWD")"
@@ -89,6 +121,11 @@ jobs:
           path: dist/
   WindowsElectron:
     needs: Prepare
+    strategy:
+      matrix:
+        channel: 
+          - "${{ needs.Prepare.outputs.update_channel }}"
+          - "${{ needs.Prepare.outputs.is_test == 'true' && 'colopl_internal_canary' || 'colopl_internal' }}"
     runs-on: windows-latest
     steps:
       - name: Download versioned code
@@ -100,6 +137,52 @@ jobs:
         run: |
           tar -xzf "versioned-code.tar.gz" --strip-components=1
           Remove-Item "versioned-code.tar.gz" -Force
+      - name: Apply update channel
+        shell: pwsh
+        run: |
+          $channel = "${{ matrix.channel }}"
+          Write-Host "Setting update channel to '$channel'"
+
+          $packageJsonPath = "package.json"
+          if (-not (Test-Path $packageJsonPath)) {
+            Write-Error "package.json not found at $packageJsonPath"
+            exit 1
+          }
+
+          $packageJson = Get-Content $packageJsonPath -Raw | ConvertFrom-Json
+          if (-not $packageJson.build -or -not $packageJson.build.extraMetadata -or -not $packageJson.build.extraMetadata.colopresso -or -not $packageJson.build.extraMetadata.colopresso.update) {
+            Write-Error "package.json is missing build.extraMetadata.colopresso.update"
+            exit 1
+          }
+
+          $packageJson.build.extraMetadata.colopresso.update.channel = $channel
+          $packageJson | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath
+      - name: Apply artifact name
+        shell: pwsh
+        if: matrix.channel != 'latest'
+        run: |
+          $packageJsonPath = "package.json"
+          if (-not (Test-Path $packageJsonPath)) {
+            Write-Error "package.json not found at $packageJsonPath"
+            exit 1
+          }
+
+          $packageJson = Get-Content $packageJsonPath -Raw | ConvertFrom-Json
+          if (-not $packageJson.build) {
+            Write-Error "package.json is missing build configuration"
+            exit 1
+          }
+
+          $channel = "${{ matrix.channel }}"
+
+          $originalProductName = $packageJson.build.productName
+          if (-not $originalProductName) {
+            Write-Error "package.json is missing build.productName"
+            exit 1
+          }
+          $packageJson.build.productName = "{0}_{1}" -f $originalProductName, $channel
+
+          $packageJson | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath
       - name: Setup pnpm
         uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
         with:
@@ -115,7 +198,7 @@ jobs:
           toolchain: stable
           targets: wasm32-unknown-emscripten
       - name: Setup emsdk
-        shell: powershell
+        shell: pwsh
         working-directory: "third_party/emsdk"
         run: |
           ./emsdk.ps1 install "${{ needs.Prepare.outputs.emsdk_version }}"
@@ -128,54 +211,26 @@ jobs:
           "$env:EMSDK\upstream\emscripten" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           "$env:EMSDK\node\$(Get-ChildItem "$env:EMSDK\node" | Select-Object -First 1 -ExpandProperty Name)_64bit\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Build Electron app
-        shell: powershell
+        shell: pwsh
         run: |
           emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--win"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build "build" --config "Release" --parallel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Rename artifacts
-        shell: powershell
+          WIN_CSC_LINK: ${{ (matrix.channel == 'colopl_internal' || matrix.channel == 'colopl_internal_canary') && secrets.WINDOWS_CERTIFICATE_BASE64 || '' }}
+          WIN_CSC_KEY_PASSWORD: ${{ (matrix.channel == 'colopl_internal' || matrix.channel == 'colopl_internal_canary') && secrets.WINDOWS_CERTIFICATE_PASSWORD || '' }}
+      - name: Copy artifacts
+        shell: pwsh
         run: |
-          New-Item "dist" -ItemType Directory -ErrorAction SilentlyContinue
-          if (Test-Path "dist_build\colopresso-${{ needs.Prepare.outputs.version }}_ia32.exe") {
-            Move-Item "dist_build\colopresso-${{ needs.Prepare.outputs.version }}_ia32.exe" "dist\colopresso_windows-electron-gui_x86_32bit.exe"
-          }
-          if (Test-Path "dist_build\colopresso-${{ needs.Prepare.outputs.version }}_x64.exe") {
-            Move-Item "dist_build\colopresso-${{ needs.Prepare.outputs.version }}_x64.exe" "dist\colopresso_windows-electron-gui_x64_64bit.exe"
-          }
-          if (Test-Path "dist_build\colopresso-${{ needs.Prepare.outputs.version }}_arm64.exe") {
-            Move-Item "dist_build\colopresso-${{ needs.Prepare.outputs.version }}_arm64.exe" "dist\colopresso_windows-electron-gui_arm64_64bit.exe"
-          }
-      - name: Sign internal Electron binaries
-        shell: powershell
-        env:
-          WIN_CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-        run: |
-          if ($env:WIN_CSC_LINK) {
-            Write-Host "Certificate found, creating signed internal copies..."
-            $certBytes = [Convert]::FromBase64String($env:WIN_CSC_LINK)
-            $certPath = "$env:RUNNER_TEMP\certificate.pfx"
-            [IO.File]::WriteAllBytes($certPath, $certBytes)
-
-            $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\" -Recurse -Filter "signtool.exe" | Where-Object { $_.FullName -match "x64" } | Select-Object -First 1 -ExpandProperty FullName
-            Get-ChildItem "dist" -Filter *.exe | ForEach-Object {
-              $signedPath = Join-Path $_.DirectoryName ($_.BaseName + "_colopl_internal" + $_.Extension)
-              Copy-Item $_.FullName $signedPath -Force
-              & $signtool sign /f "$certPath" /p "$env:WIN_CSC_KEY_PASSWORD" /fd sha256 "$signedPath"
-            }
-
-            Remove-Item "$certPath" -Force
-            Write-Host "Signed internal binaries generated"
-          } else {
-            Write-Host "No certificate found, skipping internal signing"
+          New-Item -ItemType Directory -Force -Path "dist" | Out-Null
+          Get-ChildItem -Path "dist_build" -Include "*.exe","*.yml","*.blockmap" -Recurse -File | ForEach-Object {
+            Copy-Item $_.FullName -Destination "dist\"
           }
       - name: Upload artifacts
         uses: actions/upload-artifact@v5
         with:
-          name: colopresso-electron-windows
+          name: colopresso-electron-windows-${{ matrix.channel }}
           path: dist/
           if-no-files-found: error
   macOSElectron:
@@ -296,16 +351,12 @@ jobs:
       - name: Rename artifacts
         run: |
           mkdir -p "dist"
-          if test -f "dist_build/colopresso-${{ needs.Prepare.outputs.version }}_x64.dmg"; then
-            mv "dist_build/colopresso-${{ needs.Prepare.outputs.version }}_x64.dmg" "dist/colopresso_macos-electron-gui_intel.dmg"
-          fi
-          if test -f "dist_build/colopresso-${{ needs.Prepare.outputs.version }}_arm64.dmg"; then
-            mv "dist_build/colopresso-${{ needs.Prepare.outputs.version }}_arm64.dmg" "dist/colopresso_macos-electron-gui_apple_silicon.dmg"
-          fi
+          find "dist_build" -type f \( -name '*.dmg' -o -name '*.dmg.blockmap' -o -name '*.zip' -o -name '*.zip.blockmap' -o -name '*.yml' \) \
+            -exec cp {} "dist/" \;
       - name: Upload artifacts
         uses: actions/upload-artifact@v5
         with:
-          name: colopresso-macos-electron
+          name: colopresso-electron-macos
           path: dist/
           if-no-files-found: error
   ChromeExtension:
@@ -355,7 +406,15 @@ jobs:
           path: dist/
   WindowsCLI:
     needs: Prepare
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        runs-on:
+          - windows-latest
+          - windows-11-arm
+        channel:
+          - latest
+          - ${{ needs.Prepare.outputs.is_test == 'true' && 'colopl_internal_canary' || 'colopl_internal' }}
+    runs-on: ${{ matrix.runs-on }}
     env:
       COLOPRESSO_CLI_EXE: 'build\cli\Release\colopresso.exe'
     steps:
@@ -378,11 +437,12 @@ jobs:
       - name: Test
         run: ctest --test-dir "build" --build-config "Release" --output-on-failure
       - name: Check CLI
-        shell: powershell
+        shell: pwsh
         run: |
           & "${env:COLOPRESSO_CLI_EXE}" --version
       - name: Sign binary
-        shell: powershell
+        shell: pwsh
+        if: matrix.channel == 'colopl_internal' || matrix.channel == 'colopl_internal_canary'
         env:
           WIN_CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
@@ -396,9 +456,7 @@ jobs:
             [IO.File]::WriteAllBytes($certPath, $certBytes)
 
             $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\" -Recurse -Filter "signtool.exe" | Where-Object { $_.FullName -match "x64" } | Select-Object -First 1 -ExpandProperty FullName
-            $signedPath = Join-Path (Split-Path $exePath -Parent) (([System.IO.Path]::GetFileNameWithoutExtension($exePath)) + "_colopl_internal.exe")
-            Copy-Item $exePath $signedPath -Force
-            & $signtool sign /f "$certPath" /p "$env:WIN_CSC_KEY_PASSWORD" /fd sha256 "$signedPath"
+            & $signtool sign /f "$certPath" /p "$env:WIN_CSC_KEY_PASSWORD" /fd sha256 "$exePath"
 
             Remove-Item "$certPath" -Force
             Write-Host "Signed internal binary generated"
@@ -406,20 +464,15 @@ jobs:
             Write-Host "No certificate found, skipping signing"
           }
       - name: Prepare artifact
-        shell: powershell
+        shell: pwsh
         run: |
-          $exePath = "${env:COLOPRESSO_CLI_EXE}"
-          $signedPath = Join-Path (Split-Path $exePath -Parent) (([System.IO.Path]::GetFileNameWithoutExtension($exePath)) + "_colopl_internal.exe")
-          New-Item -ItemType Directory -Force -Path "artifact"
-          Copy-Item $exePath "artifact\colopresso-cli-windows-amd64.exe"
-          if (Test-Path $signedPath) {
-            Copy-Item $signedPath "artifact\colopresso-cli-windows-amd64_colopl_internal.exe"
-          }
+          New-Item -ItemType Directory -Force -Path "dist" | Out-Null
+          Copy-Item "${env:COLOPRESSO_CLI_EXE}" "dist/colopresso_windows_cli_${{ matrix.runs-on == 'windows-11-arm' && 'arm64' || 'x64' }}${{ matrix.channel != 'latest' && format('_{0}', matrix.channel) || '' }}.exe"
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
-          name: colopresso-cli-windows-amd64
-          path: artifact/
+          name: colopresso-cli-windows-${{ matrix.runs-on == 'windows-11-arm' && 'arm64' || 'x64' }}-${{ matrix.channel }}
+          path: dist/
           if-no-files-found: error
   macOSCLI:
     needs: Prepare
@@ -628,7 +681,8 @@ jobs:
           gh release create "${{ github.ref_name }}" \
             --title "${{ needs.Prepare.outputs.version }}" \
             --generate-notes \
-            --draft="${{ needs.Prepare.outputs.is_test }}"
+            --prerelease="${{ needs.Prepare.outputs.is_test }}" \
+            --draft=false
           for RETRY in {1..10}; do
             if gh release view "${{ github.ref_name }}" > /dev/null 2>&1; then
               echo "Release is ready"
@@ -638,16 +692,6 @@ jobs:
             echo "Waiting for release to be available... (${RETRY}/10)"
             sleep 2
           done
-      - name: Download Windows Artifacts
-        uses: actions/download-artifact@v6
-        with:
-          name: colopresso-electron-windows
-          path: artifacts/
-      - name: Download macOS Artifacts
-        uses: actions/download-artifact@v6
-        with:
-          name: colopresso-macos-electron
-          path: artifacts/
       - name: Download Chrome Extension Artifacts
         uses: actions/download-artifact@v6
         with:
@@ -658,30 +702,17 @@ jobs:
         with:
           name: colopresso-source
           path: artifacts/
-      - name: Download CLI Windows Artifacts
+      - name: Download Electron Artifacts
         uses: actions/download-artifact@v6
         with:
-          name: colopresso-cli-windows-amd64
+          pattern: colopresso-electron-*
+          merge-multiple: true
           path: artifacts/
-      - name: Download CLI macOS Apple Silicon Artifacts
+      - name: Download CLI Artifacts
         uses: actions/download-artifact@v6
         with:
-          name: colopresso-cli-macos-apple_silicon
-          path: artifacts/
-      - name: Download CLI macOS Intel Artifacts
-        uses: actions/download-artifact@v6
-        with:
-          name: colopresso-cli-macos-intel
-          path: artifacts/
-      - name: Download CLI Linux amd64 Artifacts
-        uses: actions/download-artifact@v6
-        with:
-          name: colopresso-cli-linux-amd64
-          path: artifacts/
-      - name: Download CLI Linux arm64 Artifacts
-        uses: actions/download-artifact@v6
-        with:
-          name: colopresso-cli-linux-arm64
+          pattern: colopresso-cli-*
+          merge-multiple: true
           path: artifacts/
       - name: Generate and upload checksums
         env:
@@ -694,6 +725,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          rm -rf "${{ github.workspace }}/artifacts/builder-debug.yml"
+          rm -rf "${{ github.workspace }}/artifacts/elevate.exe"
           for FILE in "${{ github.workspace }}/artifacts"/*; do
             if test -f "${FILE}"; then
               gh release upload "${{ github.ref_name }}" "${FILE}" --clobber

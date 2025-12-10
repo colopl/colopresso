@@ -361,7 +361,7 @@ endif()
 if(COLOPRESSO_ELECTRON_APP)
   colopresso_configure_gui_target("electron" "Electron app")
 
-  set(ELECTRON_BUILDER_ARGS exec electron-builder)
+  set(ELECTRON_BUILDER_ARGS exec electron-builder --publish never)
   if(COLOPRESSO_ELECTRON_TARGETS)
     message(STATUS "Electron packaging targets: ${COLOPRESSO_ELECTRON_TARGETS}")
     string(REPLACE "," ";" COLOPRESSO_ELECTRON_TARGETS_EACH "${COLOPRESSO_ELECTRON_TARGETS}")

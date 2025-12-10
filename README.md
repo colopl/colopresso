@@ -192,7 +192,7 @@ Open the cloned `libcolopresso` directory with Visual Studio Code and attach to 
 ### Windows
 
 > [!TIP]
-> Always use PowerShell instead of cmd (Command Prompt).
+> Always use `pwsh` instead of cmd (Command Prompt).
 
 1. Run `third_party/emsdk\emsdk.ps1 install <tag>` / `activate <tag>` and apply `emsdk_env.ps1`
 1. `rm -rf "build" && emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--win"`

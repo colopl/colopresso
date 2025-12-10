@@ -272,6 +272,40 @@ const bundle: TranslationBundle = {
         },
       },
     },
+    updater: {
+      channelFlavor: {
+        internalSuffix: ' (internal)',
+      },
+      dialog: {
+        updateAvailable: {
+          title: '新しいバージョンが見つかりました',
+          message: 'バージョン {version} が利用可能です。アップデートをダウンロードしますか？',
+          buttons: {
+            download: 'ダウンロード',
+            later: '後で',
+          },
+          detail: {
+            currentVersion: '現在のバージョン: {version}',
+            availableVersion: '利用可能なバージョン: {version}',
+            channel: 'アップデートチャネル: {channel}{flavor}',
+            platform: 'プラットフォーム: {platform}',
+          },
+        },
+        readyToInstall: {
+          title: 'アップデートの準備ができました',
+          message: 'バージョン {version} のインストールを完了するために再起動します。続行しますか？',
+          detail: '進行中の処理があれば保存してから再起動してください。',
+          buttons: {
+            restartNow: '今すぐ再起動',
+            later: 'あとで',
+          },
+        },
+        downloadFailed: {
+          title: 'アップデートに失敗しました',
+          message: 'アップデートのダウンロードに失敗しました',
+        },
+      },
+    },
   },
 };
 

@@ -273,6 +273,40 @@ const bundle: TranslationBundle = {
         },
       },
     },
+    updater: {
+      channelFlavor: {
+        internalSuffix: ' (internal)',
+      },
+      dialog: {
+        updateAvailable: {
+          title: 'New version available',
+          message: 'Version {version} is available. Download the update?',
+          buttons: {
+            download: 'Download',
+            later: 'Later',
+          },
+          detail: {
+            currentVersion: 'Current version: {version}',
+            availableVersion: 'Available version: {version}',
+            channel: 'Update channel: {channel}{flavor}',
+            platform: 'Platform: {platform}',
+          },
+        },
+        readyToInstall: {
+          title: 'Update ready',
+          message: 'Restart to finish installing version {version}. Continue?',
+          detail: 'Save your work before restarting.',
+          buttons: {
+            restartNow: 'Restart now',
+            later: 'Later',
+          },
+        },
+        downloadFailed: {
+          title: 'Update failed',
+          message: 'Failed to download the update',
+        },
+      },
+    },
   },
 };
 

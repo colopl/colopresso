@@ -845,7 +845,8 @@ const ElectronAppInner: React.FC = () => {
         updateProgress(0, files.length);
         applyStatus({ type: 'info', messageKey: 'common.conversionRunning', durationMs: 0 });
 
-        const deleteOriginal = isFixedOutputActive ? false : Boolean(state.settings.deletePng) && format.id !== 'pngx';
+        const deleteOriginal = !isFixedOutputActive && Boolean(state.settings.deletePng);
+        const overwriteOriginalForPngx = deleteOriginal && format.id === 'pngx';
 
         for (let index = 0; index < files.length; index += 1) {
           const file = files[index];
@@ -856,13 +857,14 @@ const ElectronAppInner: React.FC = () => {
 
           try {
             const resultBytes = await convertPngBytes(file.data);
+            let outputPath: string | null = null;
+
             if (isFixedOutputActive) {
               const relativeCandidate = sanitizeRelativeOutputPath(file.name);
               const relativePath = (relativeCandidate && relativeCandidate.replace(/\.png$/i, `.${format.outputExtension}`)) || file.name.replace(/\.png$/i, `.${format.outputExtension}`);
               await writeToFixedDirectory(relativePath, resultBytes);
             } else {
-              let outputPath: string;
-              if (format.id === 'pngx' && !deleteOriginal) {
+              if (format.id === 'pngx' && !overwriteOriginalForPngx) {
                 outputPath = file.path.replace(/\.png$/i, '_optimized.png');
               } else {
                 outputPath = file.path.replace(/\.png$/i, `.${format.outputExtension}`);
@@ -875,7 +877,8 @@ const ElectronAppInner: React.FC = () => {
               }
             }
 
-            if (deleteOriginal) {
+            const shouldDeleteOriginalFile = deleteOriginal && outputPath !== null && outputPath !== file.path;
+            if (shouldDeleteOriginalFile) {
               const deleteResult = await electron.deleteFile(file.path);
               if (!deleteResult.success) {
                 applyStatus({ type: 'error', messageKey: 'common.deletePngFailed', durationMs: 5000, params: { path: file.path } });

@@ -1,7 +1,7 @@
 {
   "name": "colopresso",
   "version": "0.0.0",
-  "description": "PNG to Advanced Image Format converter",
+  "description": "colopresso - PNG to Advanced Image Format converter",
   "main": "build/electron/main.js",
   "scripts": {
     "format:web": "prettier --write 'app/shared/**/*.{ts,tsx,js,css,html}' 'app/electron/**/*.{ts,tsx,js,css,html}' 'app/chrome/**/*.{ts,tsx,js,css,html}'",
@@ -39,28 +39,45 @@
   "author": "COLOPL, Inc. <g-kudo@colopl.co.jp>",
   "license": "GPL-3.0-only",
   "devDependencies": {
-    "@types/chrome": "^0.1.31",
-    "@types/node": "^24.10.1",
+    "@types/chrome": "^0.1.32",
+    "@types/node": "^24.10.2",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.1",
-    "electron": "^39.2.3",
-    "electron-builder": "^26.3.1",
-    "prettier": "^3.6.2",
+    "@vitejs/plugin-react": "^5.1.2",
+    "electron": "^39.2.6",
+    "electron-builder": "^26.3.5",
+    "prettier": "^3.7.4",
     "tslib": "^2.8.1",
     "typescript": "^5.9.3",
-    "vite": "^7.2.4"
+    "vite": "^7.2.7"
   },
   "dependencies": {
-    "@reduxjs/toolkit": "^2.11.0",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
+    "@reduxjs/toolkit": "^2.11.1",
+    "electron-updater": "^6.6.2",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
     "react-redux": "^9.2.0"
   },
   "build": {
     "appId": "jp.colopl.colopresso",
     "productName": "colopresso",
-    "publish": null,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "colopl",
+        "repo": "colopresso"
+      }
+    ],
+    "extraMetadata": {
+      "colopresso": {
+        "update": {
+          "channel": "latest",
+          "repoOwner": "colopl",
+          "repoName": "colopresso",
+          "flavor": "public"
+        }
+      }
+    },
     "files": [
       "build/electron/**/*"
     ],
@@ -74,6 +91,7 @@
       "icon": "app/electron/colopresso.icns",
       "entitlements": "app/electron/entitlements.mac.plist",
       "entitlementsInherit": "app/electron/entitlements.mac.plist",
+      "artifactName": "${productName}_macos_gui_${arch}.${ext}",
       "target": [
         {
           "target": "dmg",
@@ -81,30 +99,34 @@
             "x64",
             "arm64"
           ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
-      ],
-      "artifactName": "${productName}-${version}_${arch}.${ext}"
+      ]
     },
     "win": {
       "target": [
         {
-          "target": "portable",
+          "target": "nsis",
           "arch": [
-            "ia32",
             "x64",
             "arm64"
           ]
         }
       ],
-      "icon": "app/electron/colopresso.ico",
-      "artifactName": "${productName}-${version}_${arch}.${ext}"
+      "icon": "app/electron/colopresso.ico"
     },
     "dmg": {
       "icon": null,
-      "artifactName": "${productName}-${version}_${arch}.${ext}"
+      "artifactName": "${productName}_macos_gui_${arch}.${ext}"
     },
-    "portable": {
-      "artifactName": "${productName}-${version}_${arch}.${ext}"
+    "nsis": {
+      "artifactName": "${productName}_windows_gui_${arch}.${ext}"
     }
   }
 }

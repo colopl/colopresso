@@ -47,7 +47,7 @@ if test $# -eq 0; then
 else
     TARGETS="${1}"
     shift
-    for T in "${@}"; do
+    for T in "$@"; do
         TARGETS="${TARGETS}, ${T}"
     done
 fi

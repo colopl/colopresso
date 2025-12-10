@@ -11,16 +11,10 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import Storage from '../core/storage';
-import { TranslationBundle, TranslationParams, LanguageCode } from '../types';
-import enUS from './lang/enUS';
-import jaJP from './lang/jaJP';
+import { TranslationParams, LanguageCode } from '../types';
+import { bundles, translateForLanguage as translateForLanguageCore } from './core';
 
 const LANGUAGE_STORAGE_KEY = 'colopresso_ui_language';
-
-const bundles: Record<LanguageCode, TranslationBundle> = {
-  'en-us': enUS,
-  'ja-jp': jaJP,
-};
 
 let currentLanguageRef: LanguageCode = getDefaultLanguage();
 
@@ -71,43 +65,8 @@ export function addLanguageChangeListener(listener: LanguageListener): () => voi
   };
 }
 
-function resolveMessage(tree: Record<string, unknown>, key: string): unknown {
-  const parts = key.split('.');
-  let current: unknown = tree;
-  for (const part of parts) {
-    if (typeof current !== 'object' || current === null) {
-      return undefined;
-    }
-    const next = (current as Record<string, unknown>)[part];
-    current = next;
-  }
-  return current;
-}
-
-function format(template: string, params?: TranslationParams): string {
-  if (!params) {
-    return template;
-  }
-  return template.replace(/\{(.*?)\}/g, (match, name) => {
-    const value = params[name.trim()];
-    if (value === undefined || value === null) {
-      return match;
-    }
-    return String(value);
-  });
-}
-
-function translateForLanguage(language: LanguageCode, key: string, params?: TranslationParams): string {
-  const bundle = bundles[language] ?? bundles['en-us'];
-  const raw = resolveMessage(bundle.messages as Record<string, unknown>, key);
-  if (typeof raw === 'string') {
-    return format(raw, params);
-  }
-  return key;
-}
-
 export function t(key: string, params?: TranslationParams): string {
-  return translateForLanguage(currentLanguageRef, key, params);
+  return translateForLanguageCore(bundles, currentLanguageRef, key, params);
 }
 
 function getDefaultLanguage(): LanguageCode {
@@ -136,7 +95,7 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const t = useCallback(
     (key: string, params?: TranslationParams) => {
-      return translateForLanguage(language, key, params);
+      return translateForLanguageCore(bundles, language, key, params);
     },
     [language]
   );
