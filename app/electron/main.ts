@@ -19,9 +19,11 @@ import { bundles as languageBundles, translateForLanguage as translateForLanguag
 import { LanguageCode, TranslationParams } from '../shared/types';
 
 const PNG_EXTENSION = '.png';
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 type UpdateFlavor = 'public' | 'internal';
 let mainWindow: BrowserWindow | null = null;
 let autoUpdateInitialized = false;
+let updateCheckTimer: ReturnType<typeof setInterval> | null = null;
 const shouldSkipAutoUpdate = process.env.COLOPRESSO_DISABLE_UPDATER === '1';
 
 interface ElectronDirectoryEntry {
@@ -285,9 +287,15 @@ function setupAutoUpdate(): void {
     console.error('auto-update error', error);
   });
 
-  void autoUpdater.checkForUpdates().catch((error) => {
-    console.error('auto-update check failed', error);
-  });
+  const performUpdateCheck = (): void => {
+    void autoUpdater.checkForUpdates().catch((error) => {
+      console.error('auto-update check failed', error);
+    });
+  };
+
+  performUpdateCheck();
+
+  updateCheckTimer = setInterval(performUpdateCheck, UPDATE_CHECK_INTERVAL_MS);
 }
 
 function createWindow(): void {
@@ -544,6 +552,10 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  if (updateCheckTimer !== null) {
+    clearInterval(updateCheckTimer);
+    updateCheckTimer = null;
+  }
   if (process.platform !== 'darwin') {
     app.quit();
   }

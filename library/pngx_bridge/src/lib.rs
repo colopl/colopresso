@@ -416,12 +416,26 @@ pub unsafe extern "C" fn pngx_bridge_free(ptr: *mut u8) {
 
 #[no_mangle]
 pub extern "C" fn pngx_bridge_oxipng_version() -> u32 {
-    9 * 10000 + 1 * 100 + 5
+    const VERSION: u32 = match option_env!("PNGX_BRIDGE_OXIPNG_VERSION") {
+        Some(v) => match konst::primitive::parse_u32(v) {
+            Ok(n) => n,
+            Err(_) => 0,
+        },
+        None => 0,
+    };
+    VERSION
 }
 
 #[no_mangle]
 pub extern "C" fn pngx_bridge_libimagequant_version() -> u32 {
-    4 * 10000 + 4 * 100 + 0
+    const VERSION: u32 = match option_env!("PNGX_BRIDGE_IMAGEQUANT_VERSION") {
+        Some(v) => match konst::primitive::parse_u32(v) {
+            Ok(n) => n,
+            Err(_) => 0,
+        },
+        None => 0,
+    };
+    VERSION
 }
 
 #[no_mangle]
