@@ -414,28 +414,41 @@ pub unsafe extern "C" fn pngx_bridge_free(ptr: *mut u8) {
     }
 }
 
+macro_rules! parse_version_env {
+    ($name:expr, $default:expr) => {{
+        const S: &str = match option_env!($name) {
+            Some(s) => s,
+            None => "",
+        };
+        const fn parse(s: &str) -> u32 {
+            let bytes = s.as_bytes();
+            if bytes.is_empty() {
+                return $default;
+            }
+            let mut i = 0;
+            let mut result: u32 = 0;
+            while i < bytes.len() {
+                let b = bytes[i];
+                if b < b'0' || b > b'9' {
+                    return $default;
+                }
+                result = result * 10 + (b - b'0') as u32;
+                i += 1;
+            }
+            result
+        }
+        parse(S)
+    }};
+}
+
 #[no_mangle]
 pub extern "C" fn pngx_bridge_oxipng_version() -> u32 {
-    const VERSION: u32 = match option_env!("PNGX_BRIDGE_OXIPNG_VERSION") {
-        Some(v) => match konst::primitive::parse_u32(v) {
-            Ok(n) => n,
-            Err(_) => 0,
-        },
-        None => 0,
-    };
-    VERSION
+    parse_version_env!("PNGX_BRIDGE_OXIPNG_VERSION", 0)
 }
 
 #[no_mangle]
 pub extern "C" fn pngx_bridge_libimagequant_version() -> u32 {
-    const VERSION: u32 = match option_env!("PNGX_BRIDGE_IMAGEQUANT_VERSION") {
-        Some(v) => match konst::primitive::parse_u32(v) {
-            Ok(n) => n,
-            Err(_) => 0,
-        },
-        None => 0,
-    };
-    VERSION
+    parse_version_env!("PNGX_BRIDGE_IMAGEQUANT_VERSION", 0)
 }
 
 #[no_mangle]
