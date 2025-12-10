@@ -34,12 +34,13 @@ jobs:
           cmake -B "build" -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_COVERAGE=ON -DCOLOPRESSO_USE_TESTS=ON
           cmake --build "build" --parallel
           cmake --build "build" --target coverage
+          mv "${{ github.workspace }}/build/coverage/html" "${{ github.workspace }}/pages/coverage"
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: build/coverage/html
+          path: "${{ github.workspace }}/pages"
   Deploy:
     environment:
       name: github-pages

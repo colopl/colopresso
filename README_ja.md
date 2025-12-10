@@ -190,7 +190,7 @@ $ git clone --recursive "https://github.com/colopl/colopresso.git"
 ### Windows
 
 > [!TIP]
-> cmd (コマンドプロンプト) ではなく、常に PowerShell を使用してください。
+> cmd (コマンドプロンプト) ではなく、常に `pwsh` を使用してください。
 
 1. `third_party/emsdk\emsdk.ps1 install <tag>` / `activate <tag>` を実行し、`emsdk_env.ps1` を適用します
 1. `rm -rf "build" && emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--win"`

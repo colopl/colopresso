@@ -11,10 +11,12 @@
 
 import { defineConfig } from 'vite';
 import path from 'node:path';
+import { builtinModules } from 'node:module';
 
 type RollupExternal = Array<string | RegExp>;
 
-const external: RollupExternal = ['electron', 'node:fs', 'node:path', 'fs', 'fs/promises', 'path'];
+const nodeBuiltins = Array.from(new Set([...builtinModules, ...builtinModules.map((mod) => `node:${mod}`)]));
+const external: RollupExternal = ['electron', ...nodeBuiltins];
 
 const envOutDir = process.env.COLOPRESSO_ELECTRON_OUT_DIR;
 const outDir = envOutDir ? (path.isAbsolute(envOutDir) ? envOutDir : path.resolve(__dirname, '..', '..', envOutDir)) : path.resolve(__dirname, '../../build/electron');

@@ -20,6 +20,7 @@
             - `pngx_palette256.png` PNGX 256 Palette モードエンコーダ固有のコードです
             - `pngx_reduced.c` PNGX Reduced RGBA32 モードエンコーダ固有のコードです
         - `webp.c`: WebP エンコーダ本体のコードです
+- `/pages`: GitHub Pages で公開用のページディレクトリです
 - `/cli`: CLI 版 `colopresso` アプリケーションの実装です
     - `/cli/CMakeLists.txt`: CLI 版 `colopresso` アプリケーションの CMake 構成ファイルです
 - `/app`: GUI 版 `colopresso` アプリケーションの実装です

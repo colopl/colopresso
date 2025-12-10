@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>colopresso Downloads</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --color-bg-page: #1d1f21;
+      --color-bg-surface: #26292c;
+      --color-bg-alt: #2e3236;
+      --color-bg-muted: #303437;
+      --color-fg-base: #e5e7eb;
+      --color-fg-muted: #9ca3af;
+      --color-border: #3c4146;
+      --color-border-strong: #4b5258;
+      --color-accent: #3b82f6;
+      --color-accent-hover: #2563eb;
+      --color-shadow: rgba(0, 0, 0, 0.6);
+      --radius: 8px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: var(--color-bg-page);
+      color: var(--color-fg-base);
+      padding: 20px;
+    }
+
+    .page {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    @media (max-width: 980px) {
+      .page { grid-template-columns: 1fr; }
+    }
+
+    header {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-left: auto;
+    }
+
+    .brand {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 20px;
+      margin: 0;
+      font-weight: 600;
+    }
+
+    .lede {
+      margin: 4px 0 0;
+      color: var(--color-fg-muted);
+      font-size: 13px;
+      line-height: 1.5;
+      max-width: 720px;
+    }
+
+    .lang-switch {
+      display: inline-flex;
+      padding: 3px;
+      background: var(--color-bg-muted);
+      border: 1px solid var(--color-border-strong);
+      border-radius: 4px;
+      gap: 3px;
+      height: 32px;
+      align-items: center;
+    }
+
+    .chip {
+      border: none;
+      padding: 0 10px;
+      height: 24px;
+      border-radius: 4px;
+      color: var(--color-fg-base);
+      background: transparent;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .chip.active {
+      background: var(--color-accent);
+      color: #ffffff;
+    }
+
+    .coverage-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 0 12px;
+      height: 32px;
+      border-radius: 4px;
+      border: 1px solid var(--color-border-strong);
+      background: var(--color-bg-muted);
+      color: var(--color-fg-base);
+      font-size: 12px;
+      text-decoration: none;
+      transition: background 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .coverage-button:hover {
+      background: var(--color-bg-alt);
+    }
+
+    .github-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 0 12px;
+      height: 32px;
+      border-radius: 4px;
+      border: 1px solid var(--color-border-strong);
+      background: var(--color-bg-muted);
+      color: var(--color-fg-base);
+      font-size: 12px;
+      text-decoration: none;
+      transition: background 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .github-button:hover {
+      background: var(--color-bg-alt);
+    }
+
+    .panel {
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: 0 2px 8px var(--color-shadow);
+    }
+
+    .hero {
+      display: grid;
+      gap: 16px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      background: var(--color-bg-alt);
+      color: var(--color-fg-base);
+      border: 1px solid var(--color-border);
+      font-size: 12px;
+      width: fit-content;
+    }
+
+    .badge span {
+      font-size: 12px;
+    }
+
+    .hero-card {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 16px;
+      background: var(--color-bg-alt);
+      display: grid;
+      gap: 8px;
+    }
+
+    .hero-title { font-size: 16px; margin: 0; font-weight: 600; }
+
+    .hero-text { color: var(--color-fg-muted); line-height: 1.5; font-size: 13px; }
+
+    .list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 8px;
+    }
+
+    .list li {
+      display: grid;
+      gap: 4px;
+      padding: 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-muted);
+    }
+
+    .pill {
+      font-size: 11px;
+      color: var(--color-fg-muted);
+    }
+
+    .headline { font-weight: 600; font-size: 13px; }
+
+    .stepper { display: grid; gap: 12px; }
+
+    .step {
+      background: var(--color-bg-alt);
+      border-radius: var(--radius);
+      border: 1px solid var(--color-border);
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .step h3 { margin: 0; font-size: 14px; font-weight: 600; }
+
+    .options { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .option {
+      background: var(--color-bg-muted);
+      border: 1px solid var(--color-border-strong);
+      border-radius: 4px;
+      padding: 8px 14px;
+      color: var(--color-fg-base);
+      cursor: pointer;
+      min-width: 100px;
+      text-align: center;
+      font-size: 13px;
+      transition: all 0.15s ease;
+    }
+
+    .option:hover { background: var(--color-bg-alt); }
+
+    .option.active {
+      background: var(--color-accent);
+      color: #ffffff;
+      border-color: var(--color-accent);
+    }
+
+    .option:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .summary {
+      border: 1px solid var(--color-border);
+      padding: 12px;
+      border-radius: var(--radius);
+      background: var(--color-bg-muted);
+      display: grid;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .download {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      align-items: center;
+      background: var(--color-accent);
+      border: none;
+      color: #ffffff;
+      font-weight: 600;
+      padding: 12px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 14px;
+      transition: background 0.15s ease;
+    }
+
+    .download:hover { background: var(--color-accent-hover); }
+
+    .download.disabled {
+      background: var(--color-bg-muted);
+      color: var(--color-fg-muted);
+      cursor: not-allowed;
+    }
+
+    .url-display {
+      width: 100%;
+      font-family: 'Courier New', monospace;
+      background: var(--color-bg-page);
+      color: var(--color-fg-base);
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-size: 11px;
+      word-break: break-all;
+      overflow-wrap: break-word;
+    }
+
+    .note {
+      color: var(--color-fg-muted);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: #1b3a28;
+      color: #6ee7b7;
+      border: 1px solid #2d5a3d;
+      font-size: 11px;
+    }
+
+    .status.pending {
+      background: #47351c;
+      color: #f6d199;
+      border-color: #5a462a;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div class="brand">
+        <div>
+          <h1 id="title">colopresso Downloads</h1>
+          <p class="lede" id="lede">最新の colopresso バイナリを選択してダウンロードしてください。</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <a class="coverage-button" id="coverage-link" href="./coverage/index.html" target="_blank" rel="noopener">コードカバレッジを参照</a>
+        <a class="github-button" id="github-link" href="https://github.com/colopl/colopresso" target="_blank" rel="noopener">GitHub</a>
+        <div class="lang-switch" aria-label="Select language">
+          <button class="chip active" data-lang="ja" id="lang-ja">🇯🇵日本語</button>
+          <button class="chip" data-lang="en" id="lang-en">🇺🇸English</button>
+        </div>
+      </div>
+    </header>
+
+    <section class="panel hero">
+      <div class="badge"><span>★</span><div id="badge">最新ビルド</div></div>
+      <div class="hero-card">
+        <h2 class="hero-title" id="hero-title">ダウンロードガイド</h2>
+        <p class="hero-text" id="hero-text">利用する環境とアプリ種別を選ぶだけで、適切なバイナリのダウンロードリンクを表示します。</p>
+      </div>
+      <ul class="list" id="feature-list">
+        <li>
+          <div class="pill">Step 1</div>
+          <div class="headline">言語とプラットフォームを選択</div>
+          <div class="note">UI 言語・OS・アーキテクチャ・アプリ種別を順に選択します。</div>
+        </li>
+        <li>
+          <div class="pill">Step 2</div>
+          <div class="headline">ワンクリックでダウンロード</div>
+          <div class="note">選択結果に応じた最新リリースのダウンロードリンクを表示します。</div>
+        </li>
+        <li>
+          <div class="pill">Step 3</div>
+          <div class="headline">設定はいつでも変更可能</div>
+          <div class="note">選択を変更すると表示されるリンクも即座に切り替わります。</div>
+        </li>
+      </ul>
+    </section>
+
+    <section class="panel">
+      <div class="stepper">
+        <div class="step">
+          <h3 id="label-os">OS を選択してください</h3>
+          <div class="options" id="os-options"></div>
+        </div>
+        <div class="step" id="use-step">
+          <h3 id="label-use">利用場所</h3>
+          <div class="options" id="use-options"></div>
+          <div class="note" id="use-note"></div>
+        </div>
+        <div class="step">
+          <h3 id="label-arch">アーキテクチャを選択してください</h3>
+          <div class="options" id="arch-options"></div>
+          <div class="note" id="arch-note"></div>
+        </div>
+        <div class="step">
+          <h3 id="label-app">アプリ種別を選択してください</h3>
+          <div class="options" id="app-options"></div>
+          <div class="note" id="app-note"></div>
+        </div>
+        <div class="step">
+          <div class="summary">
+            <div class="headline" id="summary-title">選択内容</div>
+            <div id="summary-body">-</div>
+            <div class="status" id="status">項目を選択してください</div>
+          </div>
+          <div>
+            <div class="pill">Download URL</div>
+            <div class="url-display" id="url">https://github.com/colopl/colopresso/releases/latest/download/</div>
+          </div>
+          <a id="download" class="download disabled" href="#" aria-disabled="true" download>
+            <span id="download-label">Download</span>
+            <span aria-hidden="true">→</span>
+          </a>
+          <p class="note" id="note"></p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const i18n = {
+      ja: {
+        title: 'colopresso ダウンロード',
+        lede: '最新の colopresso を環境に合わせてダウンロードできます。',
+        badge: '最新ビルド',
+        heroTitle: 'ダウンロードガイド',
+        heroText: '利用する環境とアプリ種別を選ぶだけで、適切なバイナリのダウンロードリンクを表示します。後から設定を変更してもすぐに反映されます。',
+        steps: ['言語とプラットフォームを選択', 'ワンクリックでダウンロード', '設定はいつでも変更可能'],
+        stepNotes: [
+          'OS・アーキテクチャ・アプリ種別を順に選択します。',
+          '選択結果に応じた最新リリースのダウンロードリンクを表示します。',
+          '選択を変更すると表示されるリンクも即座に切り替わります。'
+        ],
+        labels: {
+          os: 'OS を選択してください',
+          use: '利用用途を選択してください',
+          arch: 'アーキテクチャを選択してください',
+          app: 'アプリ種別を選択してください',
+          summary: '選択内容',
+          ready: '準備完了',
+          pending: '項目を選択してください',
+          note: '組み合わせに対応するバイナリがない場合は「項目を選択してください」と表示されます。',
+          download: 'ダウンロード',
+          coverageCta: 'コードカバレッジを参照',
+          githubCta: 'GitHub',
+          useHelp: '・コロプラ社内: コロプラ管理下の PC で利用する場合<br>・それ以外: 私物 PC など、コロプラ管理外の PC で利用する場合',
+          archHelp: '・amd64: 通常の Windows デスクトップ PC, 古い Mac<br>・arm64: Apple Silicon Mac, Snapdragon Windows',
+          appHelp: '・GUI: ウィンドウが開く通常のアプリケーションです<br>・CLI: バッチ処理などで利用する UI のないアプリケーションです (上級者向け)'
+        },
+        options: {
+          os: ['Windows', 'macOS', 'Linux'],
+          arch: ['amd64', 'arm64'],
+          app: ['GUI', 'CLI'],
+          use: ['コロプラ社内', 'それ以外']
+        }
+      },
+      en: {
+        title: 'colopresso Downloads',
+        lede: 'Pick the right colopresso binary and download instantly.',
+        badge: 'Latest build',
+        heroTitle: 'Download guide',
+        heroText: 'Pick your environment and app type to reveal the matching binary. Changing selections updates the link instantly.',
+        steps: ['Choose language & platform', 'One-click download', 'Change any time'],
+        stepNotes: [
+          'Select OS, architecture, and application type.',
+          'We surface the matching latest-release download link.',
+          'Swap your selections and the link updates immediately.'
+        ],
+        labels: {
+          os: 'Choose your operating system',
+          use: 'Use in',
+          arch: 'Choose machine architecture',
+          app: 'Choose application type',
+          summary: 'Your selection',
+          ready: 'Ready',
+          pending: 'Please select items',
+          note: 'If a combination is not available, you will see "Please select items".',
+          download: 'Download',
+          coverageCta: 'View code coverage',
+          githubCta: 'GitHub',
+          useHelp: '・COLOPL Internal: When using on a PC managed by COLOPL, Inc.<br>・Other: When using on a personal or non-COLOPL managed PC',
+          archHelp: '・amd64: Typical Windows desktop PC, older Intel/AMD Macs<br>・arm64: Apple Silicon Macs, Snapdragon Windows',
+          appHelp: '・GUI: Standard app with a window<br>・CLI: No-UI app for batch or scripted use (advanced users)'
+        },
+        options: {
+          os: ['Windows', 'macOS', 'Linux'],
+          arch: ['amd64', 'arm64'],
+          app: ['GUI', 'CLI'],
+          use: ['COLOPL Internal', 'Other']
+        }
+      }
+    };
+
+    const downloadConfig = {
+      baseUrl: 'https://github.com/colopl/colopresso/releases/latest/download/',
+      files: {
+        Windows: {
+          internal: {
+            amd64: { GUI: 'colopresso_windows-electron-gui_amd64_64bit_colopl_internal.exe', CLI: 'colopresso-cli-windows-amd64_colopl_internal.exe' },
+            arm64: { GUI: 'colopresso_windows-electron-gui_arm64_64bit_colopl_internal.exe', CLI: 'colopresso-cli-windows-arm64_colopl_internal.exe' }
+          },
+          other: {
+            amd64: { GUI: 'colopresso_windows-electron-gui_amd64_64bit.exe', CLI: 'colopresso-cli-windows-amd64.exe' },
+            arm64: { GUI: 'colopresso_windows-electron-gui_arm64_64bit.exe', CLI: 'colopresso-cli-windows-arm64.exe' }
+          }
+        },
+        macOS: {
+          amd64: { GUI: 'colopresso_macos-electron-gui_intel.dmg', CLI: 'colopresso-cli-macos-intel' },
+          arm64: { GUI: 'colopresso_macos-electron-gui_apple_silicon.dmg', CLI: 'colopresso-cli-macos-apple_silicon' }
+        },
+        Linux: {
+          amd64: { GUI: '', CLI: 'colopresso-cli-linux-amd64' },
+          arm64: { GUI: '', CLI: 'colopresso-cli-linux-arm64' }
+        }
+      }
+    };
+
+    const state = { lang: 'ja', os: null, arch: null, app: null, use: null };
+
+    const $ = (id) => document.getElementById(id);
+    const langBtns = document.querySelectorAll('.lang-switch .chip');
+    const optionContainers = {
+      os: $('os-options'),
+      use: $('use-options'),
+      arch: $('arch-options'),
+      app: $('app-options')
+    };
+
+    const optionSpecs = {
+      os: () => i18n[state.lang].options.os.map((label) => ({ value: label, label })),
+      use: () => [
+        { value: 'internal', label: i18n[state.lang].options.use[0] },
+        { value: 'other', label: i18n[state.lang].options.use[1] }
+      ],
+      arch: () => i18n[state.lang].options.arch.map((label) => ({ value: label, label })),
+      app: () => i18n[state.lang].options.app.map((label) => ({ value: label, label }))
+    };
+
+    const renderOptions = () => {
+      ['os', 'use', 'arch', 'app'].forEach((key) => {
+        const container = optionContainers[key];
+        const entries = optionSpecs[key]();
+        const isUse = key === 'use';
+        container.innerHTML = '';
+
+        entries.forEach(({ value, label }) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'option';
+          btn.textContent = label;
+          btn.dataset.value = value;
+
+          const disableForLinuxGui = key === 'app' && state.os === 'Linux' && value === 'GUI';
+          const disableUse = isUse && state.os !== 'Windows';
+          btn.disabled = disableForLinuxGui || disableUse;
+
+          if (state[key] === value) {
+            btn.classList.add('active');
+          }
+
+          btn.addEventListener('click', () => {
+            if (btn.disabled) return;
+
+            state[key] = value;
+
+            if (key === 'os') {
+              state.use = null;
+              if (value === 'Linux') {
+                state.app = 'CLI';
+              }
+            }
+
+            renderOptions();
+            updateSummary();
+          });
+
+          container.appendChild(btn);
+        });
+      });
+    };
+
+    const syncLanguage = () => {
+      const locale = i18n[state.lang];
+      $('title').textContent = locale.title;
+      $('lede').textContent = locale.lede;
+      $('badge').textContent = locale.badge;
+      $('hero-title').textContent = locale.heroTitle;
+      $('hero-text').textContent = locale.heroText;
+      $('label-os').textContent = locale.labels.os;
+      $('label-use').textContent = locale.labels.use;
+      $('use-note').innerHTML = locale.labels.useHelp;
+      $('label-arch').textContent = locale.labels.arch;
+      $('arch-note').innerHTML = locale.labels.archHelp;
+      $('label-app').textContent = locale.labels.app;
+      $('app-note').innerHTML = locale.labels.appHelp;
+      $('summary-title').textContent = locale.labels.summary;
+      $('note').textContent = locale.labels.note;
+      $('download-label').textContent = locale.labels.download;
+      $('coverage-link').textContent = locale.labels.coverageCta;
+      $('github-link').textContent = locale.labels.githubCta;
+
+      ['lang-ja', 'lang-en'].forEach((id) => $(id).classList.remove('active'));
+      if (state.lang === 'ja') {
+        $('lang-ja').classList.add('active');
+      } else {
+        $('lang-en').classList.add('active');
+      }
+
+      const items = document.querySelectorAll('#feature-list li');
+      locale.steps.forEach((headline, idx) => {
+        const li = items[idx];
+        li.querySelector('.headline').textContent = headline;
+        li.querySelector('.note').textContent = locale.stepNotes[idx];
+      });
+
+      renderOptions();
+      updateSummary();
+    };
+
+    const buildUrl = () => {
+      const { os, arch, app, use } = state;
+      if (!os || !arch || !app) return null;
+      if (os === 'Windows') {
+        if (!use) return null;
+        const file = downloadConfig.files?.Windows?.[use]?.[arch]?.[app];
+        if (!file) return null;
+        return downloadConfig.baseUrl + file;
+      }
+      const file = downloadConfig.files?.[os]?.[arch]?.[app];
+      if (!file) return null;
+      return downloadConfig.baseUrl + file;
+    };
+
+    const updateSummary = () => {
+      const locale = i18n[state.lang];
+      const useLabel = (() => {
+        if (state.os !== 'Windows' || !state.use) return null;
+        if (state.use === 'internal') return state.lang === 'ja' ? 'コロプラ社内' : 'COLOPL Internal';
+        return state.lang === 'ja' ? 'それ以外' : 'Other';
+      })();
+      const values = [state.os, useLabel, state.arch, state.app].filter(Boolean);
+      $('summary-body').textContent = values.length ? values.join(' / ') : '-';
+      const url = buildUrl();
+      const statusEl = $('status');
+      if (url) {
+        $('url').textContent = url;
+        $('download').classList.remove('disabled');
+        $('download').href = url;
+        $('download').setAttribute('aria-disabled', 'false');
+        statusEl.textContent = locale.labels.ready;
+        statusEl.classList.remove('pending');
+      } else {
+        $('url').textContent = downloadConfig.baseUrl;
+        $('download').classList.add('disabled');
+        $('download').href = '#';
+        $('download').setAttribute('aria-disabled', 'true');
+        statusEl.textContent = locale.labels.pending;
+        statusEl.classList.add('pending');
+      }
+    };
+
+    langBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.lang = btn.dataset.lang;
+        document.documentElement.lang = state.lang;
+        syncLanguage();
+      });
+    });
+
+    syncLanguage();
+  </script>
+</body>
+</html>
