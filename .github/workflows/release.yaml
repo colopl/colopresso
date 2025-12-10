@@ -124,8 +124,8 @@ jobs:
     strategy:
       matrix:
         channel: 
-          - "${{ needs.Prepare.outputs.update_channel }}"
-          - "${{ needs.Prepare.outputs.is_test == 'true' && 'colopl_internal_canary' || 'colopl_internal' }}"
+          - latest
+          - ${{ needs.Prepare.outputs.is_test == 'true' && 'colopl_internal_canary' || 'colopl_internal' }}
     runs-on: windows-latest
     steps:
       - name: Download versioned code

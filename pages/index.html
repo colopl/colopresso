@@ -509,21 +509,21 @@
       files: {
         Windows: {
           internal: {
-            amd64: { GUI: null, CLI: null },
-            arm64: { GUI: null, CLI: null }
+            amd64: { GUI: null, CLI: "colopresso_windows_cli_x64_colopl_internal.exe" },
+            arm64: { GUI: null, CLI: "colopresso_windows_cli_arm64_colopl_internal.exe" }
           },
           other: {
-            amd64: { GUI: null, CLI: null },
-            arm64: { GUI: null, CLI: null }
+            amd64: { GUI: null, CLI: "colopresso_windows_cli_x64.exe" },
+            arm64: { GUI: null, CLI: "colopresso_windows_cli_arm64.exe" }
           }
         },
         macOS: {
-          amd64: { GUI: null, CLI: null },
-          arm64: { GUI: null, CLI: null }
+          amd64: { GUI: "colopresso_macos_gui_x64.dmg", CLI: "colopresso-cli-macos-intel" },
+          arm64: { GUI: "colopresso_macos_gui_arm64.dmg", CLI: "colopresso-cli-macos-apple_silicon" }
         },
         Linux: {
-          amd64: { GUI: null, CLI: null },
-          arm64: { GUI: null, CLI: null }
+          amd64: { GUI: null, CLI: "colopresso-cli-linux-amd64" },
+          arm64: { GUI: null, CLI: "colopresso-cli-linux-arm64" }
         }
       }
     };
