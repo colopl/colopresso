@@ -359,7 +359,7 @@ jobs:
       - name: Rename artifacts
         run: |
           mkdir -p "dist"
-          find "dist_build" -type f \( -name '*.dmg' -o -name '*.dmg.blockmap' -o -name '*.zip' -o -name '*.zip.blockmap' -o -name '*.yml' \) \
+          find "dist_build" -type f \( -name '*.dmg' -o -name '*.dmg.blockmap' -o -name '*.yml' \) \
             -exec cp {} "dist/" \;
       - name: Upload artifacts
         uses: actions/upload-artifact@v5
@@ -733,6 +733,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          rm -rf "${{ github.workspace }}/artifacts/app-update.yml"
           rm -rf "${{ github.workspace }}/artifacts/builder-debug.yml"
           rm -rf "${{ github.workspace }}/artifacts/elevate.exe"
           for FILE in "${{ github.workspace }}/artifacts"/*; do
