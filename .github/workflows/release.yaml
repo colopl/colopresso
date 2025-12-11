@@ -661,7 +661,7 @@ jobs:
           gh release create "${{ github.ref_name }}" \
             --title "${{ needs.Prepare.outputs.version }}" \
             --generate-notes \
-            --prerelease="${{ needs.Prepare.outputs.update_channel == 'latest' }}" \
+            --prerelease="${{ needs.Prepare.outputs.update_channel != 'latest' }}" \
             --draft=false
           for RETRY in {1..10}; do
             if gh release view "${{ github.ref_name }}" > /dev/null 2>&1; then
