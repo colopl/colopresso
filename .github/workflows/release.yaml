@@ -190,27 +190,19 @@ jobs:
       - name: Build Electron app
         shell: pwsh
         run: |
+          if ("${{ matrix.channel }}" -eq "colopl_internal" -or "${{ matrix.channel }}" -eq "colopl_internal_canary") {
+              $env:WIN_CSC_LINK = "${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}"
+              $env:WIN_CSC_KEY_PASSWORD = "${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}"
+          }
+
           emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--win"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build "build" --config "Release" --parallel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WIN_CSC_LINK: ${{ (matrix.channel == 'colopl-internal' || matrix.channel == 'colopl-internal-canary') && secrets.WINDOWS_CERTIFICATE_BASE64 }}
-          WIN_CSC_KEY_PASSWORD: ${{ (matrix.channel == 'colopl-internal' || matrix.channel == 'colopl-internal-canary') && secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-      - name: Rename and Copy artifacts
+      - name: Copy artifacts
         shell: pwsh
         run: |
-          $channel = "${{ matrix.channel }}"
-          $source = "dist_build/latest.yml"
-          $destination = "dist_build/${channel}.yml"
-
-          if (-not (Test-Path $source)) {
-            Write-Error "File not found: $source"
-            exit 1
-          }
-
-          Move-Item -Path $source -Destination $destination -Force
-
           New-Item -ItemType Directory -Force -Path "dist" | Out-Null
           Get-ChildItem -Path "dist_build" -Include "*.exe","*.yml","*.blockmap" -Recurse -File | ForEach-Object {
             Copy-Item $_.FullName -Destination "dist\"
@@ -336,10 +328,9 @@ jobs:
         env:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
         run: rm -f "${RUNNER_TEMP}/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8"
-      - name: Rename and Copy artifacts
+      - name: Copy artifacts
         run: |
           mkdir -p "dist"
-          mv "dist_build/latest-mac.yml" "dist_build/${{ needs.Prepare.outputs.update_channel }}-mac.yml"
           find "dist_build" -type f \( -name '*.dmg' -o -name '*.dmg.blockmap' -o -name '*.zip' -o -name '*.zip.blockmap' -o -name '*.yml' \) \
             -exec cp {} "dist/" \;
       - name: Upload artifacts
