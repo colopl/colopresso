@@ -145,7 +145,18 @@ const ElectronAppInner: React.FC = () => {
   const loadBuildInfoFromModule = useCallback(async (): Promise<BuildInfoPayload | null> => {
     try {
       const Module = await ensureModule();
-      return getVersionInfo(Module);
+      const base = getVersionInfo(Module) ?? {};
+
+      const getUpdateChannel = window.electronAPI?.getUpdateChannel;
+      let releaseChannel: string | undefined;
+      if (typeof getUpdateChannel === 'function') {
+        const channel = await getUpdateChannel();
+        if (typeof channel === 'string' && channel.trim().length > 0) {
+          releaseChannel = channel.trim();
+        }
+      }
+
+      return releaseChannel ? { ...base, releaseChannel } : base;
     } catch (_error) {
       return null;
     }

@@ -50,6 +50,7 @@ const api: ElectronAPI = {
     ipcRenderer.on('update-download-error', listener);
     return () => ipcRenderer.removeListener('update-download-error', listener);
   },
+  getUpdateChannel: () => ipcRenderer.invoke('get-update-channel'),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', api);

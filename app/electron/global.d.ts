@@ -63,6 +63,7 @@ interface ElectronAPI {
   onUpdateDownloadProgress?: (handler: (payload: Record<string, unknown>) => void) => () => void;
   onUpdateDownloadComplete?: (handler: (payload: Record<string, unknown>) => void) => () => void;
   onUpdateDownloadError?: (handler: (payload: Record<string, unknown>) => void) => () => void;
+  getUpdateChannel?: () => Promise<string | undefined>;
 }
 
 declare global {

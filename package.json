@@ -65,19 +65,10 @@
       {
         "provider": "github",
         "owner": "colopl",
-        "repo": "colopresso"
+        "repo": "colopresso",
+        "channel": "latest"
       }
     ],
-    "extraMetadata": {
-      "colopresso": {
-        "update": {
-          "channel": "latest",
-          "repoOwner": "colopl",
-          "repoName": "colopresso",
-          "flavor": "public"
-        }
-      }
-    },
     "files": [
       "build/electron/**/*"
     ],

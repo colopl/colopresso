@@ -133,11 +133,12 @@ function extractErrorMessage(error: unknown): string {
 }
 
 function resolveUpdateConfig(): ResolvedUpdateConfig {
-  const meta = (packageJson as { colopresso?: { update?: Partial<ResolvedUpdateConfig> & { repoOwner?: string; repoName?: string } } }).colopresso?.update ?? {};
-  const channel = (meta.channel || 'latest').trim() || 'latest';
-  const flavor: UpdateFlavor = meta.flavor === 'internal' ? 'internal' : 'public';
-  const owner = typeof meta.repoOwner === 'string' && meta.repoOwner.trim().length > 0 ? meta.repoOwner : 'colopl';
-  const repo = typeof meta.repoName === 'string' && meta.repoName.trim().length > 0 ? meta.repoName : 'colopresso';
+  const pub = (packageJson as { build?: { publish?: Array<{ owner?: string; repo?: string; channel?: string; flavor?: UpdateFlavor }> } }).build?.publish ?? [];
+  const primary = pub[0] ?? {};
+  const channel = (primary.channel || 'latest').trim() || 'latest';
+  const owner = typeof primary.owner === 'string' && primary.owner.trim().length > 0 ? primary.owner : 'colopl';
+  const repo = typeof primary.repo === 'string' && primary.repo.trim().length > 0 ? primary.repo : 'colopresso';
+  const flavor: UpdateFlavor = primary.flavor ?? 'internal';
 
   return {
     channel,
@@ -146,6 +147,10 @@ function resolveUpdateConfig(): ResolvedUpdateConfig {
     repo,
     flavor,
   };
+}
+
+function getUpdateChannel(): string {
+  return resolveUpdateConfig().channel;
 }
 
 function getDialogParent(): BrowserWindow | null {
@@ -537,6 +542,7 @@ function registerIpcHandlers(): void {
   ipcMain.handle('save-file-dialog', handleSaveFileDialog);
   ipcMain.handle('save-zip-dialog', handleSaveZipDialog);
   ipcMain.handle('save-json-dialog', handleSaveJsonDialog);
+  ipcMain.handle('get-update-channel', () => getUpdateChannel());
 }
 
 app.whenReady().then(() => {

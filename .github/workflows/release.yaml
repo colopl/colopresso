@@ -5,16 +5,16 @@ on:
     inputs:
       major_version:
         description: "Major"
-        required: false
-        default: "999"
+        required: true
+        default: "0"
       minor_version:
         description: "Minor"
-        required: false
-        default: "999"
+        required: true
+        default: "0"
       patch_version:
         description: "Patch"
-        required: false
-        default: "999"
+        required: true
+        default: "0"
   push:
     tags:
       - "v*"
@@ -29,39 +29,19 @@ jobs:
       full_version: ${{ steps.generate_version.outputs.full_version }}
       version: ${{ steps.generate_version.outputs.version }}
       version_int: ${{ steps.generate_version.outputs.version_int }}
-      is_test: ${{ steps.generate_version.outputs.is_test }}
       update_channel: ${{ steps.generate_version.outputs.update_channel }}
-      internal_channel: ${{ steps.generate_version.outputs.internal_channel }}
       emsdk_version: ${{ steps.get_emsdk_version.outputs.emsdk_version }}
     steps:
       - name: Generate version
         id: generate_version
         run: |
-          MAJOR="${{ inputs.major_version }}"
-          MINOR="${{ inputs.minor_version }}"
-          PATCH="${{ inputs.patch_version }}"
+          CHANNEL="latest"
 
           if echo "${{ github.ref_name }}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
             VER="$(echo "${{ github.ref_name }}" | cut -c 2-)"
-            CHANNEL="latest"
-            IS_TEST=false
-          elif test -n "${MAJOR}" || test -n "${MINOR}" || test -n "${PATCH}"; then
-            MAJOR_PAD="${MAJOR:-999}"
-            MINOR_PAD="${MINOR:-999}"
-            PATCH_PAD="${PATCH:-999}"
-            VER="${MAJOR_PAD}.${MINOR_PAD}.${PATCH_PAD}"
+          else
+            VER="${{ inputs.major_version }}.${{ inputs.minor_version }}.${{ inputs.patch_version }}"
             CHANNEL="canary"
-            IS_TEST=true
-          else
-            VER="999.999.999"
-            CHANNEL="unknown"
-            IS_TEST=true
-          fi
-
-          if test "${IS_TEST}" = "true"; then
-            INTERNAL_CHANNEL="colopl_internal_canary"
-          else
-            INTERNAL_CHANNEL="colopl_internal"
           fi
 
           VER_INT=$(echo "${VER}" | awk -F. '{printf "%d\n", sprintf("%03d%03d%03d", $1, $2, $3)}')
@@ -69,9 +49,7 @@ jobs:
           echo "full_version=v${VER}" >> "${GITHUB_OUTPUT}"
           echo "version=${VER}" >> "${GITHUB_OUTPUT}"
           echo "version_int=${VER_INT}" >> "${GITHUB_OUTPUT}"
-          echo "is_test=${IS_TEST}" >> "${GITHUB_OUTPUT}"
           echo "update_channel=${CHANNEL}" >> "${GITHUB_OUTPUT}"
-          echo "internal_channel=${INTERNAL_CHANNEL}" >> "${GITHUB_OUTPUT}"
       - name: Checkout
         uses: actions/checkout@v6
         with:
@@ -90,6 +68,43 @@ jobs:
           sed -i "s|0.0.0|${{ steps.generate_version.outputs.version }}|" "app/chrome/manifest.json"
           sed -i "s|0.0.0|${{ steps.generate_version.outputs.version }}|" "package.json"
           sed -i "s|\"channel\": \"[^\"]*\"|\"channel\": \"${{ steps.generate_version.outputs.update_channel }}\"|" "package.json"
+      - name: Apply update channel
+        if: ${{ steps.generate_version.outputs.update_channel != 'latest' }}
+        run: |
+          CHANNEL="${{ steps.generate_version.outputs.update_channel }}"
+          PKG="package.json"
+
+          if test ! -f "${PKG}"; then
+            echo "package.json not found at ${PKG}" >&2
+            exit 1
+          fi
+
+          TMP="$(mktemp)"
+          jq --arg channel "${CHANNEL}" '
+            .build.publish as $p
+            | if ($p | type) != "array" or ($p | length) == 0 then error("package.json is missing build.publish") else . end
+            | .build.publish[0].channel = $channel
+          ' "${PKG}" > "${TMP}"
+          mv "${TMP}" "${PKG}"
+      - name: Apply rename for non-latest channels
+        if: ${{ steps.generate_version.outputs.update_channel != 'latest' }}
+        run: |
+          CHANNEL="${{ steps.generate_version.outputs.update_channel }}"
+          PKG="package.json"
+
+          if test ! -f "${PKG}"; then
+            echo "package.json not found at ${PKG}" >&2
+            exit 1
+          fi
+
+          TMP="$(mktemp)"
+          jq --arg channel "${CHANNEL}" '
+            .build as $b
+            | if $b == null then error("package.json is missing build configuration") else . end
+            | if $b.productName == null then error("package.json is missing build.productName") else . end
+            | .build.productName = ($b.productName + "_" + $channel)
+            ' "${PKG}" > "${TMP}"
+            mv "${TMP}" "${PKG}"
       - name: Tar versioned code
         run: |
           tar -czf "../versioned-code.tar.gz" -C .. "$(basename "$PWD")"
@@ -131,9 +146,9 @@ jobs:
     needs: Prepare
     strategy:
       matrix:
-        channel: 
-          - latest
-          - ${{ needs.Prepare.outputs.internal_channel }}
+        channel:
+          - ${{ needs.Prepare.outputs.update_channel }}
+          - ${{ needs.Prepare.outputs.update_channel == 'latest' && 'colopl_internal' || 'colopl_internal_canary' }}
     runs-on: windows-latest
     steps:
       - name: Download versioned code
@@ -145,52 +160,6 @@ jobs:
         run: |
           tar -xzf "versioned-code.tar.gz" --strip-components=1
           Remove-Item "versioned-code.tar.gz" -Force
-      - name: Apply update channel
-        shell: pwsh
-        run: |
-          $channel = "${{ matrix.channel }}"
-          Write-Host "Setting update channel to '$channel'"
-
-          $packageJsonPath = "package.json"
-          if (-not (Test-Path $packageJsonPath)) {
-            Write-Error "package.json not found at $packageJsonPath"
-            exit 1
-          }
-
-          $packageJson = Get-Content $packageJsonPath -Raw | ConvertFrom-Json
-          if (-not $packageJson.build -or -not $packageJson.build.extraMetadata -or -not $packageJson.build.extraMetadata.colopresso -or -not $packageJson.build.extraMetadata.colopresso.update) {
-            Write-Error "package.json is missing build.extraMetadata.colopresso.update"
-            exit 1
-          }
-
-          $packageJson.build.extraMetadata.colopresso.update.channel = $channel
-          $packageJson | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath
-      - name: Apply artifact name
-        shell: pwsh
-        if: matrix.channel != 'latest'
-        run: |
-          $packageJsonPath = "package.json"
-          if (-not (Test-Path $packageJsonPath)) {
-            Write-Error "package.json not found at $packageJsonPath"
-            exit 1
-          }
-
-          $packageJson = Get-Content $packageJsonPath -Raw | ConvertFrom-Json
-          if (-not $packageJson.build) {
-            Write-Error "package.json is missing build configuration"
-            exit 1
-          }
-
-          $channel = "${{ matrix.channel }}"
-
-          $originalProductName = $packageJson.build.productName
-          if (-not $originalProductName) {
-            Write-Error "package.json is missing build.productName"
-            exit 1
-          }
-          $packageJson.build.productName = "{0}_{1}" -f $originalProductName, $channel
-
-          $packageJson | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath
       - name: Setup pnpm
         uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
         with:
@@ -226,11 +195,22 @@ jobs:
           cmake --build "build" --config "Release" --parallel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WIN_CSC_LINK: ${{ (matrix.channel == 'colopl_internal' || matrix.channel == 'colopl_internal_canary') && secrets.WINDOWS_CERTIFICATE_BASE64 || '' }}
-          WIN_CSC_KEY_PASSWORD: ${{ (matrix.channel == 'colopl_internal' || matrix.channel == 'colopl_internal_canary') && secrets.WINDOWS_CERTIFICATE_PASSWORD || '' }}
-      - name: Copy artifacts
+          WIN_CSC_LINK: ${{ (matrix.channel == 'colopl-internal' || matrix.channel == 'colopl-internal-canary') && secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          WIN_CSC_KEY_PASSWORD: ${{ (matrix.channel == 'colopl-internal' || matrix.channel == 'colopl-internal-canary') && secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+      - name: Rename and Copy artifacts
         shell: pwsh
         run: |
+          $channel = "${{ matrix.channel }}"
+          $source = "dist_build/latest.yml"
+          $destination = "dist_build/${channel}.yml"
+
+          if (-not (Test-Path $source)) {
+            Write-Error "File not found: $source"
+            exit 1
+          }
+
+          Move-Item -Path $source -Destination $destination -Force
+
           New-Item -ItemType Directory -Force -Path "dist" | Out-Null
           Get-ChildItem -Path "dist_build" -Include "*.exe","*.yml","*.blockmap" -Recurse -File | ForEach-Object {
             Copy-Item $_.FullName -Destination "dist\"
@@ -356,9 +336,10 @@ jobs:
         env:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
         run: rm -f "${RUNNER_TEMP}/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8"
-      - name: Rename artifacts
+      - name: Rename and Copy artifacts
         run: |
           mkdir -p "dist"
+          mv "dist_build/latest-mac.yml" "dist_build/${{ needs.Prepare.outputs.update_channel }}-mac.yml"
           find "dist_build" -type f \( -name '*.dmg' -o -name '*.dmg.blockmap' -o -name '*.zip' -o -name '*.zip.blockmap' -o -name '*.yml' \) \
             -exec cp {} "dist/" \;
       - name: Upload artifacts
@@ -421,7 +402,7 @@ jobs:
           - windows-11-arm
         channel:
           - latest
-          - ${{ needs.Prepare.outputs.internal_channel }}
+          - ${{ needs.Prepare.outputs.update_channel }}
     runs-on: ${{ matrix.runs-on }}
     env:
       COLOPRESSO_CLI_EXE: 'build\cli\Release\colopresso.exe'
@@ -450,7 +431,7 @@ jobs:
           & "${env:COLOPRESSO_CLI_EXE}" --version
       - name: Sign binary
         shell: pwsh
-        if: matrix.channel == 'colopl_internal' || matrix.channel == 'colopl_internal_canary'
+        if: matrix.channel != 'latest'
         env:
           WIN_CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
@@ -689,7 +670,7 @@ jobs:
           gh release create "${{ github.ref_name }}" \
             --title "${{ needs.Prepare.outputs.version }}" \
             --generate-notes \
-            --prerelease="${{ needs.Prepare.outputs.is_test }}" \
+            --prerelease="${{ needs.Prepare.outputs.update_channel == 'latest' }}" \
             --draft=false
           for RETRY in {1..10}; do
             if gh release view "${{ github.ref_name }}" > /dev/null 2>&1; then
