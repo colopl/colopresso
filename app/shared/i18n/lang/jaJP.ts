@@ -152,7 +152,7 @@ const bundle: TranslationBundle = {
       copyHint: 'クリックでエラーメッセージをコピーできます',
     },
     chrome: {
-      title: 'Colopresso',
+      title: 'colopresso',
       settings: {
         processFolderLabel: 'ドロップしたフォルダ内の PNG ファイルをすべて処理',
         processFolderDescription: 'フォルダをドロップすると、含まれるすべての PNG ファイルを変換します',
@@ -165,7 +165,7 @@ const bundle: TranslationBundle = {
       },
     },
     electron: {
-      title: 'Colopresso',
+      title: 'colopresso',
       settings: {
         deletePngLabel: 'フォルダ処理後に元の PNG ファイルを削除',
         deletePngDescription: 'フォルダ処理時、変換後に元の PNG ファイルを削除します',

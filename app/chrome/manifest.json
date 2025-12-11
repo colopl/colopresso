@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Colopresso for Chrome",
+  "name": "colopresso for Chrome",
   "version": "0.0.0",
   "description": "Convert PNG images to modern image formats",
   "action": {

@@ -153,7 +153,7 @@ const bundle: TranslationBundle = {
       copyHint: 'Click to copy the error message.',
     },
     chrome: {
-      title: 'Colopresso',
+      title: 'colopresso',
       settings: {
         processFolderLabel: 'Process every PNG file inside dropped folders',
         processFolderDescription: 'When you drop a folder, convert all PNG files it contains.',
@@ -166,7 +166,7 @@ const bundle: TranslationBundle = {
       },
     },
     electron: {
-      title: 'Colopresso',
+      title: 'colopresso',
       settings: {
         deletePngLabel: 'Delete original PNG files after folder processing',
         deletePngDescription: 'When processing folders, delete the original PNG files after conversion.',
