@@ -506,8 +506,6 @@ static inline float color_box_detail_bias(const pngx_color_entry_t *entries, con
     w = entry->count ? entry->count : 1;
     delta_rgb = (entry->detail_bits_rgb > base_bits_rgb) ? (uint32_t)(entry->detail_bits_rgb - base_bits_rgb) : 0;
     delta_alpha = (entry->detail_bits_alpha > base_bits_alpha) ? (uint32_t)(entry->detail_bits_alpha - base_bits_alpha) : 0;
-
-    /* PNGX_REDUCED_ALPHA_DETAIL_WEIGHT is 0.5f, so we scale by 2 to use integer arithmetic */
     score_x2 = (delta_rgb << 1) + delta_alpha;
 
     if (score_x2 > 0) {

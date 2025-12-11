@@ -150,6 +150,7 @@ const bundle: TranslationBundle = {
       sizeUnknown: 'Size unknown',
       copySuccess: 'Copied error message to clipboard.',
       copyFailed: 'Failed to copy error message.',
+      copyAction: 'Copy message',
       copyHint: 'Click to copy the error message.',
     },
     chrome: {
@@ -290,6 +291,7 @@ const bundle: TranslationBundle = {
             availableVersion: 'Available version: {version}',
             channel: 'Update channel: {channel}{flavor}',
             platform: 'Platform: {platform}',
+            releasePage: 'Release page: {url}',
           },
         },
         readyToInstall: {
@@ -305,6 +307,12 @@ const bundle: TranslationBundle = {
           title: 'Update failed',
           message: 'Failed to download the update',
         },
+      },
+      toast: {
+        downloading: 'Downloading update... {progress}',
+        progressUnknown: 'calculating...',
+        downloaded: 'Update downloaded. Ready to install.',
+        downloadFailed: 'Failed to install update: {message}',
       },
     },
   },

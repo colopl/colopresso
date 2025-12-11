@@ -59,6 +59,10 @@ interface ElectronAPI {
   readDirectory: (path: string) => Promise<ElectronReadDirectoryResult>;
   selectFolder: () => Promise<ElectronSelectFolderResult>;
   openExternal?: (url: string) => void;
+  onUpdateDownloadStart?: (handler: (payload: Record<string, unknown>) => void) => () => void;
+  onUpdateDownloadProgress?: (handler: (payload: Record<string, unknown>) => void) => () => void;
+  onUpdateDownloadComplete?: (handler: (payload: Record<string, unknown>) => void) => () => void;
+  onUpdateDownloadError?: (handler: (payload: Record<string, unknown>) => void) => () => void;
 }
 
 declare global {

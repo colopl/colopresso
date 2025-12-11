@@ -60,8 +60,8 @@ const bundle: TranslationBundle = {
       },
       validation: {
         numberRequired: '数値を入力してください',
-        min: '{min} 以上',
-        max: '{max} 以下',
+        min: '{min} 以上で入力してください',
+        max: '{max} 以下で入力してください',
       },
       alerts: {
         applyValidationError: '入力エラーがあります。修正してください。',
@@ -149,6 +149,7 @@ const bundle: TranslationBundle = {
       sizeUnknown: 'サイズ不明',
       copySuccess: 'エラーメッセージをクリップボードにコピーしました',
       copyFailed: 'エラーメッセージをコピーできませんでした',
+      copyAction: 'メッセージをコピー',
       copyHint: 'クリックでエラーメッセージをコピーできます',
     },
     chrome: {
@@ -197,6 +198,11 @@ const bundle: TranslationBundle = {
           advanced: '高度',
           lossy: '画像減色',
         },
+      },
+      updateDownloading: {
+        title: 'アップデートをダウンロード中です...',
+        hint: '完了までお待ちください。進捗: {progress}',
+        progressUnknown: '計測中...'
       },
       webp: {
         name: 'WebP',
@@ -289,6 +295,7 @@ const bundle: TranslationBundle = {
             availableVersion: '利用可能なバージョン: {version}',
             channel: 'アップデートチャネル: {channel}{flavor}',
             platform: 'プラットフォーム: {platform}',
+            releasePage: 'リリースページ: {url}',
           },
         },
         readyToInstall: {
@@ -304,6 +311,12 @@ const bundle: TranslationBundle = {
           title: 'アップデートに失敗しました',
           message: 'アップデートのダウンロードに失敗しました',
         },
+      },
+      toast: {
+        downloading: 'アップデートをダウンロード中です... {progress}',
+        progressUnknown: '計測中...',
+        downloaded: 'アップデートのダウンロードが完了しました。',
+        downloadFailed: 'アップデートのインストールに失敗しました: {message}',
       },
     },
   },

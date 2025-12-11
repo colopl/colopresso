@@ -359,7 +359,7 @@ jobs:
       - name: Rename artifacts
         run: |
           mkdir -p "dist"
-          find "dist_build" -type f \( -name '*.dmg' -o -name '*.dmg.blockmap' -o -name '*.yml' \) \
+          find "dist_build" -type f \( -name '*.dmg' -o -name '*.dmg.blockmap' -o -name '*.zip' -o -name '*.zip.blockmap' -o -name '*.yml' \) \
             -exec cp {} "dist/" \;
       - name: Upload artifacts
         uses: actions/upload-artifact@v5

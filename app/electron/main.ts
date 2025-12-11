@@ -24,7 +24,15 @@ type UpdateFlavor = 'public' | 'internal';
 let mainWindow: BrowserWindow | null = null;
 let autoUpdateInitialized = false;
 let updateCheckTimer: ReturnType<typeof setInterval> | null = null;
+let quittingForUpdate = false;
 const shouldSkipAutoUpdate = process.env.COLOPRESSO_DISABLE_UPDATER === '1';
+
+function sendUpdateIpc(channel: string, payload?: unknown): void {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+  mainWindow.webContents.send(channel, payload);
+}
 
 interface ElectronDirectoryEntry {
   name: string;
@@ -140,45 +148,21 @@ function resolveUpdateConfig(): ResolvedUpdateConfig {
   };
 }
 
-function flattenReleaseNotes(notes: UpdateInfo['releaseNotes']): string {
-  if (typeof notes === 'string') {
-    return notes;
-  }
-  if (Array.isArray(notes)) {
-    return notes
-      .map((item) => {
-        if (typeof item === 'string') {
-          return item;
-        }
-        if (item && typeof item === 'object' && 'note' in item) {
-          const typed = item as { note?: string };
-          return typed.note ?? '';
-        }
-        return '';
-      })
-      .filter((line) => line.trim().length > 0)
-      .join('\n\n');
-  }
-  return '';
-}
-
 function getDialogParent(): BrowserWindow | null {
   return mainWindow;
 }
 
 async function promptForUpdateDownload(info: UpdateInfo, config: ResolvedUpdateConfig): Promise<boolean> {
-  const releaseNotes = flattenReleaseNotes(info.releaseNotes);
   const flavorSuffix = config.flavor === 'internal' ? translate('updater.channelFlavor.internalSuffix') : '';
+  const tag = typeof info.releaseName === 'string' && info.releaseName.trim().length > 0 ? info.releaseName : `v${info.version}`;
+  const releaseUrl = `https://github.com/${config.owner}/${config.repo}/releases/tag/${encodeURIComponent(tag)}`;
   const detailLines = [
     translate('updater.dialog.updateAvailable.detail.currentVersion', { version: app.getVersion() }),
     translate('updater.dialog.updateAvailable.detail.availableVersion', { version: info.version }),
     translate('updater.dialog.updateAvailable.detail.channel', { channel: config.channel, flavor: flavorSuffix }),
     translate('updater.dialog.updateAvailable.detail.platform', { platform: `${process.platform} ${process.arch}` }),
+    translate('updater.dialog.updateAvailable.detail.releasePage', { url: releaseUrl }),
   ];
-
-  if (releaseNotes.length > 0) {
-    detailLines.push('', releaseNotes);
-  }
 
   const parent = getDialogParent() ?? undefined;
   const { response } = await dialog.showMessageBox(parent, {
@@ -211,7 +195,8 @@ async function promptForInstall(event: UpdateDownloadedEvent): Promise<void> {
   });
 
   if (response === 0) {
-    autoUpdater.quitAndInstall();
+    quittingForUpdate = true;
+    autoUpdater.quitAndInstall(false, true);
   }
 }
 
@@ -244,6 +229,12 @@ function setupAutoUpdate(): void {
     }
     const normalized = Number.isFinite(progress.percent) ? Math.max(0, Math.min(1, progress.percent / 100)) : -1;
     mainWindow.setProgressBar(normalized);
+    sendUpdateIpc('update-download-progress', {
+      percent: progress.percent,
+      transferred: progress.transferred,
+      total: progress.total,
+      bytesPerSecond: progress.bytesPerSecond,
+    });
   });
 
   autoUpdater.on('update-available', async (info) => {
@@ -255,6 +246,7 @@ function setupAutoUpdate(): void {
         }
         return;
       }
+      sendUpdateIpc('update-download-start', { version: info.version, releaseName: info.releaseName });
       await autoUpdater.downloadUpdate();
     } catch (error) {
       if (mainWindow) {
@@ -277,6 +269,7 @@ function setupAutoUpdate(): void {
   });
 
   autoUpdater.on('update-downloaded', (event) => {
+    sendUpdateIpc('update-download-complete', { version: event.version });
     void promptForInstall(event);
   });
 
@@ -285,6 +278,7 @@ function setupAutoUpdate(): void {
       mainWindow.setProgressBar(-1);
     }
     console.error('auto-update error', error);
+    sendUpdateIpc('update-download-error', { message: extractErrorMessage(error) });
   });
 
   const performUpdateCheck = (): void => {
@@ -302,8 +296,8 @@ function createWindow(): void {
   const windowOptions = {
     width: 540,
     minWidth: 540,
-    height: 860,
-    minHeight: 830,
+    height: 900,
+    minHeight: 900,
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
@@ -556,7 +550,7 @@ app.on('window-all-closed', () => {
     clearInterval(updateCheckTimer);
     updateCheckTimer = null;
   }
-  if (process.platform !== 'darwin') {
+  if (process.platform !== 'darwin' || quittingForUpdate) {
     app.quit();
   }
 });

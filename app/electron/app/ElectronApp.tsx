@@ -172,6 +172,44 @@ const ElectronAppInner: React.FC = () => {
     applyStatusRef.current = applyStatus;
   }, [applyStatus]);
 
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api) {
+      return undefined;
+    }
+
+    const offStart = api.onUpdateDownloadStart?.((payload) => {
+      const typed = (payload ?? {}) as { version?: string };
+      const progressText = t('updater.toast.progressUnknown');
+      applyStatusRef.current({ type: 'info', messageKey: 'updater.toast.downloading', durationMs: 0, params: { progress: progressText, version: typed.version } });
+    });
+
+    const offProgress = api.onUpdateDownloadProgress?.((payload) => {
+      const typed = (payload ?? {}) as { percent?: number; version?: string };
+      const progressValue = typeof typed.percent === 'number' && Number.isFinite(typed.percent) ? Math.max(0, Math.min(100, typed.percent)) : undefined;
+      const progressText = typeof progressValue === 'number' ? `${Math.round(progressValue)}%` : t('updater.toast.progressUnknown');
+      applyStatusRef.current({ type: 'info', messageKey: 'updater.toast.downloading', durationMs: 0, params: { progress: progressText, version: typed.version } });
+    });
+
+    const offComplete = api.onUpdateDownloadComplete?.((payload) => {
+      const typed = (payload ?? {}) as { version?: string };
+      applyStatusRef.current({ type: 'success', messageKey: 'updater.toast.downloaded', durationMs: 2000, params: { version: typed.version } });
+    });
+
+    const offError = api.onUpdateDownloadError?.((payload) => {
+      const typed = (payload ?? {}) as { message?: unknown };
+      const message = typeof typed.message === 'string' && typed.message.trim().length > 0 ? typed.message : t('common.unknownError');
+      applyStatusRef.current({ type: 'error', messageKey: 'updater.toast.downloadFailed', durationMs: 0, params: { message } });
+    });
+
+    return () => {
+      offStart?.();
+      offProgress?.();
+      offComplete?.();
+      offError?.();
+    };
+  }, [t]);
+
   const resolveConversionError = useCallback(
     (error: unknown, format: FormatDefinition, originalSize?: number) => {
       const fallbackMessage = (error as Error | undefined)?.message ?? t('common.unknownError');
@@ -255,11 +293,21 @@ const ElectronAppInner: React.FC = () => {
     [t]
   );
 
-  const handleCopyErrorMessage = useCallback(
-    async (entry: FileEntry) => {
-      const message = getErrorMessageForEntry(entry);
+  const copyTextToClipboard = useCallback(
+    async (message: string, options?: { restoreStatus?: StatusMessage | null }) => {
+      const restoreStatus = options?.restoreStatus ?? null;
+      const scheduleRestore = (durationMs: number) => {
+        if (!restoreStatus) {
+          return;
+        }
+        window.setTimeout(() => {
+          applyStatus(restoreStatus);
+        }, durationMs);
+      };
+
       if (!message) {
         applyStatus({ type: 'error', messageKey: 'errors.copyFailed', durationMs: 4000 });
+        scheduleRestore(4000);
         return;
       }
 
@@ -289,11 +337,28 @@ const ElectronAppInner: React.FC = () => {
           copyViaFallback();
         }
         applyStatus({ type: 'success', messageKey: 'errors.copySuccess', durationMs: 2000 });
+        scheduleRestore(2000);
       } catch (_copyError) {
         applyStatus({ type: 'error', messageKey: 'errors.copyFailed', durationMs: 4000 });
+        scheduleRestore(4000);
       }
     },
-    [applyStatus, getErrorMessageForEntry]
+    [applyStatus]
+  );
+
+  const handleCopyErrorMessage = useCallback(
+    async (entry: FileEntry) => {
+      const message = getErrorMessageForEntry(entry);
+      await copyTextToClipboard(message);
+    },
+    [copyTextToClipboard, getErrorMessageForEntry]
+  );
+
+  const handleCopyStatusMessage = useCallback(
+    async (message: string, statusToRestore: StatusMessage | null) => {
+      await copyTextToClipboard(message, statusToRestore ? { restoreStatus: statusToRestore } : undefined);
+    },
+    [copyTextToClipboard]
   );
 
   const persistFormatConfig = useCallback(
@@ -994,7 +1059,27 @@ const ElectronAppInner: React.FC = () => {
       return null;
     }
     const statusClass = state.status.type === 'success' ? styles.statusMessageSuccess : state.status.type === 'error' ? styles.statusMessageError : styles.statusMessageInfo;
-    return <div className={`${styles.statusMessage} ${statusClass}`}>{t(state.status.messageKey, state.status.params)}</div>;
+    const message = t(state.status.messageKey, state.status.params);
+    const isCopyable = state.status.messageKey === 'updater.toast.downloadFailed';
+    return (
+      <div className={`${styles.statusMessage} ${statusClass}`}>
+        <div className={styles.statusMessageContent}>
+          <span className={styles.statusMessageText}>{message}</span>
+          {isCopyable ? (
+            <button
+              type="button"
+              className={styles.statusMessageButton}
+              title={t('errors.copyHint')}
+              onClick={() => {
+                void handleCopyStatusMessage(message, state.status);
+              }}
+            >
+              {t('errors.copyAction')}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
   };
 
   const renderFileList = () => {
