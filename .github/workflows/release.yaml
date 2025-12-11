@@ -31,6 +31,7 @@ jobs:
       version_int: ${{ steps.generate_version.outputs.version_int }}
       is_test: ${{ steps.generate_version.outputs.is_test }}
       update_channel: ${{ steps.generate_version.outputs.update_channel }}
+      internal_channel: ${{ steps.generate_version.outputs.internal_channel }}
       emsdk_version: ${{ steps.get_emsdk_version.outputs.emsdk_version }}
     steps:
       - name: Generate version
@@ -57,6 +58,12 @@ jobs:
             IS_TEST=true
           fi
 
+          if test "${IS_TEST}" = "true"; then
+            INTERNAL_CHANNEL="colopl_internal_canary"
+          else
+            INTERNAL_CHANNEL="colopl_internal"
+          fi
+
           VER_INT=$(echo "${VER}" | awk -F. '{printf "%d\n", sprintf("%03d%03d%03d", $1, $2, $3)}')
 
           echo "full_version=v${VER}" >> "${GITHUB_OUTPUT}"
@@ -64,6 +71,7 @@ jobs:
           echo "version_int=${VER_INT}" >> "${GITHUB_OUTPUT}"
           echo "is_test=${IS_TEST}" >> "${GITHUB_OUTPUT}"
           echo "update_channel=${CHANNEL}" >> "${GITHUB_OUTPUT}"
+          echo "internal_channel=${INTERNAL_CHANNEL}" >> "${GITHUB_OUTPUT}"
       - name: Checkout
         uses: actions/checkout@v6
         with:
@@ -125,7 +133,7 @@ jobs:
       matrix:
         channel: 
           - latest
-          - ${{ needs.Prepare.outputs.is_test == 'true' && 'colopl_internal_canary' || 'colopl_internal' }}
+          - ${{ needs.Prepare.outputs.internal_channel }}
     runs-on: windows-latest
     steps:
       - name: Download versioned code
@@ -413,7 +421,7 @@ jobs:
           - windows-11-arm
         channel:
           - latest
-          - ${{ needs.Prepare.outputs.is_test == 'true' && 'colopl_internal_canary' || 'colopl_internal' }}
+          - ${{ needs.Prepare.outputs.internal_channel }}
     runs-on: ${{ matrix.runs-on }}
     env:
       COLOPRESSO_CLI_EXE: 'build\cli\Release\colopresso.exe'
