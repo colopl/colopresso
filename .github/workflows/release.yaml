@@ -735,6 +735,7 @@ jobs:
         run: |
           rm -rf "${{ github.workspace }}/artifacts/app-update.yml"
           rm -rf "${{ github.workspace }}/artifacts/builder-debug.yml"
+          rm -rf "${{ github.workspace }}/artifacts/builder-effective-config.yaml"
           rm -rf "${{ github.workspace }}/artifacts/elevate.exe"
           for FILE in "${{ github.workspace }}/artifacts"/*; do
             if test -f "${FILE}"; then
