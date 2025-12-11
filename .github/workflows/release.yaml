@@ -84,7 +84,7 @@ jobs:
             .build.publish as $p
             | if ($p | type) != "array" or ($p | length) == 0 then error("package.json is missing build.publish") else . end
             | .build.publish[0].channel = $channel
-            | .build.publish[0].releaseType = (if $channel == "latest" then "release" else "prerelease" end)
+            | .build.publish[0].releaseType = "prerelease"
           ' "${PKG}" > "${TMP}"
           mv "${TMP}" "${PKG}"
       - name: Apply rename for non-latest channels
@@ -180,7 +180,8 @@ jobs:
           $json = Get-Content $pkgPath -Raw | ConvertFrom-Json
           if (-not $json.build) { Write-Error "package.json is missing build configuration"; exit 1 }
 
-          $json.build.productName = "${{ matrix.channel }}"
+          $json.build.productName = "colopresso_${{ matrix.channel }}"
+          $json.build.publish.[0].channel = "${{ matrix.channel }}"
           $json | ConvertTo-Json -Depth 64 | Set-Content $pkgPath -Encoding UTF8
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
