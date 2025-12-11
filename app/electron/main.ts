@@ -78,6 +78,7 @@ interface ResolvedUpdateConfig {
   owner: string;
   repo: string;
   flavor: UpdateFlavor;
+  releaseType: 'release' | 'prerelease';
 }
 
 function sanitizeRelativePath(input: string): string {
@@ -133,19 +134,21 @@ function extractErrorMessage(error: unknown): string {
 }
 
 function resolveUpdateConfig(): ResolvedUpdateConfig {
-  const pub = (packageJson as { build?: { publish?: Array<{ owner?: string; repo?: string; channel?: string; flavor?: UpdateFlavor }> } }).build?.publish ?? [];
+  const pub = (packageJson as { build?: { publish?: Array<{ owner?: string; repo?: string; channel?: string; flavor?: UpdateFlavor; releaseType?: 'release' | 'prerelease' }> } }).build?.publish ?? [];
   const primary = pub[0] ?? {};
   const channel = (primary.channel || 'latest').trim() || 'latest';
   const owner = typeof primary.owner === 'string' && primary.owner.trim().length > 0 ? primary.owner : 'colopl';
   const repo = typeof primary.repo === 'string' && primary.repo.trim().length > 0 ? primary.repo : 'colopresso';
   const flavor: UpdateFlavor = primary.flavor ?? 'internal';
+  const releaseType: 'release' | 'prerelease' = primary.releaseType === 'prerelease' || channel !== 'latest' ? 'prerelease' : 'release';
 
   return {
     channel,
-    allowPrerelease: channel !== 'latest',
+    allowPrerelease: releaseType === 'prerelease',
     owner,
     repo,
     flavor,
+    releaseType,
   };
 }
 
@@ -225,7 +228,7 @@ function setupAutoUpdate(): void {
     owner: config.owner,
     repo: config.repo,
     channel: config.channel,
-    releaseType: config.allowPrerelease ? 'prerelease' : 'release',
+    releaseType: config.releaseType,
   });
 
   autoUpdater.on('download-progress', (progress) => {
