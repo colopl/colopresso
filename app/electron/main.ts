@@ -19,7 +19,7 @@ import { bundles as languageBundles, translateForLanguage as translateForLanguag
 import { LanguageCode, TranslationParams } from '../shared/types';
 
 const PNG_EXTENSION = '.png';
-const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 type UpdateFlavor = 'public' | 'internal';
 let mainWindow: BrowserWindow | null = null;
 let autoUpdateInitialized = false;
