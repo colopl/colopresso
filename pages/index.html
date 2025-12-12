@@ -470,7 +470,7 @@
         ],
         labels: {
           os: 'OS を選択してください',
-          use: '利用用途を選択してください',
+          use: '利用環境を選択してください',
           arch: 'アーキテクチャを選択してください',
           app: 'アプリ種別を選択してください',
           summary: '選択内容',
@@ -480,7 +480,7 @@
           download: 'ダウンロード',
           coverageCta: 'コードカバレッジを参照',
           githubCta: 'GitHub',
-          useHelp: '・コロプラ社内: コロプラ管理下の PC で利用する場合<br>・それ以外: 私物 PC など、コロプラ管理外の PC で利用する場合',
+          useHelp: '・コロプラ管理: コロプラ管理下の PC で利用する場合<br>・それ以外: 私物 PC など、コロプラ管理外の PC で利用する場合',
           archHelp: '・amd64: 通常の Windows デスクトップ PC, 古い Mac<br>・arm64: Apple Silicon Mac, Snapdragon Windows',
           appHelp: '・GUI: ウィンドウが開く通常のアプリケーションです<br>・CLI: バッチ処理などで利用する UI のないアプリケーションです (上級者向け)'
         },
@@ -488,7 +488,7 @@
           os: ['Windows', 'macOS', 'Linux'],
           arch: ['amd64', 'arm64'],
           app: ['GUI', 'CLI'],
-          use: ['コロプラ社内', 'それ以外']
+          use: ['コロプラ管理', 'それ以外']
         }
       },
       en: {
@@ -539,12 +539,12 @@
       files: {
         Windows: {
           internal: {
-            amd64: { GUI: null, CLI: "colopresso_windows_cli_x64_colopl_internal.exe" },
-            arm64: { GUI: null, CLI: "colopresso_windows_cli_arm64_colopl_internal.exe" }
+            amd64: { GUI: "colopresso_colopl_internal_windows_gui_x64.exe", CLI: "colopresso_windows_cli_x64_colopl_internal.exe" },
+            arm64: { GUI: "colopresso_colopl_internal_windows_gui_arm64.exe", CLI: "colopresso_windows_cli_arm64_colopl_internal.exe" }
           },
           other: {
-            amd64: { GUI: null, CLI: "colopresso_windows_cli_x64.exe" },
-            arm64: { GUI: null, CLI: "colopresso_windows_cli_arm64.exe" }
+            amd64: { GUI: "colopresso_windows_gui_x64.exe", CLI: "colopresso_windows_cli_x64.exe" },
+            arm64: { GUI: "colopresso_windows_gui_arm64.exe", CLI: "colopresso_windows_cli_arm64.exe" }
           }
         },
         macOS: {
