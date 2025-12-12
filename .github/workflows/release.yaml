@@ -53,7 +53,7 @@ jobs:
           if test "${CHANNEL_SAFE}" = "latest"; then
             RELEASE_TAG="${{ github.ref_name }}"
           else
-            RELEASE_TAG="v${VER}-${CHANNEL_SAFE}.${{ github.run_number }}"
+            RELEASE_TAG="v${VER}-${CHANNEL_SAFE}"
           fi
 
           VER_INT=$(echo "${VER}" | awk -F. '{printf "%d\n", sprintf("%03d%03d%03d", $1, $2, $3)}')
