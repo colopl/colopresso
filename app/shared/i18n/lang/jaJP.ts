@@ -60,8 +60,8 @@ const bundle: TranslationBundle = {
       },
       validation: {
         numberRequired: '数値を入力してください',
-        min: '{min} 以上',
-        max: '{max} 以下',
+        min: '{min} 以上で入力してください',
+        max: '{max} 以下で入力してください',
       },
       alerts: {
         applyValidationError: '入力エラーがあります。修正してください。',
@@ -149,10 +149,11 @@ const bundle: TranslationBundle = {
       sizeUnknown: 'サイズ不明',
       copySuccess: 'エラーメッセージをクリップボードにコピーしました',
       copyFailed: 'エラーメッセージをコピーできませんでした',
+      copyAction: 'メッセージをコピー',
       copyHint: 'クリックでエラーメッセージをコピーできます',
     },
     chrome: {
-      title: 'Colopresso',
+      title: 'colopresso',
       settings: {
         processFolderLabel: 'ドロップしたフォルダ内の PNG ファイルをすべて処理',
         processFolderDescription: 'フォルダをドロップすると、含まれるすべての PNG ファイルを変換します',
@@ -165,7 +166,7 @@ const bundle: TranslationBundle = {
       },
     },
     electron: {
-      title: 'Colopresso',
+      title: 'colopresso',
       settings: {
         deletePngLabel: 'フォルダ処理後に元の PNG ファイルを削除',
         deletePngDescription: 'フォルダ処理時、変換後に元の PNG ファイルを削除します',
@@ -273,9 +274,6 @@ const bundle: TranslationBundle = {
       },
     },
     updater: {
-      channelFlavor: {
-        internalSuffix: ' (internal)',
-      },
       dialog: {
         updateAvailable: {
           title: '新しいバージョンが見つかりました',
@@ -287,8 +285,9 @@ const bundle: TranslationBundle = {
           detail: {
             currentVersion: '現在のバージョン: {version}',
             availableVersion: '利用可能なバージョン: {version}',
-            channel: 'アップデートチャネル: {channel}{flavor}',
+            channel: 'アップデートチャネル: {channel}',
             platform: 'プラットフォーム: {platform}',
+            releasePage: 'リリースページ: {url}',
           },
         },
         readyToInstall: {
@@ -304,6 +303,13 @@ const bundle: TranslationBundle = {
           title: 'アップデートに失敗しました',
           message: 'アップデートのダウンロードに失敗しました',
         },
+      },
+      toast: {
+        downloading: 'アップデートをダウンロード中です... {progress}',
+        extracting: 'アップデートを展開中です... {progress}',
+        progressUnknown: '計測中...',
+        downloaded: 'アップデートのダウンロードが完了しました。',
+        downloadFailed: 'アップデートのインストールに失敗しました: {message}',
       },
     },
   },

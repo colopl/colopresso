@@ -166,6 +166,7 @@ export interface BuildInfoPayload {
   pngxOxipngVersion?: number;
   pngxLibimagequantVersion?: number;
   buildtime?: number;
+  releaseChannel?: string;
 }
 
 export interface BuildInfoState {

@@ -10,7 +10,7 @@
  */
 
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
-import type { FileFilter, IpcMainInvokeEvent } from 'electron';
+import type { FileFilter, IpcMainInvokeEvent, MessageBoxOptions, MessageBoxReturnValue } from 'electron';
 import { autoUpdater, UpdateDownloadedEvent, UpdateInfo } from 'electron-updater';
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
@@ -19,12 +19,20 @@ import { bundles as languageBundles, translateForLanguage as translateForLanguag
 import { LanguageCode, TranslationParams } from '../shared/types';
 
 const PNG_EXTENSION = '.png';
-const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const shouldSkipAutoUpdate = process.env.COLOPRESSO_DISABLE_UPDATER === '1';
 type UpdateFlavor = 'public' | 'internal';
 let mainWindow: BrowserWindow | null = null;
 let autoUpdateInitialized = false;
 let updateCheckTimer: ReturnType<typeof setInterval> | null = null;
-const shouldSkipAutoUpdate = process.env.COLOPRESSO_DISABLE_UPDATER === '1';
+let quittingForUpdate = false;
+
+function sendUpdateIpc(channel: string, payload?: unknown): void {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+  mainWindow.webContents.send(channel, payload);
+}
 
 interface ElectronDirectoryEntry {
   name: string;
@@ -70,6 +78,7 @@ interface ResolvedUpdateConfig {
   owner: string;
   repo: string;
   flavor: UpdateFlavor;
+  releaseType: 'release' | 'prerelease';
 }
 
 function sanitizeRelativePath(input: string): string {
@@ -125,63 +134,52 @@ function extractErrorMessage(error: unknown): string {
 }
 
 function resolveUpdateConfig(): ResolvedUpdateConfig {
-  const meta = (packageJson as { colopresso?: { update?: Partial<ResolvedUpdateConfig> & { repoOwner?: string; repoName?: string } } }).colopresso?.update ?? {};
-  const channel = (meta.channel || 'latest').trim() || 'latest';
-  const flavor: UpdateFlavor = meta.flavor === 'internal' ? 'internal' : 'public';
-  const owner = typeof meta.repoOwner === 'string' && meta.repoOwner.trim().length > 0 ? meta.repoOwner : 'colopl';
-  const repo = typeof meta.repoName === 'string' && meta.repoName.trim().length > 0 ? meta.repoName : 'colopresso';
+  const pub = (packageJson as { build?: { publish?: Array<{ owner?: string; repo?: string; channel?: string; flavor?: UpdateFlavor; releaseType?: 'release' | 'prerelease' }> } }).build?.publish ?? [];
+  const primary = pub[0] ?? {};
+  const channel = (primary.channel || 'latest').trim() || 'latest';
+  const owner = typeof primary.owner === 'string' && primary.owner.trim().length > 0 ? primary.owner : 'colopl';
+  const repo = typeof primary.repo === 'string' && primary.repo.trim().length > 0 ? primary.repo : 'colopresso';
+  const flavor: UpdateFlavor = primary.flavor ?? 'internal';
+  const releaseType: 'release' | 'prerelease' = primary.releaseType === 'prerelease' || channel !== 'latest' ? 'prerelease' : 'release';
 
   return {
     channel,
-    allowPrerelease: channel !== 'latest',
+    allowPrerelease: releaseType === 'prerelease',
     owner,
     repo,
     flavor,
+    releaseType,
   };
 }
 
-function flattenReleaseNotes(notes: UpdateInfo['releaseNotes']): string {
-  if (typeof notes === 'string') {
-    return notes;
-  }
-  if (Array.isArray(notes)) {
-    return notes
-      .map((item) => {
-        if (typeof item === 'string') {
-          return item;
-        }
-        if (item && typeof item === 'object' && 'note' in item) {
-          const typed = item as { note?: string };
-          return typed.note ?? '';
-        }
-        return '';
-      })
-      .filter((line) => line.trim().length > 0)
-      .join('\n\n');
-  }
-  return '';
+function getUpdateChannel(): string {
+  return resolveUpdateConfig().channel;
 }
 
 function getDialogParent(): BrowserWindow | null {
   return mainWindow;
 }
 
+function showMessageBoxWithOptionalParent(options: MessageBoxOptions): Promise<MessageBoxReturnValue> {
+  const parent = getDialogParent();
+  if (parent) {
+    return dialog.showMessageBox(parent, options);
+  }
+  return dialog.showMessageBox(options);
+}
+
 async function promptForUpdateDownload(info: UpdateInfo, config: ResolvedUpdateConfig): Promise<boolean> {
-  const releaseNotes = flattenReleaseNotes(info.releaseNotes);
-  const flavorSuffix = config.flavor === 'internal' ? translate('updater.channelFlavor.internalSuffix') : '';
+  const tag = typeof info.releaseName === 'string' && info.releaseName.trim().length > 0 ? info.releaseName : `v${info.version}`;
+  const releaseUrl = `https://github.com/${config.owner}/${config.repo}/releases/tag/${encodeURIComponent(tag)}`;
   const detailLines = [
     translate('updater.dialog.updateAvailable.detail.currentVersion', { version: app.getVersion() }),
     translate('updater.dialog.updateAvailable.detail.availableVersion', { version: info.version }),
-    translate('updater.dialog.updateAvailable.detail.channel', { channel: config.channel, flavor: flavorSuffix }),
+    translate('updater.dialog.updateAvailable.detail.channel', { channel: config.channel }),
     translate('updater.dialog.updateAvailable.detail.platform', { platform: `${process.platform} ${process.arch}` }),
+    translate('updater.dialog.updateAvailable.detail.releasePage', { url: releaseUrl }),
   ];
 
-  if (releaseNotes.length > 0) {
-    detailLines.push('', releaseNotes);
-  }
-
-  const parent = getDialogParent() ?? undefined;
-  const { response } = await dialog.showMessageBox(parent, {
+  const { response } = await showMessageBoxWithOptionalParent({
     type: 'info',
     buttons: [translate('updater.dialog.updateAvailable.buttons.download'), translate('updater.dialog.updateAvailable.buttons.later')],
     defaultId: 0,
@@ -199,8 +197,7 @@ async function promptForInstall(event: UpdateDownloadedEvent): Promise<void> {
     mainWindow.setProgressBar(-1);
   }
 
-  const parent = getDialogParent() ?? undefined;
-  const { response } = await dialog.showMessageBox(parent, {
+  const { response } = await showMessageBoxWithOptionalParent({
     type: 'question',
     buttons: [translate('updater.dialog.readyToInstall.buttons.restartNow'), translate('updater.dialog.readyToInstall.buttons.later')],
     defaultId: 0,
@@ -211,7 +208,8 @@ async function promptForInstall(event: UpdateDownloadedEvent): Promise<void> {
   });
 
   if (response === 0) {
-    autoUpdater.quitAndInstall();
+    quittingForUpdate = true;
+    autoUpdater.quitAndInstall(false, true);
   }
 }
 
@@ -223,6 +221,14 @@ function setupAutoUpdate(): void {
   autoUpdateInitialized = true;
   const config = resolveUpdateConfig();
 
+  console.info('[auto-update] resolved config', {
+    channel: config.channel,
+    allowPrerelease: config.allowPrerelease,
+    releaseType: config.releaseType,
+    owner: config.owner,
+    repo: config.repo,
+  });
+
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.allowDowngrade = false;
@@ -230,20 +236,18 @@ function setupAutoUpdate(): void {
   autoUpdater.channel = config.channel;
   autoUpdater.logger = console;
 
-  autoUpdater.setFeedURL({
-    provider: 'github',
-    owner: config.owner,
-    repo: config.repo,
-    channel: config.channel,
-    releaseType: config.allowPrerelease ? 'prerelease' : 'release',
-  });
-
   autoUpdater.on('download-progress', (progress) => {
     if (!mainWindow) {
       return;
     }
     const normalized = Number.isFinite(progress.percent) ? Math.max(0, Math.min(1, progress.percent / 100)) : -1;
     mainWindow.setProgressBar(normalized);
+    sendUpdateIpc('update-download-progress', {
+      percent: progress.percent,
+      transferred: progress.transferred,
+      total: progress.total,
+      bytesPerSecond: progress.bytesPerSecond,
+    });
   });
 
   autoUpdater.on('update-available', async (info) => {
@@ -255,13 +259,13 @@ function setupAutoUpdate(): void {
         }
         return;
       }
+      sendUpdateIpc('update-download-start', { version: info.version, releaseName: info.releaseName });
       await autoUpdater.downloadUpdate();
     } catch (error) {
       if (mainWindow) {
         mainWindow.setProgressBar(-1);
       }
-      const parent = getDialogParent() ?? undefined;
-      await dialog.showMessageBox(parent, {
+      await showMessageBoxWithOptionalParent({
         type: 'error',
         title: translate('updater.dialog.downloadFailed.title'),
         message: translate('updater.dialog.downloadFailed.message'),
@@ -277,6 +281,7 @@ function setupAutoUpdate(): void {
   });
 
   autoUpdater.on('update-downloaded', (event) => {
+    sendUpdateIpc('update-download-complete', { version: event.version });
     void promptForInstall(event);
   });
 
@@ -285,6 +290,7 @@ function setupAutoUpdate(): void {
       mainWindow.setProgressBar(-1);
     }
     console.error('auto-update error', error);
+    sendUpdateIpc('update-download-error', { message: extractErrorMessage(error) });
   });
 
   const performUpdateCheck = (): void => {
@@ -302,8 +308,8 @@ function createWindow(): void {
   const windowOptions = {
     width: 540,
     minWidth: 540,
-    height: 860,
-    minHeight: 830,
+    height: 920,
+    minHeight: 920,
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
@@ -543,6 +549,7 @@ function registerIpcHandlers(): void {
   ipcMain.handle('save-file-dialog', handleSaveFileDialog);
   ipcMain.handle('save-zip-dialog', handleSaveZipDialog);
   ipcMain.handle('save-json-dialog', handleSaveJsonDialog);
+  ipcMain.handle('get-update-channel', () => getUpdateChannel());
 }
 
 app.whenReady().then(() => {
@@ -556,7 +563,7 @@ app.on('window-all-closed', () => {
     clearInterval(updateCheckTimer);
     updateCheckTimer = null;
   }
-  if (process.platform !== 'darwin') {
+  if (process.platform !== 'darwin' || quittingForUpdate) {
     app.quit();
   }
 });

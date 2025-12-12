@@ -150,10 +150,11 @@ const bundle: TranslationBundle = {
       sizeUnknown: 'Size unknown',
       copySuccess: 'Copied error message to clipboard.',
       copyFailed: 'Failed to copy error message.',
+      copyAction: 'Copy message',
       copyHint: 'Click to copy the error message.',
     },
     chrome: {
-      title: 'Colopresso',
+      title: 'colopresso',
       settings: {
         processFolderLabel: 'Process every PNG file inside dropped folders',
         processFolderDescription: 'When you drop a folder, convert all PNG files it contains.',
@@ -166,7 +167,7 @@ const bundle: TranslationBundle = {
       },
     },
     electron: {
-      title: 'Colopresso',
+      title: 'colopresso',
       settings: {
         deletePngLabel: 'Delete original PNG files after folder processing',
         deletePngDescription: 'When processing folders, delete the original PNG files after conversion.',
@@ -274,9 +275,6 @@ const bundle: TranslationBundle = {
       },
     },
     updater: {
-      channelFlavor: {
-        internalSuffix: ' (internal)',
-      },
       dialog: {
         updateAvailable: {
           title: 'New version available',
@@ -288,8 +286,9 @@ const bundle: TranslationBundle = {
           detail: {
             currentVersion: 'Current version: {version}',
             availableVersion: 'Available version: {version}',
-            channel: 'Update channel: {channel}{flavor}',
+            channel: 'Update channel: {channel}',
             platform: 'Platform: {platform}',
+            releasePage: 'Release page: {url}',
           },
         },
         readyToInstall: {
@@ -305,6 +304,13 @@ const bundle: TranslationBundle = {
           title: 'Update failed',
           message: 'Failed to download the update',
         },
+      },
+      toast: {
+        downloading: 'Downloading update... {progress}',
+        extracting: 'Extracting update... {progress}',
+        progressUnknown: 'calculating...',
+        downloaded: 'Update downloaded. Ready to install.',
+        downloadFailed: 'Failed to install update: {message}',
       },
     },
   },

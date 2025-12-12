@@ -54,6 +54,7 @@
       gap: 12px;
       align-items: center;
       margin-bottom: 8px;
+      flex-wrap: wrap;
     }
 
     .header-actions {
@@ -62,6 +63,7 @@
       gap: 8px;
       justify-content: flex-end;
       margin-left: auto;
+      flex-wrap: wrap;
     }
 
     .brand {
@@ -343,6 +345,28 @@
       gap: 12px;
     }
 
+    @media (max-width: 720px) {
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      .header-actions {
+        width: 100%;
+        justify-content: flex-start;
+        gap: 10px;
+        margin-left: 0;
+      }
+
+      .coverage-button,
+      .github-button,
+      .lang-switch {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -351,40 +375,40 @@
       <div class="brand">
         <div>
           <h1 id="title">colopresso Downloads</h1>
-          <p class="lede" id="lede">最新の colopresso バイナリを選択してダウンロードしてください。</p>
+          <p class="lede" id="lede">Pick the right colopresso binary and download instantly.</p>
         </div>
       </div>
       <div class="header-actions">
-        <a class="coverage-button" id="coverage-link" href="./coverage/index.html" target="_blank" rel="noopener">コードカバレッジを参照</a>
+        <a class="coverage-button" id="coverage-link" href="./coverage/index.html" target="_blank" rel="noopener">View code coverage</a>
         <a class="github-button" id="github-link" href="https://github.com/colopl/colopresso" target="_blank" rel="noopener">GitHub</a>
         <div class="lang-switch" aria-label="Select language">
-          <button class="chip active" data-lang="ja" id="lang-ja">🇯🇵日本語</button>
-          <button class="chip" data-lang="en" id="lang-en">🇺🇸English</button>
+          <button class="chip" data-lang="ja" id="lang-ja">🇯🇵日本語</button>
+          <button class="chip active" data-lang="en" id="lang-en">🇺🇸English</button>
         </div>
       </div>
     </header>
 
     <section class="panel hero">
-      <div class="badge"><span>★</span><div id="badge">最新ビルド</div></div>
+      <div class="badge"><span>★</span><div id="badge">Latest build</div></div>
       <div class="hero-card">
-        <h2 class="hero-title" id="hero-title">ダウンロードガイド</h2>
-        <p class="hero-text" id="hero-text">利用する環境とアプリ種別を選ぶだけで、適切なバイナリのダウンロードリンクを表示します。</p>
+        <h2 class="hero-title" id="hero-title">Download guide</h2>
+        <p class="hero-text" id="hero-text">Pick your environment and app type to reveal the matching binary. Changing selections updates the link instantly.</p>
       </div>
       <ul class="list" id="feature-list">
         <li>
           <div class="pill">Step 1</div>
-          <div class="headline">言語とプラットフォームを選択</div>
-          <div class="note">UI 言語・OS・アーキテクチャ・アプリ種別を順に選択します。</div>
+          <div class="headline">Choose language & platform</div>
+          <div class="note">Select OS, architecture, and application type.</div>
         </li>
         <li>
           <div class="pill">Step 2</div>
-          <div class="headline">ワンクリックでダウンロード</div>
-          <div class="note">選択結果に応じた最新リリースのダウンロードリンクを表示します。</div>
+          <div class="headline">One-click download</div>
+          <div class="note">We surface the matching latest-release download link.</div>
         </li>
         <li>
           <div class="pill">Step 3</div>
-          <div class="headline">設定はいつでも変更可能</div>
-          <div class="note">選択を変更すると表示されるリンクも即座に切り替わります。</div>
+          <div class="headline">Change any time</div>
+          <div class="note">Swap your selections and the link updates immediately.</div>
         </li>
       </ul>
     </section>
@@ -392,29 +416,29 @@
     <section class="panel">
       <div class="stepper">
         <div class="step">
-          <h3 id="label-os">OS を選択してください</h3>
+          <h3 id="label-os">Choose your operating system</h3>
           <div class="options" id="os-options"></div>
         </div>
         <div class="step" id="use-step">
-          <h3 id="label-use">利用場所</h3>
+          <h3 id="label-use">Use in</h3>
           <div class="options" id="use-options"></div>
           <div class="note" id="use-note"></div>
         </div>
         <div class="step">
-          <h3 id="label-arch">アーキテクチャを選択してください</h3>
+          <h3 id="label-arch">Choose machine architecture</h3>
           <div class="options" id="arch-options"></div>
           <div class="note" id="arch-note"></div>
         </div>
         <div class="step">
-          <h3 id="label-app">アプリ種別を選択してください</h3>
+          <h3 id="label-app">Choose application type</h3>
           <div class="options" id="app-options"></div>
           <div class="note" id="app-note"></div>
         </div>
         <div class="step">
           <div class="summary">
-            <div class="headline" id="summary-title">選択内容</div>
+            <div class="headline" id="summary-title">Your selection</div>
             <div id="summary-body">-</div>
-            <div class="status" id="status">項目を選択してください</div>
+            <div class="status" id="status">Please select items</div>
           </div>
           <div>
             <div class="pill">Download URL</div>
@@ -504,6 +528,12 @@
       }
     };
 
+    const detectLanguage = () => {
+      const lang = (navigator.language || navigator.userLanguage || '').toLowerCase();
+      if (lang.startsWith('ja')) return 'ja';
+      return 'en';
+    };
+
     const downloadConfig = {
       baseUrl: 'https://github.com/colopl/colopresso/releases/latest/download/',
       files: {
@@ -528,7 +558,7 @@
       }
     };
 
-    const state = { lang: 'ja', os: null, arch: null, app: null, use: null };
+    const state = { lang: detectLanguage(), os: null, arch: null, app: null, use: null };
 
     const $ = (id) => document.getElementById(id);
     const langBtns = document.querySelectorAll('.lang-switch .chip');
@@ -594,6 +624,7 @@
 
     const syncLanguage = () => {
       const locale = i18n[state.lang];
+      document.documentElement.lang = state.lang;
       $('title').textContent = locale.title;
       $('lede').textContent = locale.lede;
       $('badge').textContent = locale.badge;

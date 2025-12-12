@@ -5,16 +5,16 @@ on:
     inputs:
       major_version:
         description: "Major"
-        required: false
-        default: "999"
+        required: true
+        default: "0"
       minor_version:
         description: "Minor"
-        required: false
-        default: "999"
+        required: true
+        default: "0"
       patch_version:
         description: "Patch"
-        required: false
-        default: "999"
+        required: true
+        default: "0"
   push:
     tags:
       - "v*"
@@ -29,46 +29,78 @@ jobs:
       full_version: ${{ steps.generate_version.outputs.full_version }}
       version: ${{ steps.generate_version.outputs.version }}
       version_int: ${{ steps.generate_version.outputs.version_int }}
-      is_test: ${{ steps.generate_version.outputs.is_test }}
       update_channel: ${{ steps.generate_version.outputs.update_channel }}
+      public_is_prerelease: ${{ steps.generate_version.outputs.public_is_prerelease }}
+      internal_channel_raw: ${{ steps.generate_version.outputs.internal_channel_raw }}
+      internal_channel_safe: ${{ steps.generate_version.outputs.internal_channel_safe }}
+      internal_release_tag: ${{ steps.generate_version.outputs.internal_release_tag }}
+      internal_is_prerelease: ${{ steps.generate_version.outputs.internal_is_prerelease }}
       emsdk_version: ${{ steps.get_emsdk_version.outputs.emsdk_version }}
     steps:
       - name: Generate version
         id: generate_version
         run: |
-          MAJOR="${{ inputs.major_version }}"
-          MINOR="${{ inputs.minor_version }}"
-          PATCH="${{ inputs.patch_version }}"
+          CHANNEL="latest"
 
           if echo "${{ github.ref_name }}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
             VER="$(echo "${{ github.ref_name }}" | cut -c 2-)"
-            CHANNEL="latest"
-            IS_TEST=false
-          elif test -n "${MAJOR}" || test -n "${MINOR}" || test -n "${PATCH}"; then
-            MAJOR_PAD="${MAJOR:-999}"
-            MINOR_PAD="${MINOR:-999}"
-            PATCH_PAD="${PATCH:-999}"
-            VER="${MAJOR_PAD}.${MINOR_PAD}.${PATCH_PAD}"
-            CHANNEL="canary"
-            IS_TEST=true
           else
-            VER="999.999.999"
-            CHANNEL="unknown"
-            IS_TEST=true
+            VER="${{ inputs.major_version }}.${{ inputs.minor_version }}.${{ inputs.patch_version }}"
+            CHANNEL="canary"
+          fi
+
+          CHANNEL_SAFE="$(printf '%s' "${CHANNEL}" | tr '[:upper:]' '[:lower:]' | tr '_' '-' | tr -cd '0-9a-z-')"
+          if test -z "${CHANNEL_SAFE}"; then
+            echo "Failed to normalize channel: ${CHANNEL}" >&2
+            exit 1
+          fi
+
+          if test "${CHANNEL_SAFE}" = "latest"; then
+            RELEASE_TAG="v${VER}"
+          else
+            RELEASE_TAG="v${VER}-${CHANNEL_SAFE}"
+          fi
+
+          INTERNAL_RAW="colopl_internal"
+          if test "${CHANNEL_SAFE}" != "latest"; then
+            INTERNAL_RAW="colopl_internal_canary"
+          fi
+
+          INTERNAL_SAFE="$(printf '%s' "${INTERNAL_RAW}" | tr '[:upper:]' '[:lower:]' | tr '_' '-' | tr -cd '0-9a-z-')"
+          if test -z "${INTERNAL_SAFE}"; then
+            echo "Failed to normalize internal channel: ${INTERNAL_RAW}" >&2
+            exit 1
+          fi
+
+          INTERNAL_TAG="v${VER}-${INTERNAL_SAFE}"
+
+          PUBLIC_IS_PRERELEASE="false"
+          if test "${CHANNEL_SAFE}" != "latest"; then
+            PUBLIC_IS_PRERELEASE="true"
+          fi
+
+          INTERNAL_IS_PRERELEASE="false"
+          if printf '%s' "${INTERNAL_RAW}" | grep -q "_canary"; then
+            INTERNAL_IS_PRERELEASE="true"
           fi
 
           VER_INT=$(echo "${VER}" | awk -F. '{printf "%d\n", sprintf("%03d%03d%03d", $1, $2, $3)}')
 
-          echo "full_version=v${VER}" >> "${GITHUB_OUTPUT}"
+          echo "full_version=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
           echo "version=${VER}" >> "${GITHUB_OUTPUT}"
           echo "version_int=${VER_INT}" >> "${GITHUB_OUTPUT}"
-          echo "is_test=${IS_TEST}" >> "${GITHUB_OUTPUT}"
-          echo "update_channel=${CHANNEL}" >> "${GITHUB_OUTPUT}"
+          echo "update_channel=${CHANNEL_SAFE}" >> "${GITHUB_OUTPUT}"
+          echo "public_is_prerelease=${PUBLIC_IS_PRERELEASE}" >> "${GITHUB_OUTPUT}"
+          echo "internal_channel_raw=${INTERNAL_RAW}" >> "${GITHUB_OUTPUT}"
+          echo "internal_channel_safe=${INTERNAL_SAFE}" >> "${GITHUB_OUTPUT}"
+          echo "internal_release_tag=${INTERNAL_TAG}" >> "${GITHUB_OUTPUT}"
+          echo "internal_is_prerelease=${INTERNAL_IS_PRERELEASE}" >> "${GITHUB_OUTPUT}"
       - name: Checkout
         uses: actions/checkout@v6
         with:
           submodules: true
           fetch-depth: 1
+          ref: ${{ github.ref }}
       - name: Get EMSDK version
         id: get_emsdk_version
         working-directory: "third_party/emsdk"
@@ -82,6 +114,38 @@ jobs:
           sed -i "s|0.0.0|${{ steps.generate_version.outputs.version }}|" "app/chrome/manifest.json"
           sed -i "s|0.0.0|${{ steps.generate_version.outputs.version }}|" "package.json"
           sed -i "s|\"channel\": \"[^\"]*\"|\"channel\": \"${{ steps.generate_version.outputs.update_channel }}\"|" "package.json"
+      - name: Configure package.json for public channel
+        run: |
+          CHANNEL="${{ steps.generate_version.outputs.update_channel }}"
+          BASE_VERSION="${{ steps.generate_version.outputs.version }}"
+          PKG="package.json"
+
+          if test ! -f "${PKG}"; then
+            echo "package.json not found at ${PKG}" >&2
+            exit 1
+          fi
+
+          RELEASE_TYPE="release"
+          VERSION_VALUE="${BASE_VERSION}"
+
+          if test "${CHANNEL}" != "latest"; then
+            RELEASE_TYPE="prerelease"
+            VERSION_VALUE="${BASE_VERSION}-${CHANNEL}"
+          fi
+
+          TMP="$(mktemp)"
+          jq --arg channel "${CHANNEL}" --arg version "${VERSION_VALUE}" --arg releaseType "${RELEASE_TYPE}" '
+            .build.publish as $p
+            | if ($p | type) != "array" or ($p | length) == 0 then error("package.json is missing build.publish") else . end
+            | .build as $b
+            | if $b == null then error("package.json is missing build configuration") else . end
+            | if $b.productName == null then error("package.json is missing build.productName") else . end
+            | .version = $version
+            | .build.publish[0].channel = $channel
+            | .build.publish[0].releaseType = $releaseType
+            | if $channel != "latest" then .build.productName = ($b.productName + "_" + $channel) else . end
+          ' "${PKG}" > "${TMP}"
+          mv "${TMP}" "${PKG}"
       - name: Tar versioned code
         run: |
           tar -czf "../versioned-code.tar.gz" -C .. "$(basename "$PWD")"
@@ -123,9 +187,9 @@ jobs:
     needs: Prepare
     strategy:
       matrix:
-        channel: 
-          - latest
-          - ${{ needs.Prepare.outputs.is_test == 'true' && 'colopl_internal_canary' || 'colopl_internal' }}
+        channel:
+          - ${{ needs.Prepare.outputs.update_channel }}
+          - ${{ needs.Prepare.outputs.internal_channel_raw }}
     runs-on: windows-latest
     steps:
       - name: Download versioned code
@@ -137,52 +201,6 @@ jobs:
         run: |
           tar -xzf "versioned-code.tar.gz" --strip-components=1
           Remove-Item "versioned-code.tar.gz" -Force
-      - name: Apply update channel
-        shell: pwsh
-        run: |
-          $channel = "${{ matrix.channel }}"
-          Write-Host "Setting update channel to '$channel'"
-
-          $packageJsonPath = "package.json"
-          if (-not (Test-Path $packageJsonPath)) {
-            Write-Error "package.json not found at $packageJsonPath"
-            exit 1
-          }
-
-          $packageJson = Get-Content $packageJsonPath -Raw | ConvertFrom-Json
-          if (-not $packageJson.build -or -not $packageJson.build.extraMetadata -or -not $packageJson.build.extraMetadata.colopresso -or -not $packageJson.build.extraMetadata.colopresso.update) {
-            Write-Error "package.json is missing build.extraMetadata.colopresso.update"
-            exit 1
-          }
-
-          $packageJson.build.extraMetadata.colopresso.update.channel = $channel
-          $packageJson | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath
-      - name: Apply artifact name
-        shell: pwsh
-        if: matrix.channel != 'latest'
-        run: |
-          $packageJsonPath = "package.json"
-          if (-not (Test-Path $packageJsonPath)) {
-            Write-Error "package.json not found at $packageJsonPath"
-            exit 1
-          }
-
-          $packageJson = Get-Content $packageJsonPath -Raw | ConvertFrom-Json
-          if (-not $packageJson.build) {
-            Write-Error "package.json is missing build configuration"
-            exit 1
-          }
-
-          $channel = "${{ matrix.channel }}"
-
-          $originalProductName = $packageJson.build.productName
-          if (-not $originalProductName) {
-            Write-Error "package.json is missing build.productName"
-            exit 1
-          }
-          $packageJson.build.productName = "{0}_{1}" -f $originalProductName, $channel
-
-          $packageJson | ConvertTo-Json -Depth 10 | Set-Content $packageJsonPath
       - name: Setup pnpm
         uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
         with:
@@ -192,6 +210,27 @@ jobs:
         with:
           node-version: '24'
           cache: 'pnpm'
+      - name: Override productName for internal channel
+        if: ${{ startsWith(matrix.channel, 'colopl_internal') }}
+        shell: pwsh
+        run: |
+          $pkgPath = "package.json"
+          if (-not (Test-Path $pkgPath)) { Write-Error "package.json not found at $pkgPath"; exit 1 }
+
+          $json = Get-Content $pkgPath -Raw | ConvertFrom-Json
+          if (-not $json.build) { Write-Error "package.json is missing build configuration"; exit 1 }
+
+          $rawChannel = "${{ matrix.channel }}"
+          $safeChannel = $rawChannel.ToLower().Replace('_','-') -replace '[^0-9a-z-]', ''
+          if (-not $safeChannel) { Write-Error "Failed to normalize channel: $rawChannel"; exit 1 }
+
+          $baseVersion = "${{ needs.Prepare.outputs.version }}"
+          $releaseType = if ($rawChannel -match 'canary') { 'prerelease' } else { 'release' }
+          $json.version = "${baseVersion}-$safeChannel"
+          $json.build.productName = "colopresso_${{ matrix.channel }}"
+          $json.build.publish[0].channel = $safeChannel
+          $json.build.publish[0].releaseType = $releaseType
+          $json | ConvertTo-Json -Depth 64 | Set-Content $pkgPath -Encoding UTF8
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
         with:
@@ -213,13 +252,16 @@ jobs:
       - name: Build Electron app
         shell: pwsh
         run: |
+          if ("${{ matrix.channel }}" -eq "colopl_internal" -or "${{ matrix.channel }}" -eq "colopl_internal_canary") {
+              $env:WIN_CSC_LINK = "${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}"
+              $env:WIN_CSC_KEY_PASSWORD = "${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}"
+          }
+
           emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--win"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build "build" --config "Release" --parallel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WIN_CSC_LINK: ${{ (matrix.channel == 'colopl_internal' || matrix.channel == 'colopl_internal_canary') && secrets.WINDOWS_CERTIFICATE_BASE64 || '' }}
-          WIN_CSC_KEY_PASSWORD: ${{ (matrix.channel == 'colopl_internal' || matrix.channel == 'colopl_internal_canary') && secrets.WINDOWS_CERTIFICATE_PASSWORD || '' }}
       - name: Copy artifacts
         shell: pwsh
         run: |
@@ -348,7 +390,7 @@ jobs:
         env:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
         run: rm -f "${RUNNER_TEMP}/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8"
-      - name: Rename artifacts
+      - name: Copy artifacts
         run: |
           mkdir -p "dist"
           find "dist_build" -type f \( -name '*.dmg' -o -name '*.dmg.blockmap' -o -name '*.zip' -o -name '*.zip.blockmap' -o -name '*.yml' \) \
@@ -412,8 +454,8 @@ jobs:
           - windows-latest
           - windows-11-arm
         channel:
-          - latest
-          - ${{ needs.Prepare.outputs.is_test == 'true' && 'colopl_internal_canary' || 'colopl_internal' }}
+          - ${{ needs.Prepare.outputs.update_channel }}
+          - ${{ needs.Prepare.outputs.internal_channel_raw }}
     runs-on: ${{ matrix.runs-on }}
     env:
       COLOPRESSO_CLI_EXE: 'build\cli\Release\colopresso.exe'
@@ -442,7 +484,7 @@ jobs:
           & "${env:COLOPRESSO_CLI_EXE}" --version
       - name: Sign binary
         shell: pwsh
-        if: matrix.channel == 'colopl_internal' || matrix.channel == 'colopl_internal_canary'
+        if: startsWith(matrix.channel, 'colopl_internal')
         env:
           WIN_CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
@@ -673,25 +715,7 @@ jobs:
         with:
           submodules: false
           fetch-depth: 1
-      - name: Create Release
-        id: create_release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create "${{ github.ref_name }}" \
-            --title "${{ needs.Prepare.outputs.version }}" \
-            --generate-notes \
-            --prerelease="${{ needs.Prepare.outputs.is_test }}" \
-            --draft=false
-          for RETRY in {1..10}; do
-            if gh release view "${{ github.ref_name }}" > /dev/null 2>&1; then
-              echo "Release is ready"
-              gh release view "${{ github.ref_name }}"
-              break
-            fi
-            echo "Waiting for release to be available... (${RETRY}/10)"
-            sleep 2
-          done
+          ref: ${{ github.ref }}
       - name: Download Chrome Extension Artifacts
         uses: actions/download-artifact@v6
         with:
@@ -714,21 +738,143 @@ jobs:
           pattern: colopresso-cli-*
           merge-multiple: true
           path: artifacts/
-      - name: Generate and upload checksums
+      - name: Create Release (internal)
+        if: ${{ needs.Prepare.outputs.internal_is_prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cd "artifacts"
-          find . -type f -exec sh -c 'echo "$(sha256sum "$1" | cut -d" " -f1)  $(basename "$1")"' _ {} \; > "checksums.txt"
-          gh release upload "${{ github.ref_name }}" "checksums.txt" --clobber
-      - name: Upload Release Assets
+          INTERNAL_TAG="${{ needs.Prepare.outputs.internal_release_tag }}"
+          INTERNAL_RAW="${{ needs.Prepare.outputs.internal_channel_raw }}"
+          INTERNAL_IS_PRERELEASE="${{ needs.Prepare.outputs.internal_is_prerelease }}"
+
+          if gh release view "${INTERNAL_TAG}" > /dev/null 2>&1; then
+            echo "Internal release already exists: ${INTERNAL_TAG}"
+            exit 0
+          fi
+
+          gh release create "${INTERNAL_TAG}" \
+            --title "${{ needs.Prepare.outputs.version }} (${INTERNAL_RAW})" \
+            --generate-notes \
+            --prerelease="${INTERNAL_IS_PRERELEASE}" \
+            --draft=false
+          for RETRY in {1..10}; do
+            if gh release view "${INTERNAL_TAG}" > /dev/null 2>&1; then
+              break
+            fi
+            echo "Waiting for internal release to be available... (${RETRY}/10)"
+            sleep 2
+          done
+      - name: Create Release (public)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          rm -rf "${{ github.workspace }}/artifacts/builder-debug.yml"
-          rm -rf "${{ github.workspace }}/artifacts/elevate.exe"
+          PUBLIC_TAG="${{ needs.Prepare.outputs.full_version }}"
+          PUBLIC_IS_PRERELEASE="${{ needs.Prepare.outputs.public_is_prerelease }}"
+
+          if gh release view "${PUBLIC_TAG}" > /dev/null 2>&1; then
+            echo "Public release already exists: ${PUBLIC_TAG}"
+            exit 0
+          fi
+
+          gh release create "${PUBLIC_TAG}" \
+            --title "${{ needs.Prepare.outputs.version }}" \
+            --generate-notes \
+            --prerelease="${PUBLIC_IS_PRERELEASE}" \
+            --draft=false
+          for RETRY in {1..10}; do
+            if gh release view "${PUBLIC_TAG}" > /dev/null 2>&1; then
+              break
+            fi
+            echo "Waiting for public release to be available... (${RETRY}/10)"
+            sleep 2
+          done
+      - name: Split assets
+        run: |
+          INTERNAL_RAW="${{ needs.Prepare.outputs.internal_channel_raw }}"
+          INTERNAL_SAFE="${{ needs.Prepare.outputs.internal_channel_safe }}"
+
+          mkdir -p "public_assets" "internal_assets"
+
           for FILE in "${{ github.workspace }}/artifacts"/*; do
             if test -f "${FILE}"; then
-              gh release upload "${{ github.ref_name }}" "${FILE}" --clobber
+              BASENAME="$(basename "${FILE}")"
+              if printf '%s' "${BASENAME}" | grep -q "${INTERNAL_RAW}"; then
+                mv "${FILE}" "internal_assets/"
+              elif printf '%s' "${BASENAME}" | grep -q "${INTERNAL_SAFE}"; then
+                mv "${FILE}" "internal_assets/"
+              else
+                mv "${FILE}" "public_assets/"
+              fi
+            fi
+          done
+
+          # For stable (latest) runs, publish internal stable assets on the public release.
+          if test "${{ needs.Prepare.outputs.update_channel }}" = "latest" && test "${INTERNAL_RAW}" = "colopl_internal"; then
+            for FILE in "${{ github.workspace }}/internal_assets"/*; do
+              if test -f "${FILE}"; then
+                cp "${FILE}" "public_assets/"
+              fi
+            done
+          fi
+      - name: Generate and upload checksums (public)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PUBLIC_TAG="${{ needs.Prepare.outputs.full_version }}"
+
+          cd "public_assets" || exit 1
+          find . -type f -exec sh -c 'echo "$(sha256sum "$1" | cut -d" " -f1)  $(basename "$1")"' _ {} \; > "checksums.txt"
+          gh release upload "${PUBLIC_TAG}" "checksums.txt" --clobber
+          cd -
+      - name: Upload Release Assets (public)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PUBLIC_TAG="${{ needs.Prepare.outputs.full_version }}"
+
+          rm -rf "${{ github.workspace }}/public_assets/app-update.yml"
+          rm -rf "${{ github.workspace }}/public_assets/builder-debug.yml"
+          rm -rf "${{ github.workspace }}/public_assets/builder-effective-config.yaml"
+          rm -rf "${{ github.workspace }}/public_assets/elevate.exe"
+          for FILE in "${{ github.workspace }}/public_assets"/*; do
+            if test -f "${FILE}"; then
+              gh release upload "${PUBLIC_TAG}" "${FILE}" --clobber
+            fi
+          done
+      - name: Generate and upload checksums (internal)
+        if: ${{ needs.Prepare.outputs.internal_is_prerelease == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          INTERNAL_TAG="${{ needs.Prepare.outputs.internal_release_tag }}"
+
+          if test ! -d "internal_assets" || test -z "$(ls -A "internal_assets" 2>/dev/null)"; then
+            echo "No internal assets found; skipping internal checksums."
+            exit 0
+          fi
+
+          cd "internal_assets" || exit 1
+          find . -type f -exec sh -c 'echo "$(sha256sum "$1" | cut -d" " -f1)  $(basename "$1")"' _ {} \; > "checksums.txt"
+          gh release upload "${INTERNAL_TAG}" "checksums.txt" --clobber
+          cd -
+      - name: Upload Release Assets (internal)
+        if: ${{ needs.Prepare.outputs.internal_is_prerelease == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          INTERNAL_TAG="${{ needs.Prepare.outputs.internal_release_tag }}"
+
+          if test ! -d "internal_assets" || test -z "$(ls -A "internal_assets" 2>/dev/null)"; then
+            echo "No internal assets found; skipping internal upload."
+            exit 0
+          fi
+
+          rm -rf "${{ github.workspace }}/internal_assets/app-update.yml"
+          rm -rf "${{ github.workspace }}/internal_assets/builder-debug.yml"
+          rm -rf "${{ github.workspace }}/internal_assets/builder-effective-config.yaml"
+          rm -rf "${{ github.workspace }}/internal_assets/elevate.exe"
+          for FILE in "${{ github.workspace }}/internal_assets"/*; do
+            if test -f "${FILE}"; then
+              gh release upload "${INTERNAL_TAG}" "${FILE}" --clobber
             fi
           done
