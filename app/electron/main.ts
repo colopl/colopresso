@@ -74,11 +74,18 @@ interface ElectronSaveDialogResult {
 
 interface ResolvedUpdateConfig {
   channel: string;
+  channelNormalized: string;
   allowPrerelease: boolean;
   owner: string;
   repo: string;
   flavor: UpdateFlavor;
   releaseType: 'release' | 'prerelease';
+}
+
+function normalizeUpdateChannel(channel: string): string {
+  const raw = (typeof channel === 'string' ? channel : '').trim().toLowerCase();
+  const normalized = raw.replace(/_/g, '-').replace(/[^0-9a-z-]/g, '');
+  return normalized.length > 0 ? normalized : 'latest';
 }
 
 function sanitizeRelativePath(input: string): string {
@@ -137,13 +144,15 @@ function resolveUpdateConfig(): ResolvedUpdateConfig {
   const pub = (packageJson as { build?: { publish?: Array<{ owner?: string; repo?: string; channel?: string; flavor?: UpdateFlavor; releaseType?: 'release' | 'prerelease' }> } }).build?.publish ?? [];
   const primary = pub[0] ?? {};
   const channel = (primary.channel || 'latest').trim() || 'latest';
+  const channelNormalized = normalizeUpdateChannel(channel);
   const owner = typeof primary.owner === 'string' && primary.owner.trim().length > 0 ? primary.owner : 'colopl';
   const repo = typeof primary.repo === 'string' && primary.repo.trim().length > 0 ? primary.repo : 'colopresso';
   const flavor: UpdateFlavor = primary.flavor ?? 'internal';
-  const releaseType: 'release' | 'prerelease' = primary.releaseType === 'prerelease' || channel !== 'latest' ? 'prerelease' : 'release';
+  const releaseType: 'release' | 'prerelease' = primary.releaseType === 'prerelease' || channelNormalized !== 'latest' ? 'prerelease' : 'release';
 
   return {
     channel,
+    channelNormalized,
     allowPrerelease: releaseType === 'prerelease',
     owner,
     repo,
@@ -216,20 +225,21 @@ function setupAutoUpdate(): void {
   autoUpdateInitialized = true;
   const config = resolveUpdateConfig();
 
+  console.info('[auto-update] resolved config', {
+    channel: config.channel,
+    channelNormalized: config.channelNormalized,
+    allowPrerelease: config.allowPrerelease,
+    releaseType: config.releaseType,
+    owner: config.owner,
+    repo: config.repo,
+  });
+
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.allowDowngrade = false;
   autoUpdater.allowPrerelease = config.allowPrerelease;
-  autoUpdater.channel = config.channel;
+  autoUpdater.channel = config.channelNormalized;
   autoUpdater.logger = console;
-
-  autoUpdater.setFeedURL({
-    provider: 'github',
-    owner: config.owner,
-    repo: config.repo,
-    channel: config.channel,
-    releaseType: config.releaseType,
-  });
 
   autoUpdater.on('download-progress', (progress) => {
     if (!mainWindow) {

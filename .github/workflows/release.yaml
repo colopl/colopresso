@@ -44,12 +44,24 @@ jobs:
             CHANNEL="canary"
           fi
 
+          CHANNEL_SAFE="$(printf '%s' "${CHANNEL}" | tr '[:upper:]' '[:lower:]' | tr '_' '-' | tr -cd '0-9a-z-')"
+          if test -z "${CHANNEL_SAFE}"; then
+            echo "Failed to normalize channel: ${CHANNEL}" >&2
+            exit 1
+          fi
+
+          if test "${CHANNEL_SAFE}" = "latest"; then
+            RELEASE_TAG="${{ github.ref_name }}"
+          else
+            RELEASE_TAG="v${VER}-${CHANNEL_SAFE}.${{ github.run_number }}"
+          fi
+
           VER_INT=$(echo "${VER}" | awk -F. '{printf "%d\n", sprintf("%03d%03d%03d", $1, $2, $3)}')
 
-          echo "full_version=v${VER}" >> "${GITHUB_OUTPUT}"
+          echo "full_version=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
           echo "version=${VER}" >> "${GITHUB_OUTPUT}"
           echo "version_int=${VER_INT}" >> "${GITHUB_OUTPUT}"
-          echo "update_channel=${CHANNEL}" >> "${GITHUB_OUTPUT}"
+          echo "update_channel=${CHANNEL_SAFE}" >> "${GITHUB_OUTPUT}"
       - name: Checkout
         uses: actions/checkout@v6
         with:
@@ -106,6 +118,34 @@ jobs:
             | .build.productName = ($b.productName + "_" + $channel)
             ' "${PKG}" > "${TMP}"
             mv "${TMP}" "${PKG}"
+
+      - name: Normalize update channel & set prerelease version
+        if: ${{ steps.generate_version.outputs.update_channel != 'latest' }}
+        run: |
+          CHANNEL_RAW="${{ steps.generate_version.outputs.update_channel }}"
+          CHANNEL_SAFE="$(printf '%s' "${CHANNEL_RAW}" | tr '[:upper:]' '[:lower:]' | tr '_' '-' | tr -cd '0-9a-z-')"
+          if test -z "${CHANNEL_SAFE}"; then
+            echo "Failed to normalize channel: ${CHANNEL_RAW}" >&2
+            exit 1
+          fi
+
+          PKG="package.json"
+          if test ! -f "${PKG}"; then
+            echo "package.json not found at ${PKG}" >&2
+            exit 1
+          fi
+
+          BASE_VERSION="${{ steps.generate_version.outputs.version }}"
+          PRERELEASE_VERSION="${BASE_VERSION}-${CHANNEL_SAFE}.${{ github.run_number }}"
+
+          TMP="$(mktemp)"
+          jq --arg channel "${CHANNEL_SAFE}" --arg version "${PRERELEASE_VERSION}" '
+            .version = $version
+            | .build.publish as $p
+            | if ($p | type) != "array" or ($p | length) == 0 then error("package.json is missing build.publish") else . end
+            | .build.publish[0].channel = $channel
+          ' "${PKG}" > "${TMP}"
+          mv "${TMP}" "${PKG}"
       - name: Tar versioned code
         run: |
           tar -czf "../versioned-code.tar.gz" -C .. "$(basename "$PWD")"
@@ -180,8 +220,14 @@ jobs:
           $json = Get-Content $pkgPath -Raw | ConvertFrom-Json
           if (-not $json.build) { Write-Error "package.json is missing build configuration"; exit 1 }
 
+          $rawChannel = "${{ matrix.channel }}"
+          $safeChannel = $rawChannel.ToLower().Replace('_','-') -replace '[^0-9a-z-]', ''
+          if (-not $safeChannel) { Write-Error "Failed to normalize channel: $rawChannel"; exit 1 }
+
+          $baseVersion = "${{ needs.Prepare.outputs.version }}"
+          $json.version = "${baseVersion}-$safeChannel.${{ github.run_number }}"
           $json.build.productName = "colopresso_${{ matrix.channel }}"
-          $json.build.publish[0].channel = "${{ matrix.channel }}"
+          $json.build.publish[0].channel = $safeChannel
           $json | ConvertTo-Json -Depth 64 | Set-Content $pkgPath -Encoding UTF8
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
@@ -672,15 +718,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${{ github.ref_name }}" \
+          gh release create "${{ needs.Prepare.outputs.full_version }}" \
             --title "${{ needs.Prepare.outputs.version }}" \
             --generate-notes \
             --prerelease="${{ needs.Prepare.outputs.update_channel != 'latest' }}" \
             --draft=false
           for RETRY in {1..10}; do
-            if gh release view "${{ github.ref_name }}" > /dev/null 2>&1; then
+            if gh release view "${{ needs.Prepare.outputs.full_version }}" > /dev/null 2>&1; then
               echo "Release is ready"
-              gh release view "${{ github.ref_name }}"
+              gh release view "${{ needs.Prepare.outputs.full_version }}"
               break
             fi
             echo "Waiting for release to be available... (${RETRY}/10)"
@@ -714,7 +760,7 @@ jobs:
         run: |
           cd "artifacts"
           find . -type f -exec sh -c 'echo "$(sha256sum "$1" | cut -d" " -f1)  $(basename "$1")"' _ {} \; > "checksums.txt"
-          gh release upload "${{ github.ref_name }}" "checksums.txt" --clobber
+          gh release upload "${{ needs.Prepare.outputs.full_version }}" "checksums.txt" --clobber
       - name: Upload Release Assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -725,6 +771,6 @@ jobs:
           rm -rf "${{ github.workspace }}/artifacts/elevate.exe"
           for FILE in "${{ github.workspace }}/artifacts"/*; do
             if test -f "${FILE}"; then
-              gh release upload "${{ github.ref_name }}" "${FILE}" --clobber
+              gh release upload "${{ needs.Prepare.outputs.full_version }}" "${FILE}" --clobber
             fi
           done
