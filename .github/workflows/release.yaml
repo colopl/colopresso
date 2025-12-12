@@ -136,7 +136,7 @@ jobs:
           fi
 
           BASE_VERSION="${{ steps.generate_version.outputs.version }}"
-          PRERELEASE_VERSION="${BASE_VERSION}-${CHANNEL_SAFE}.${{ github.run_number }}"
+          PRERELEASE_VERSION="${BASE_VERSION}-${CHANNEL_SAFE}"
 
           TMP="$(mktemp)"
           jq --arg channel "${CHANNEL_SAFE}" --arg version "${PRERELEASE_VERSION}" '
@@ -225,7 +225,7 @@ jobs:
           if (-not $safeChannel) { Write-Error "Failed to normalize channel: $rawChannel"; exit 1 }
 
           $baseVersion = "${{ needs.Prepare.outputs.version }}"
-          $json.version = "${baseVersion}-$safeChannel.${{ github.run_number }}"
+          $json.version = "${baseVersion}-$safeChannel"
           $json.build.productName = "colopresso_${{ matrix.channel }}"
           $json.build.publish[0].channel = $safeChannel
           $json | ConvertTo-Json -Depth 64 | Set-Content $pkgPath -Encoding UTF8
@@ -452,8 +452,8 @@ jobs:
           - windows-latest
           - windows-11-arm
         channel:
-          - latest
           - ${{ needs.Prepare.outputs.update_channel }}
+          - ${{ needs.Prepare.outputs.update_channel == 'latest' && 'colopl_internal' || 'colopl_internal_canary' }}
     runs-on: ${{ matrix.runs-on }}
     env:
       COLOPRESSO_CLI_EXE: 'build\cli\Release\colopresso.exe'
@@ -755,23 +755,144 @@ jobs:
           pattern: colopresso-cli-*
           merge-multiple: true
           path: artifacts/
-      - name: Generate and upload checksums
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Split internal Electron assets
         run: |
-          cd "artifacts"
-          find . -type f -exec sh -c 'echo "$(sha256sum "$1" | cut -d" " -f1)  $(basename "$1")"' _ {} \; > "checksums.txt"
-          gh release upload "${{ needs.Prepare.outputs.full_version }}" "checksums.txt" --clobber
-      - name: Upload Release Assets
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # rm -rf "${{ github.workspace }}/artifacts/app-update.yml"
-          rm -rf "${{ github.workspace }}/artifacts/builder-debug.yml"
-          rm -rf "${{ github.workspace }}/artifacts/builder-effective-config.yaml"
-          rm -rf "${{ github.workspace }}/artifacts/elevate.exe"
+          UPDATE_CHANNEL="${{ needs.Prepare.outputs.update_channel }}"
+
+          if test "${UPDATE_CHANNEL}" = "latest"; then
+            INTERNAL_RAW="colopl_internal"
+          else
+            INTERNAL_RAW="colopl_internal_canary"
+          fi
+
+          INTERNAL_SAFE="$(printf '%s' "${INTERNAL_RAW}" | tr '[:upper:]' '[:lower:]' | tr '_' '-' | tr -cd '0-9a-z-')"
+          if test -z "${INTERNAL_SAFE}"; then
+            echo "Failed to normalize internal channel: ${INTERNAL_RAW}" >&2
+            exit 1
+          fi
+
+          mkdir -p "public_assets" "internal_assets"
+
+          shopt -s nullglob
           for FILE in "${{ github.workspace }}/artifacts"/*; do
             if test -f "${FILE}"; then
+              BASENAME="$(basename "${FILE}")"
+              if printf '%s' "${BASENAME}" | grep -q "${INTERNAL_RAW}"; then
+                mv "${FILE}" "internal_assets/"
+              elif test "${BASENAME}" = "${INTERNAL_SAFE}.yml"; then
+                mv "${FILE}" "internal_assets/"
+              else
+                mv "${FILE}" "public_assets/"
+              fi
+            fi
+          done
+      - name: Generate and upload (public)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd "public_assets"
+            find . -type f -exec sh -c 'echo "$(sha256sum "$1" | cut -d" " -f1)  $(basename "$1")"' _ {} \; > "checksums.txt"
+            gh release upload "${{ needs.Prepare.outputs.full_version }}" "checksums.txt" --clobber
+          cd -
+      - name: Upload Release Assets (public)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          rm -rf "${{ github.workspace }}/public_assets/app-update.yml"
+          rm -rf "${{ github.workspace }}/public_assets/builder-debug.yml"
+          rm -rf "${{ github.workspace }}/public_assets/builder-effective-config.yaml"
+          rm -rf "${{ github.workspace }}/public_assets/elevate.exe"
+          for FILE in "${{ github.workspace }}/public_assets"/*; do
+            if test -f "${FILE}"; then
               gh release upload "${{ needs.Prepare.outputs.full_version }}" "${FILE}" --clobber
+            fi
+          done
+      - name: Create Release (internal)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          UPDATE_CHANNEL="${{ needs.Prepare.outputs.update_channel }}"
+
+          if test "${UPDATE_CHANNEL}" = "latest"; then
+            INTERNAL_RAW="colopl_internal"
+          else
+            INTERNAL_RAW="colopl_internal_canary"
+          fi
+          INTERNAL_SAFE="$(printf '%s' "${INTERNAL_RAW}" | tr '[:upper:]' '[:lower:]' | tr '_' '-' | tr -cd '0-9a-z-')"
+          INTERNAL_TAG="v${{ needs.Prepare.outputs.version }}-${INTERNAL_SAFE}"
+
+          if test ! -d "internal_assets" || test -z "$(ls -A "internal_assets" 2>/dev/null)"; then
+            echo "No internal assets found; skipping internal release."
+            exit 0
+          fi
+
+          if gh release view "${INTERNAL_TAG}" > /dev/null 2>&1; then
+            echo "Internal release already exists: ${INTERNAL_TAG}"
+            exit 0
+          fi
+
+          gh release create "${INTERNAL_TAG}" \
+            --title "${{ needs.Prepare.outputs.version }} (${INTERNAL_RAW})" \
+            --generate-notes \
+            --prerelease=true \
+            --draft=false
+          for RETRY in {1..10}; do
+            if gh release view "${INTERNAL_TAG}" > /dev/null 2>&1; then
+              echo "Internal release is ready"
+              gh release view "${INTERNAL_TAG}"
+              break
+            fi
+            echo "Waiting for internal release to be available... (${RETRY}/10)"
+            sleep 2
+          done
+      - name: Generate and upload checksums (internal)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          UPDATE_CHANNEL="${{ needs.Prepare.outputs.update_channel }}"
+
+          if test "${UPDATE_CHANNEL}" = "latest"; then
+            INTERNAL_RAW="colopl_internal"
+          else
+            INTERNAL_RAW="colopl_internal_canary"
+          fi
+          INTERNAL_SAFE="$(printf '%s' "${INTERNAL_RAW}" | tr '[:upper:]' '[:lower:]' | tr '_' '-' | tr -cd '0-9a-z-')"
+          INTERNAL_TAG="v${{ needs.Prepare.outputs.version }}-${INTERNAL_SAFE}"
+
+          if test ! -d "internal_assets" || test -z "$(ls -A "internal_assets" 2>/dev/null)"; then
+            echo "No internal assets found; skipping internal checksums."
+            exit 0
+          fi
+
+          cd "internal_assets"
+            find . -type f -exec sh -c 'echo "$(sha256sum "$1" | cut -d" " -f1)  $(basename "$1")"' _ {} \; > "checksums.txt"
+            gh release upload "${INTERNAL_TAG}" "checksums.txt" --clobber
+          cd -
+      - name: Upload Release Assets (internal)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          UPDATE_CHANNEL="${{ needs.Prepare.outputs.update_channel }}"
+
+          if test "${UPDATE_CHANNEL}" = "latest"; then
+            INTERNAL_RAW="colopl_internal"
+          else
+            INTERNAL_RAW="colopl_internal_canary"
+          fi
+          INTERNAL_SAFE="$(printf '%s' "${INTERNAL_RAW}" | tr '[:upper:]' '[:lower:]' | tr '_' '-' | tr -cd '0-9a-z-')"
+          INTERNAL_TAG="v${{ needs.Prepare.outputs.version }}-${INTERNAL_SAFE}"
+
+          if test ! -d "internal_assets" || test -z "$(ls -A "internal_assets" 2>/dev/null)"; then
+            echo "No internal assets found; skipping internal upload."
+            exit 0
+          fi
+
+          rm -rf "${{ github.workspace }}/internal_assets/app-update.yml"
+          rm -rf "${{ github.workspace }}/internal_assets/builder-debug.yml"
+          rm -rf "${{ github.workspace }}/internal_assets/builder-effective-config.yaml"
+          rm -rf "${{ github.workspace }}/internal_assets/elevate.exe"
+          for FILE in "${{ github.workspace }}/internal_assets"/*; do
+            if test -f "${FILE}"; then
+              gh release upload "${INTERNAL_TAG}" "${FILE}" --clobber
             fi
           done
