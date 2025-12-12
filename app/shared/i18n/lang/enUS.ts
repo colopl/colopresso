@@ -275,9 +275,6 @@ const bundle: TranslationBundle = {
       },
     },
     updater: {
-      channelFlavor: {
-        internalSuffix: ' (internal)',
-      },
       dialog: {
         updateAvailable: {
           title: 'New version available',
@@ -310,6 +307,7 @@ const bundle: TranslationBundle = {
       },
       toast: {
         downloading: 'Downloading update... {progress}',
+        extracting: 'Extracting update... {progress}',
         progressUnknown: 'calculating...',
         downloaded: 'Update downloaded. Ready to install.',
         downloadFailed: 'Failed to install update: {message}',

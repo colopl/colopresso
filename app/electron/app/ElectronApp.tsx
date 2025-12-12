@@ -189,17 +189,43 @@ const ElectronAppInner: React.FC = () => {
       return undefined;
     }
 
+    let updatePhase: 'downloading' | 'extracting' = 'downloading';
+    let maxPercentSeen = 0;
+    let lastTransferred: number | undefined;
+
     const offStart = api.onUpdateDownloadStart?.((payload) => {
       const typed = (payload ?? {}) as { version?: string };
       const progressText = t('updater.toast.progressUnknown');
+      updatePhase = 'downloading';
+      maxPercentSeen = 0;
+      lastTransferred = undefined;
       applyStatusRef.current({ type: 'info', messageKey: 'updater.toast.downloading', durationMs: 0, params: { progress: progressText, version: typed.version } });
     });
 
     const offProgress = api.onUpdateDownloadProgress?.((payload) => {
-      const typed = (payload ?? {}) as { percent?: number; version?: string };
+      const typed = (payload ?? {}) as { percent?: number; transferred?: number; version?: string };
       const progressValue = typeof typed.percent === 'number' && Number.isFinite(typed.percent) ? Math.max(0, Math.min(100, typed.percent)) : undefined;
       const progressText = typeof progressValue === 'number' ? `${Math.round(progressValue)}%` : t('updater.toast.progressUnknown');
-      applyStatusRef.current({ type: 'info', messageKey: 'updater.toast.downloading', durationMs: 0, params: { progress: progressText, version: typed.version } });
+
+      if (typeof progressValue === 'number') {
+        maxPercentSeen = Math.max(maxPercentSeen, progressValue);
+      }
+
+      const transferred = typeof typed.transferred === 'number' && Number.isFinite(typed.transferred) ? typed.transferred : undefined;
+      const likelyResetAfterComplete =
+        updatePhase === 'downloading' &&
+        maxPercentSeen >= 99.5 &&
+        ((typeof progressValue === 'number' && progressValue <= 5) ||
+          (typeof transferred === 'number' && typeof lastTransferred === 'number' && transferred < lastTransferred));
+
+      if (likelyResetAfterComplete) {
+        updatePhase = 'extracting';
+      }
+
+      lastTransferred = transferred ?? lastTransferred;
+
+      const messageKey = updatePhase === 'extracting' ? 'updater.toast.extracting' : 'updater.toast.downloading';
+      applyStatusRef.current({ type: 'info', messageKey, durationMs: 0, params: { progress: progressText, version: typed.version } });
     });
 
     const offComplete = api.onUpdateDownloadComplete?.((payload) => {

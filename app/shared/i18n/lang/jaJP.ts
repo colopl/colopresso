@@ -279,9 +279,6 @@ const bundle: TranslationBundle = {
       },
     },
     updater: {
-      channelFlavor: {
-        internalSuffix: ' (internal)',
-      },
       dialog: {
         updateAvailable: {
           title: '新しいバージョンが見つかりました',
@@ -293,7 +290,7 @@ const bundle: TranslationBundle = {
           detail: {
             currentVersion: '現在のバージョン: {version}',
             availableVersion: '利用可能なバージョン: {version}',
-            channel: 'アップデートチャネル: {channel}{flavor}',
+            channel: 'アップデートチャネル: {channel}',
             platform: 'プラットフォーム: {platform}',
             releasePage: 'リリースページ: {url}',
           },
@@ -314,6 +311,7 @@ const bundle: TranslationBundle = {
       },
       toast: {
         downloading: 'アップデートをダウンロード中です... {progress}',
+        extracting: 'アップデートを展開中です... {progress}',
         progressUnknown: '計測中...',
         downloaded: 'アップデートのダウンロードが完了しました。',
         downloadFailed: 'アップデートのインストールに失敗しました: {message}',

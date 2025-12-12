@@ -169,13 +169,12 @@ function showMessageBoxWithOptionalParent(options: MessageBoxOptions): Promise<M
 }
 
 async function promptForUpdateDownload(info: UpdateInfo, config: ResolvedUpdateConfig): Promise<boolean> {
-  const flavorSuffix = config.flavor === 'internal' ? translate('updater.channelFlavor.internalSuffix') : '';
   const tag = typeof info.releaseName === 'string' && info.releaseName.trim().length > 0 ? info.releaseName : `v${info.version}`;
   const releaseUrl = `https://github.com/${config.owner}/${config.repo}/releases/tag/${encodeURIComponent(tag)}`;
   const detailLines = [
     translate('updater.dialog.updateAvailable.detail.currentVersion', { version: app.getVersion() }),
     translate('updater.dialog.updateAvailable.detail.availableVersion', { version: info.version }),
-    translate('updater.dialog.updateAvailable.detail.channel', { channel: config.channel, flavor: flavorSuffix }),
+    translate('updater.dialog.updateAvailable.detail.channel', { channel: config.channel }),
     translate('updater.dialog.updateAvailable.detail.platform', { platform: `${process.platform} ${process.arch}` }),
     translate('updater.dialog.updateAvailable.detail.releasePage', { url: releaseUrl }),
   ];
