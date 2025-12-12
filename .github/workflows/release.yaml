@@ -67,6 +67,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 1
+          ref: ${{ github.ref }}
       - name: Get EMSDK version
         id: get_emsdk_version
         working-directory: "third_party/emsdk"
@@ -713,6 +714,7 @@ jobs:
         with:
           submodules: false
           fetch-depth: 1
+          ref: ${{ github.ref }}
       - name: Create Release
         id: create_release
         env:
