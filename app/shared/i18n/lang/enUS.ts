@@ -286,7 +286,7 @@ const bundle: TranslationBundle = {
           detail: {
             currentVersion: 'Current version: {version}',
             availableVersion: 'Available version: {version}',
-            channel: 'Update channel: {channel}{flavor}',
+            channel: 'Update channel: {channel}',
             platform: 'Platform: {platform}',
             releasePage: 'Release page: {url}',
           },
