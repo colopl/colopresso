@@ -10,7 +10,7 @@
  */
 
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
-import type { FileFilter, IpcMainInvokeEvent } from 'electron';
+import type { FileFilter, IpcMainInvokeEvent, MessageBoxOptions, MessageBoxReturnValue } from 'electron';
 import { autoUpdater, UpdateDownloadedEvent, UpdateInfo } from 'electron-updater';
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
@@ -20,12 +20,12 @@ import { LanguageCode, TranslationParams } from '../shared/types';
 
 const PNG_EXTENSION = '.png';
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const shouldSkipAutoUpdate = process.env.COLOPRESSO_DISABLE_UPDATER === '1';
 type UpdateFlavor = 'public' | 'internal';
 let mainWindow: BrowserWindow | null = null;
 let autoUpdateInitialized = false;
 let updateCheckTimer: ReturnType<typeof setInterval> | null = null;
 let quittingForUpdate = false;
-const shouldSkipAutoUpdate = process.env.COLOPRESSO_DISABLE_UPDATER === '1';
 
 function sendUpdateIpc(channel: string, payload?: unknown): void {
   if (!mainWindow || mainWindow.isDestroyed()) {
@@ -74,18 +74,11 @@ interface ElectronSaveDialogResult {
 
 interface ResolvedUpdateConfig {
   channel: string;
-  channelNormalized: string;
   allowPrerelease: boolean;
   owner: string;
   repo: string;
   flavor: UpdateFlavor;
   releaseType: 'release' | 'prerelease';
-}
-
-function normalizeUpdateChannel(channel: string): string {
-  const raw = (typeof channel === 'string' ? channel : '').trim().toLowerCase();
-  const normalized = raw.replace(/_/g, '-').replace(/[^0-9a-z-]/g, '');
-  return normalized.length > 0 ? normalized : 'latest';
 }
 
 function sanitizeRelativePath(input: string): string {
@@ -144,15 +137,13 @@ function resolveUpdateConfig(): ResolvedUpdateConfig {
   const pub = (packageJson as { build?: { publish?: Array<{ owner?: string; repo?: string; channel?: string; flavor?: UpdateFlavor; releaseType?: 'release' | 'prerelease' }> } }).build?.publish ?? [];
   const primary = pub[0] ?? {};
   const channel = (primary.channel || 'latest').trim() || 'latest';
-  const channelNormalized = normalizeUpdateChannel(channel);
   const owner = typeof primary.owner === 'string' && primary.owner.trim().length > 0 ? primary.owner : 'colopl';
   const repo = typeof primary.repo === 'string' && primary.repo.trim().length > 0 ? primary.repo : 'colopresso';
   const flavor: UpdateFlavor = primary.flavor ?? 'internal';
-  const releaseType: 'release' | 'prerelease' = primary.releaseType === 'prerelease' || channelNormalized !== 'latest' ? 'prerelease' : 'release';
+  const releaseType: 'release' | 'prerelease' = primary.releaseType === 'prerelease' || channel !== 'latest' ? 'prerelease' : 'release';
 
   return {
     channel,
-    channelNormalized,
     allowPrerelease: releaseType === 'prerelease',
     owner,
     repo,
@@ -169,6 +160,14 @@ function getDialogParent(): BrowserWindow | null {
   return mainWindow;
 }
 
+function showMessageBoxWithOptionalParent(options: MessageBoxOptions): Promise<MessageBoxReturnValue> {
+  const parent = getDialogParent();
+  if (parent) {
+    return dialog.showMessageBox(parent, options);
+  }
+  return dialog.showMessageBox(options);
+}
+
 async function promptForUpdateDownload(info: UpdateInfo, config: ResolvedUpdateConfig): Promise<boolean> {
   const flavorSuffix = config.flavor === 'internal' ? translate('updater.channelFlavor.internalSuffix') : '';
   const tag = typeof info.releaseName === 'string' && info.releaseName.trim().length > 0 ? info.releaseName : `v${info.version}`;
@@ -181,8 +180,7 @@ async function promptForUpdateDownload(info: UpdateInfo, config: ResolvedUpdateC
     translate('updater.dialog.updateAvailable.detail.releasePage', { url: releaseUrl }),
   ];
 
-  const parent = getDialogParent() ?? undefined;
-  const { response } = await dialog.showMessageBox(parent, {
+  const { response } = await showMessageBoxWithOptionalParent({
     type: 'info',
     buttons: [translate('updater.dialog.updateAvailable.buttons.download'), translate('updater.dialog.updateAvailable.buttons.later')],
     defaultId: 0,
@@ -200,8 +198,7 @@ async function promptForInstall(event: UpdateDownloadedEvent): Promise<void> {
     mainWindow.setProgressBar(-1);
   }
 
-  const parent = getDialogParent() ?? undefined;
-  const { response } = await dialog.showMessageBox(parent, {
+  const { response } = await showMessageBoxWithOptionalParent({
     type: 'question',
     buttons: [translate('updater.dialog.readyToInstall.buttons.restartNow'), translate('updater.dialog.readyToInstall.buttons.later')],
     defaultId: 0,
@@ -227,7 +224,6 @@ function setupAutoUpdate(): void {
 
   console.info('[auto-update] resolved config', {
     channel: config.channel,
-    channelNormalized: config.channelNormalized,
     allowPrerelease: config.allowPrerelease,
     releaseType: config.releaseType,
     owner: config.owner,
@@ -238,7 +234,7 @@ function setupAutoUpdate(): void {
   autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.allowDowngrade = false;
   autoUpdater.allowPrerelease = config.allowPrerelease;
-  autoUpdater.channel = config.channelNormalized;
+  autoUpdater.channel = config.channel;
   autoUpdater.logger = console;
 
   autoUpdater.on('download-progress', (progress) => {
@@ -270,8 +266,7 @@ function setupAutoUpdate(): void {
       if (mainWindow) {
         mainWindow.setProgressBar(-1);
       }
-      const parent = getDialogParent() ?? undefined;
-      await dialog.showMessageBox(parent, {
+      await showMessageBoxWithOptionalParent({
         type: 'error',
         title: translate('updater.dialog.downloadFailed.title'),
         message: translate('updater.dialog.downloadFailed.message'),

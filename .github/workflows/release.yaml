@@ -67,7 +67,6 @@ jobs:
         with:
           submodules: true
           fetch-depth: 1
-          ref: ${{ github.ref }}
       - name: Get EMSDK version
         id: get_emsdk_version
         working-directory: "third_party/emsdk"
@@ -767,7 +766,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          rm -rf "${{ github.workspace }}/artifacts/app-update.yml"
+          # rm -rf "${{ github.workspace }}/artifacts/app-update.yml"
           rm -rf "${{ github.workspace }}/artifacts/builder-debug.yml"
           rm -rf "${{ github.workspace }}/artifacts/builder-effective-config.yaml"
           rm -rf "${{ github.workspace }}/artifacts/elevate.exe"
