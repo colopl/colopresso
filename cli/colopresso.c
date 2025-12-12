@@ -24,6 +24,7 @@
 
 #include <colopresso.h>
 #include <colopresso/portable.h>
+#include <internal/pngx.h>
 
 typedef enum {
   FORMAT_WEBP,
@@ -83,6 +84,23 @@ static struct option kLongOptions[] = {
     {"reduce-alpha", required_argument, 0, 0},
     {"dither", required_argument, 0, 0},
     {"smooth-cutoff", required_argument, 0, 0},
+    {"gradient-profile", no_argument, 0, 0},
+    {"no-gradient-profile", no_argument, 0, 0},
+    {"gradient-dither-floor", required_argument, 0, 0},
+    {"gradient-opaque-threshold", required_argument, 0, 0},
+    {"gradient-mean-max", required_argument, 0, 0},
+    {"gradient-sat-mean-max", required_argument, 0, 0},
+    {"tune-opaque-threshold", required_argument, 0, 0},
+    {"tune-gradient-mean-max", required_argument, 0, 0},
+    {"tune-sat-mean-max", required_argument, 0, 0},
+    {"tune-speed-max", required_argument, 0, 0},
+    {"tune-quality-min-floor", required_argument, 0, 0},
+    {"tune-quality-max-target", required_argument, 0, 0},
+    {"alpha-bleed", no_argument, 0, 0},
+    {"no-alpha-bleed", no_argument, 0, 0},
+    {"alpha-bleed-max-distance", required_argument, 0, 0},
+    {"alpha-bleed-opaque-threshold", required_argument, 0, 0},
+    {"alpha-bleed-soft-limit", required_argument, 0, 0},
     {"protect-color", required_argument, 0, 0},
     {0, 0, 0, 0}};
 
@@ -670,6 +688,67 @@ static void print_verbose_summary(const cpres_config_t *config, output_format_t 
       } else {
         printf("    Palette smoothing importance cutoff: %.2f\n", config->pngx_postprocess_smooth_importance_cutoff);
       }
+
+      if (palette_mode) {
+        printf("    Gradient profile: %s\n", config->pngx_palette256_gradient_profile_enable ? "enabled" : "disabled");
+        if (config->pngx_palette256_gradient_dither_floor < 0.0f) {
+          printf("    Gradient dither floor: internal default\n");
+        } else {
+          printf("    Gradient dither floor: %.2f\n", config->pngx_palette256_gradient_dither_floor);
+        }
+        printf("    Alpha bleed: %s\n", config->pngx_palette256_alpha_bleed_enable ? "enabled" : "disabled");
+        printf("    Alpha bleed max distance: %d\n", config->pngx_palette256_alpha_bleed_max_distance);
+        printf("    Alpha bleed opaque threshold: %d\n", config->pngx_palette256_alpha_bleed_opaque_threshold);
+        printf("    Alpha bleed soft limit: %d\n", config->pngx_palette256_alpha_bleed_soft_limit);
+
+        if (config->pngx_palette256_profile_opaque_ratio_threshold < 0.0f) {
+          printf("    Gradient profile opaque ratio threshold: internal default\n");
+        } else {
+          printf("    Gradient profile opaque ratio threshold: %.3f\n", config->pngx_palette256_profile_opaque_ratio_threshold);
+        }
+        if (config->pngx_palette256_profile_gradient_mean_max < 0.0f) {
+          printf("    Gradient profile gradient mean max: internal default\n");
+        } else {
+          printf("    Gradient profile gradient mean max: %.3f\n", config->pngx_palette256_profile_gradient_mean_max);
+        }
+        if (config->pngx_palette256_profile_saturation_mean_max < 0.0f) {
+          printf("    Gradient profile saturation mean max: internal default\n");
+        } else {
+          printf("    Gradient profile saturation mean max: %.3f\n", config->pngx_palette256_profile_saturation_mean_max);
+        }
+
+        if (config->pngx_palette256_tune_opaque_ratio_threshold < 0.0f) {
+          printf("    Tune opaque ratio threshold: internal default\n");
+        } else {
+          printf("    Tune opaque ratio threshold: %.3f\n", config->pngx_palette256_tune_opaque_ratio_threshold);
+        }
+        if (config->pngx_palette256_tune_gradient_mean_max < 0.0f) {
+          printf("    Tune gradient mean max: internal default\n");
+        } else {
+          printf("    Tune gradient mean max: %.3f\n", config->pngx_palette256_tune_gradient_mean_max);
+        }
+        if (config->pngx_palette256_tune_saturation_mean_max < 0.0f) {
+          printf("    Tune saturation mean max: internal default\n");
+        } else {
+          printf("    Tune saturation mean max: %.3f\n", config->pngx_palette256_tune_saturation_mean_max);
+        }
+
+        if (config->pngx_palette256_tune_speed_max < 0) {
+          printf("    Tune speed max: internal default\n");
+        } else {
+          printf("    Tune speed max: %d\n", config->pngx_palette256_tune_speed_max);
+        }
+        if (config->pngx_palette256_tune_quality_min_floor < 0) {
+          printf("    Tune quality min floor: internal default\n");
+        } else {
+          printf("    Tune quality min floor: %d\n", config->pngx_palette256_tune_quality_min_floor);
+        }
+        if (config->pngx_palette256_tune_quality_max_target < 0) {
+          printf("    Tune quality max target: internal default\n");
+        } else {
+          printf("    Tune quality max target: %d\n", config->pngx_palette256_tune_quality_max_target);
+        }
+      }
     }
     if (protected_colors_count > 0) {
       printf("    Protected colors: %d\n", (int)protected_colors_count);
@@ -975,6 +1054,183 @@ static bool handle_long_option(const char *name, const char *optarg, cpres_confi
     return true;
   }
 
+  if (strcmp(name, "gradient-profile") == 0) {
+    config->pngx_palette256_gradient_profile_enable = true;
+    return true;
+  }
+
+  if (strcmp(name, "no-gradient-profile") == 0) {
+    config->pngx_palette256_gradient_profile_enable = false;
+    return true;
+  }
+
+  if (strcmp(name, "gradient-dither-floor") == 0) {
+    if (!parse_double_value(optarg, &double_val)) {
+      fprintf(stderr, "Error: Invalid gradient-dither-floor (must be -1.0 or within 0.0-1.0)\n");
+      return false;
+    }
+    if (double_val != -1.0 && (double_val < 0.0 || double_val > 1.0)) {
+      fprintf(stderr, "Error: Invalid gradient-dither-floor (must be -1.0 or within 0.0-1.0)\n");
+      return false;
+    }
+    config->pngx_palette256_gradient_dither_floor = (float)double_val;
+    return true;
+  }
+
+  if (strcmp(name, "gradient-opaque-threshold") == 0) {
+    if (!parse_double_value(optarg, &double_val)) {
+      fprintf(stderr, "Error: Invalid gradient-opaque-threshold (must be -1.0 or within 0.0-1.0)\n");
+      return false;
+    }
+    if (double_val != -1.0 && (double_val < 0.0 || double_val > 1.0)) {
+      fprintf(stderr, "Error: Invalid gradient-opaque-threshold (must be -1.0 or within 0.0-1.0)\n");
+      return false;
+    }
+    config->pngx_palette256_profile_opaque_ratio_threshold = (float)double_val;
+    return true;
+  }
+
+  if (strcmp(name, "gradient-mean-max") == 0) {
+    if (!parse_double_value(optarg, &double_val)) {
+      fprintf(stderr, "Error: Invalid gradient-mean-max (must be -1.0 or within 0.0-1.0)\n");
+      return false;
+    }
+    if (double_val != -1.0 && (double_val < 0.0 || double_val > 1.0)) {
+      fprintf(stderr, "Error: Invalid gradient-mean-max (must be -1.0 or within 0.0-1.0)\n");
+      return false;
+    }
+    config->pngx_palette256_profile_gradient_mean_max = (float)double_val;
+    return true;
+  }
+
+  if (strcmp(name, "gradient-sat-mean-max") == 0) {
+    if (!parse_double_value(optarg, &double_val)) {
+      fprintf(stderr, "Error: Invalid gradient-sat-mean-max (must be -1.0 or within 0.0-1.0)\n");
+      return false;
+    }
+    if (double_val != -1.0 && (double_val < 0.0 || double_val > 1.0)) {
+      fprintf(stderr, "Error: Invalid gradient-sat-mean-max (must be -1.0 or within 0.0-1.0)\n");
+      return false;
+    }
+    config->pngx_palette256_profile_saturation_mean_max = (float)double_val;
+    return true;
+  }
+
+  if (strcmp(name, "tune-opaque-threshold") == 0) {
+    if (!parse_double_value(optarg, &double_val)) {
+      fprintf(stderr, "Error: Invalid tune-opaque-threshold (must be -1.0 or within 0.0-1.0)\n");
+      return false;
+    }
+    if (double_val != -1.0 && (double_val < 0.0 || double_val > 1.0)) {
+      fprintf(stderr, "Error: Invalid tune-opaque-threshold (must be -1.0 or within 0.0-1.0)\n");
+      return false;
+    }
+    config->pngx_palette256_tune_opaque_ratio_threshold = (float)double_val;
+    return true;
+  }
+
+  if (strcmp(name, "tune-gradient-mean-max") == 0) {
+    if (!parse_double_value(optarg, &double_val)) {
+      fprintf(stderr, "Error: Invalid tune-gradient-mean-max (must be -1.0 or within 0.0-1.0)\n");
+      return false;
+    }
+    if (double_val != -1.0 && (double_val < 0.0 || double_val > 1.0)) {
+      fprintf(stderr, "Error: Invalid tune-gradient-mean-max (must be -1.0 or within 0.0-1.0)\n");
+      return false;
+    }
+    config->pngx_palette256_tune_gradient_mean_max = (float)double_val;
+    return true;
+  }
+
+  if (strcmp(name, "tune-sat-mean-max") == 0) {
+    if (!parse_double_value(optarg, &double_val)) {
+      fprintf(stderr, "Error: Invalid tune-sat-mean-max (must be -1.0 or within 0.0-1.0)\n");
+      return false;
+    }
+    if (double_val != -1.0 && (double_val < 0.0 || double_val > 1.0)) {
+      fprintf(stderr, "Error: Invalid tune-sat-mean-max (must be -1.0 or within 0.0-1.0)\n");
+      return false;
+    }
+    config->pngx_palette256_tune_saturation_mean_max = (float)double_val;
+    return true;
+  }
+
+  if (strcmp(name, "tune-speed-max") == 0) {
+    if (!parse_long_value(optarg, &long_val)) {
+      fprintf(stderr, "Error: Invalid tune-speed-max (must be -1 or within 1-10)\n");
+      return false;
+    }
+    if (!(long_val == -1 || (long_val >= 1 && long_val <= 10))) {
+      fprintf(stderr, "Error: Invalid tune-speed-max (must be -1 or within 1-10)\n");
+      return false;
+    }
+    config->pngx_palette256_tune_speed_max = (int)long_val;
+    return true;
+  }
+
+  if (strcmp(name, "tune-quality-min-floor") == 0) {
+    if (!parse_long_value(optarg, &long_val)) {
+      fprintf(stderr, "Error: Invalid tune-quality-min-floor (must be -1 or within 0-100)\n");
+      return false;
+    }
+    if (!(long_val == -1 || (long_val >= 0 && long_val <= 100))) {
+      fprintf(stderr, "Error: Invalid tune-quality-min-floor (must be -1 or within 0-100)\n");
+      return false;
+    }
+    config->pngx_palette256_tune_quality_min_floor = (int)long_val;
+    return true;
+  }
+
+  if (strcmp(name, "tune-quality-max-target") == 0) {
+    if (!parse_long_value(optarg, &long_val)) {
+      fprintf(stderr, "Error: Invalid tune-quality-max-target (must be -1 or within 0-100)\n");
+      return false;
+    }
+    if (!(long_val == -1 || (long_val >= 0 && long_val <= 100))) {
+      fprintf(stderr, "Error: Invalid tune-quality-max-target (must be -1 or within 0-100)\n");
+      return false;
+    }
+    config->pngx_palette256_tune_quality_max_target = (int)long_val;
+    return true;
+  }
+
+  if (strcmp(name, "alpha-bleed") == 0) {
+    config->pngx_palette256_alpha_bleed_enable = true;
+    return true;
+  }
+
+  if (strcmp(name, "no-alpha-bleed") == 0) {
+    config->pngx_palette256_alpha_bleed_enable = false;
+    return true;
+  }
+
+  if (strcmp(name, "alpha-bleed-max-distance") == 0) {
+    if (!parse_long_range(optarg, 0, 65535, &long_val)) {
+      fprintf(stderr, "Error: Invalid alpha-bleed-max-distance (must be 0-65535)\n");
+      return false;
+    }
+    config->pngx_palette256_alpha_bleed_max_distance = (int)long_val;
+    return true;
+  }
+
+  if (strcmp(name, "alpha-bleed-opaque-threshold") == 0) {
+    if (!parse_long_range(optarg, 0, 255, &long_val)) {
+      fprintf(stderr, "Error: Invalid alpha-bleed-opaque-threshold (must be 0-255)\n");
+      return false;
+    }
+    config->pngx_palette256_alpha_bleed_opaque_threshold = (int)long_val;
+    return true;
+  }
+
+  if (strcmp(name, "alpha-bleed-soft-limit") == 0) {
+    if (!parse_long_range(optarg, 0, 255, &long_val)) {
+      fprintf(stderr, "Error: Invalid alpha-bleed-soft-limit (must be 0-255)\n");
+      return false;
+    }
+    config->pngx_palette256_alpha_bleed_soft_limit = (int)long_val;
+    return true;
+  }
+
   if (strcmp(name, "protect-color") == 0) {
     cpres_rgba_color_t *parsed_colors = NULL;
     int32_t count = parse_protected_colors(optarg, &parsed_colors);
@@ -1039,27 +1295,44 @@ static void print_usage(const char *program_name) {
   printf("      --alpha-q <int>         Alpha quality (0-100, default: 100)\n");
   printf("      --speed <int>           Encoder speed (0-10, default: 0; higher=faster)\n");
   printf("\n=== PNGX Options (--format=pngx) ===\n");
-  printf("  -m, --method <int>          Optimization level (0-6, default: 6)\n");
-  printf("      --strip-safe            Strip safe-to-remove chunks (default: on)\n");
-  printf("      --no-strip-safe         Keep all chunks\n");
-  printf("      --optimize-alpha        Optimize alpha channel (default: on)\n");
-  printf("      --no-optimize-alpha     Don't optimize alpha channel\n");
-  printf("      --lossy                 Enable lossy palette quantization (default: on)\n");
-  printf("      --type <value>          Reduction type: palette256 (default), limitedrgba16bit/limited, reducedrgba32/reduced\n");
-  printf("      --max-colors <int>      Max palette colors (2-256, default: 256)\n");
-  printf("      --reduced-colors <int>  Reduced RGBA32 colors (-1 auto, %d-%d)\n", COLOPRESSO_PNGX_REDUCED_COLORS_MIN,
+  printf("  -m, --method <int>                       Optimization level (0-6, default: 6)\n");
+  printf("      --strip-safe                         Strip safe-to-remove chunks (default: on)\n");
+  printf("      --no-strip-safe                      Keep all chunks\n");
+  printf("      --optimize-alpha                     Optimize alpha channel (default: on)\n");
+  printf("      --no-optimize-alpha                  Don't optimize alpha channel\n");
+  printf("      --lossy                              Enable lossy palette quantization (default: on)\n");
+  printf("      --type <value>                       Reduction type: palette256 (default), limitedrgba16bit/limited, reducedrgba32/reduced\n");
+  printf("      --max-colors <int>                   Max palette colors (2-256, default: 256)\n");
+  printf("      --reduced-colors <int>               Reduced RGBA32 colors (-1 auto, %d-%d)\n", COLOPRESSO_PNGX_REDUCED_COLORS_MIN,
       COLOPRESSO_PNGX_REDUCED_COLORS_MAX);
-    printf("      --reduce-bits-rgb <int> Reduced RGBA32 RGB bits (%d-%d, default: %d)\n", COLOPRESSO_PNGX_REDUCED_BITS_MIN,
+  printf("      --reduce-bits-rgb <int>              Reduced RGBA32 RGB bits (%d-%d, default: %d)\n", COLOPRESSO_PNGX_REDUCED_BITS_MIN,
       COLOPRESSO_PNGX_REDUCED_BITS_MAX, COLOPRESSO_PNGX_DEFAULT_REDUCED_BITS_RGB);
-    printf("      --reduce-alpha <int>    Reduced RGBA32 alpha bits (%d-%d, default: %d)\n", COLOPRESSO_PNGX_REDUCED_BITS_MIN,
+  printf("      --reduce-alpha <int>                 Reduced RGBA32 alpha bits (%d-%d, default: %d)\n", COLOPRESSO_PNGX_REDUCED_BITS_MIN,
       COLOPRESSO_PNGX_REDUCED_BITS_MAX, COLOPRESSO_PNGX_DEFAULT_REDUCED_ALPHA_BITS);
-  printf("      --quality <min-max>     Quality range (e.g. 80-95, default: 80-95)\n");
-  printf("      --speed <int>           Quantization speed (1-10, default: 1)\n");
-  printf("      --dither <float>        Dither level (0.0-1.0 or -1 for Limited auto, default: auto)\n");
-  printf("      --smooth-cutoff <float> Palette smoothing importance cutoff (-1 or 0.0-1.0, default: 0.6)\n");
-  printf("      --protect-color <list>  Protect colors from quantization\n");
-  printf("                                Format: RRGGBB or RRGGBBAA (hex), comma-separated\n");
-  printf("                                Example: --protect-color=FF0000,00FF00,0000FFFF\n");
+  printf("      --quality <min-max>                  Quality range (e.g. 80-95, default: 80-95)\n");
+  printf("      --speed <int>                        Quantization speed (1-10, default: 1)\n");
+  printf("      --dither <float>                     Dither level (0.0-1.0 or -1 for Limited auto, default: auto)\n");
+  printf("      --smooth-cutoff <float>              Palette smoothing importance cutoff (-1 or 0.0-1.0, default: 0.6)\n");
+  printf("      --gradient-profile                   Enable palette256 gradient-profile auto tuning (default: on)\n");
+  printf("      --no-gradient-profile                Disable palette256 gradient-profile auto tuning\n");
+  printf("      --gradient-dither-floor <float>      Override gradient-profile dither floor (-1 or 0.0-1.0, default: %.2f)\n", (double)PNGX_PALETTE256_GRADIENT_PROFILE_DITHER_FLOOR);
+  printf("      --gradient-opaque-threshold <float>  Override gradient opaque ratio threshold (-1 or 0.0-1.0, default: %.2f)\n", (double)PNGX_PALETTE256_GRADIENT_PROFILE_OPAQUE_RATIO_THRESHOLD);
+  printf("      --gradient-mean-max <float>          Override gradient mean max (-1 or 0.0-1.0, default: %.2f)\n", (double)PNGX_PALETTE256_GRADIENT_PROFILE_GRADIENT_MEAN_MAX);
+  printf("      --gradient-sat-mean-max <float>      Override saturation mean max (-1 or 0.0-1.0, default: %.2f)\n", (double)PNGX_PALETTE256_GRADIENT_PROFILE_SATURATION_MEAN_MAX);
+  printf("      --tune-opaque-threshold <float>      Override tune opaque ratio threshold (-1 or 0.0-1.0, default: %.2f)\n", (double)PNGX_PALETTE256_TUNE_OPAQUE_RATIO_THRESHOLD);
+  printf("      --tune-gradient-mean-max <float>     Override tune gradient mean max (-1 or 0.0-1.0, default: %.2f)\n", (double)PNGX_PALETTE256_TUNE_GRADIENT_MEAN_MAX);
+  printf("      --tune-sat-mean-max <float>          Override tune saturation mean max (-1 or 0.0-1.0, default: %.2f)\n", (double)PNGX_PALETTE256_TUNE_SATURATION_MEAN_MAX);
+  printf("      --tune-speed-max <int>               Override tune speed max (-1 or 1-10, default: %d)\n", (int)PNGX_PALETTE256_TUNE_SPEED_MAX);
+  printf("      --tune-quality-min-floor <int>       Override tune quality min floor (-1 or 0-100, default: %d)\n", (int)PNGX_PALETTE256_TUNE_QUALITY_MIN_FLOOR);
+  printf("      --tune-quality-max-target <int>      Override tune quality max target (-1 or 0-100, default: %d)\n", (int)PNGX_PALETTE256_TUNE_QUALITY_MAX_TARGET);
+  printf("      --alpha-bleed                        Enable palette256 alpha bleed (default: on)\n");
+  printf("      --no-alpha-bleed                     Disable palette256 alpha bleed\n");
+  printf("      --alpha-bleed-max-distance <int>     Bleed propagation distance (0-65535, default: 64)\n");
+  printf("      --alpha-bleed-opaque-threshold <int> Opaque seed alpha threshold (0-255, default: 248)\n");
+  printf("      --alpha-bleed-soft-limit <int>       Apply bleed when alpha <= soft limit (0-255, default: 160)\n");
+  printf("      --protect-color <list>               Protect colors from quantization\n");
+  printf("                                             Format: RRGGBB or RRGGBBAA (hex), comma-separated\n");
+  printf("                                             Example: --protect-color=FF0000,00FF00,0000FFFF\n");
 }
 
 static void print_version(void) {

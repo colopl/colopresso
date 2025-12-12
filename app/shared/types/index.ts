@@ -147,7 +147,7 @@ export interface AppSettingDefinition {
   defaultValue: boolean;
 }
 
-export const SETTINGS_SCHEMA_VERSION = 1;
+export const SETTINGS_SCHEMA_VERSION = 2;
 export const SETTINGS_SCHEMA_VERSION_STORAGE_KEY = 'settingsSchemaVersion';
 
 export interface SettingsState {

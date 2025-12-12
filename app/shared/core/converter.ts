@@ -86,6 +86,21 @@ export type ModuleWithHelpers = ColopressoModule & {
   _emscripten_config_pngx_chroma_weight_enable?(configPtr: number, value: number): void;
   _emscripten_config_pngx_postprocess_smooth_enable?(configPtr: number, value: number): void;
   _emscripten_config_pngx_postprocess_smooth_importance_cutoff?(configPtr: number, value: number): void;
+  _emscripten_config_pngx_palette256_gradient_profile_enable?(configPtr: number, value: number): void;
+  _emscripten_config_pngx_palette256_gradient_dither_floor?(configPtr: number, value: number): void;
+  _emscripten_config_pngx_palette256_alpha_bleed_enable?(configPtr: number, value: number): void;
+  _emscripten_config_pngx_palette256_alpha_bleed_max_distance?(configPtr: number, value: number): void;
+  _emscripten_config_pngx_palette256_alpha_bleed_opaque_threshold?(configPtr: number, value: number): void;
+  _emscripten_config_pngx_palette256_alpha_bleed_soft_limit?(configPtr: number, value: number): void;
+  _emscripten_config_pngx_palette256_profile_opaque_ratio_threshold?(configPtr: number, value: number): void;
+  _emscripten_config_pngx_palette256_profile_gradient_mean_max?(configPtr: number, value: number): void;
+  _emscripten_config_pngx_palette256_profile_saturation_mean_max?(configPtr: number, value: number): void;
+  _emscripten_config_pngx_palette256_tune_opaque_ratio_threshold?(configPtr: number, value: number): void;
+  _emscripten_config_pngx_palette256_tune_gradient_mean_max?(configPtr: number, value: number): void;
+  _emscripten_config_pngx_palette256_tune_saturation_mean_max?(configPtr: number, value: number): void;
+  _emscripten_config_pngx_palette256_tune_speed_max?(configPtr: number, value: number): void;
+  _emscripten_config_pngx_palette256_tune_quality_min_floor?(configPtr: number, value: number): void;
+  _emscripten_config_pngx_palette256_tune_quality_max_target?(configPtr: number, value: number): void;
   _emscripten_convert_png_to_webp?(pngPtr: number, pngSize: number, configPtr: number, outSizePtr: number): number;
   _emscripten_convert_png_to_avif?(pngPtr: number, pngSize: number, configPtr: number, outSizePtr: number): number;
   _emscripten_convert_png_to_pngx?(pngPtr: number, pngSize: number, configPtr: number, outSizePtr: number): number;
@@ -233,6 +248,22 @@ function createConfig(Module: ModuleWithHelpers, userConfig: FormatOptions = {})
   apply('_emscripten_config_pngx_chroma_weight_enable', userConfig.pngx_chroma_weight_enable as boolean | undefined);
   apply('_emscripten_config_pngx_postprocess_smooth_enable', userConfig.pngx_postprocess_smooth_enable as boolean | undefined);
   apply('_emscripten_config_pngx_postprocess_smooth_importance_cutoff', userConfig.pngx_postprocess_smooth_importance_cutoff as number | undefined);
+
+  apply('_emscripten_config_pngx_palette256_gradient_profile_enable', userConfig.pngx_palette256_gradient_profile_enable as boolean | undefined);
+  apply('_emscripten_config_pngx_palette256_gradient_dither_floor', userConfig.pngx_palette256_gradient_dither_floor as number | undefined);
+  apply('_emscripten_config_pngx_palette256_alpha_bleed_enable', userConfig.pngx_palette256_alpha_bleed_enable as boolean | undefined);
+  apply('_emscripten_config_pngx_palette256_alpha_bleed_max_distance', userConfig.pngx_palette256_alpha_bleed_max_distance as number | undefined);
+  apply('_emscripten_config_pngx_palette256_alpha_bleed_opaque_threshold', userConfig.pngx_palette256_alpha_bleed_opaque_threshold as number | undefined);
+  apply('_emscripten_config_pngx_palette256_alpha_bleed_soft_limit', userConfig.pngx_palette256_alpha_bleed_soft_limit as number | undefined);
+  apply('_emscripten_config_pngx_palette256_profile_opaque_ratio_threshold', userConfig.pngx_palette256_profile_opaque_ratio_threshold as number | undefined);
+  apply('_emscripten_config_pngx_palette256_profile_gradient_mean_max', userConfig.pngx_palette256_profile_gradient_mean_max as number | undefined);
+  apply('_emscripten_config_pngx_palette256_profile_saturation_mean_max', userConfig.pngx_palette256_profile_saturation_mean_max as number | undefined);
+  apply('_emscripten_config_pngx_palette256_tune_opaque_ratio_threshold', userConfig.pngx_palette256_tune_opaque_ratio_threshold as number | undefined);
+  apply('_emscripten_config_pngx_palette256_tune_gradient_mean_max', userConfig.pngx_palette256_tune_gradient_mean_max as number | undefined);
+  apply('_emscripten_config_pngx_palette256_tune_saturation_mean_max', userConfig.pngx_palette256_tune_saturation_mean_max as number | undefined);
+  apply('_emscripten_config_pngx_palette256_tune_speed_max', userConfig.pngx_palette256_tune_speed_max as number | undefined);
+  apply('_emscripten_config_pngx_palette256_tune_quality_min_floor', userConfig.pngx_palette256_tune_quality_min_floor as number | undefined);
+  apply('_emscripten_config_pngx_palette256_tune_quality_max_target', userConfig.pngx_palette256_tune_quality_max_target as number | undefined);
 
   let protectedColorsPtr: number | null = null;
   const protectedColors = userConfig.pngx_protected_colors as ProtectedColor[] | undefined;

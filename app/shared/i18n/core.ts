@@ -44,12 +44,7 @@ export function format(template: string, params?: TranslationParams): string {
   });
 }
 
-export function translateForLanguage(
-  bundles: Record<LanguageCode, TranslationBundle>,
-  language: LanguageCode,
-  key: string,
-  params?: TranslationParams
-): string {
+export function translateForLanguage(bundles: Record<LanguageCode, TranslationBundle>, language: LanguageCode, key: string, params?: TranslationParams): string {
   const bundle = bundles[language] ?? bundles['en-us'];
   const raw = resolveMessage(bundle.messages as Record<string, unknown>, key);
   if (typeof raw === 'string') {

@@ -99,6 +99,9 @@ const bundle: TranslationBundle = {
         pngxReducedBitsRgb: 'Specify the RGB grid (1-8 bits). Lower values improve compression but increase banding.',
         pngxReducedAlphaBits: 'Specify the alpha grid (1-8 bits).',
         pngxDitherReducedUnused: 'Use 0-100 dithering strength for grid quantization.',
+        pngxPalette256GradientDitherFloor: 'Set -1 to use the internal default, or specify 0.0-1.0 as the dithering floor for gradient-profile tuning.',
+        pngxPalette256AlphaBleed: 'Reduces color fringing around transparent edges by bleeding nearby colors.',
+        pngxPalette256Threshold: 'Set -1 to use the internal default. Values are clamped to a valid range.',
       },
       labels: {
         pngxMaxColorsBase: 'Max colors',
@@ -242,6 +245,9 @@ const bundle: TranslationBundle = {
       },
       pngx: {
         name: 'PNG',
+        sections: {
+          palette256: 'Palette256 tuning',
+        },
         fields: {
           level: 'Optimization level (0-6)',
           strip_safe: 'Strip safe chunks',
@@ -264,6 +270,21 @@ const bundle: TranslationBundle = {
           postprocess_smooth: 'Post-process smoothing',
           postprocess_smooth_cutoff: 'Smoothing importance cutoff (-1 disables)',
           protected_colors: 'Protected colors (exclude from quantization)',
+          palette256_gradient_profile_enable: 'Gradient-profile tuning',
+          palette256_gradient_dither_floor: 'Gradient dither floor (-1 = default)',
+          palette256_alpha_bleed_enable: 'Alpha bleed (fringe mitigation)',
+          palette256_alpha_bleed_max_distance: 'Alpha bleed max distance',
+          palette256_alpha_bleed_opaque_threshold: 'Alpha bleed opaque threshold',
+          palette256_alpha_bleed_soft_limit: 'Alpha bleed soft limit',
+          palette256_profile_opaque_ratio_threshold: 'Profile: opaque ratio threshold (-1 = default)',
+          palette256_profile_gradient_mean_max: 'Profile: gradient mean max (-1 = default)',
+          palette256_profile_saturation_mean_max: 'Profile: saturation mean max (-1 = default)',
+          palette256_tune_opaque_ratio_threshold: 'Tune: opaque ratio threshold (-1 = default)',
+          palette256_tune_gradient_mean_max: 'Tune: gradient mean max (-1 = default)',
+          palette256_tune_saturation_mean_max: 'Tune: saturation mean max (-1 = default)',
+          palette256_tune_speed_max: 'Tune: speed max (-1 = default)',
+          palette256_tune_quality_min_floor: 'Tune: quality min floor (-1 = default)',
+          palette256_tune_quality_max_target: 'Tune: quality max target (-1 = default)',
         },
         options: {
           lossy_type: {
