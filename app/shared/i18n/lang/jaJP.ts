@@ -199,11 +199,6 @@ const bundle: TranslationBundle = {
           lossy: '画像減色',
         },
       },
-      updateDownloading: {
-        title: 'アップデートをダウンロード中です...',
-        hint: '完了までお待ちください。進捗: {progress}',
-        progressUnknown: '計測中...'
-      },
       webp: {
         name: 'WebP',
         fields: {
