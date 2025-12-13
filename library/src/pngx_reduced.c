@@ -1125,12 +1125,6 @@ static inline bool enforce_manual_reduced_limit(pngx_rgba_image_t *image, uint32
     return true;
   }
 
-  if (manual_limit < COLOPRESSO_PNGX_REDUCED_COLORS_MIN) {
-    manual_limit = COLOPRESSO_PNGX_REDUCED_COLORS_MIN;
-  } else if (manual_limit > COLOPRESSO_PNGX_REDUCED_COLORS_MAX) {
-    manual_limit = COLOPRESSO_PNGX_REDUCED_COLORS_MAX;
-  }
-
   snap_rgba_image_to_bits(image->rgba, image->pixel_count, bits_rgb, bits_alpha);
 
   if (!build_color_frequency(image->rgba, image->pixel_count, &freq, &freq_count)) {
@@ -2049,8 +2043,6 @@ static inline uint32_t resolve_reduced_rgba32_target(const pngx_color_histogram_
 
   if (unlocked == 0) {
     target = (uint32_t)unique_colors;
-  } else if (target == 0) {
-    target = 1;
   }
 
   return target;
@@ -2139,19 +2131,6 @@ bool pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t png_size, cons
 
     if (applied_colors) {
       *applied_colors = (uint32_t)grid_unique;
-    }
-
-    if (manual_target) {
-      if (!enforce_manual_reduced_limit(&image, manual_limit, bits_rgb, bits_alpha, applied_colors)) {
-        quant_support_reset(&support);
-        rgba_image_reset(&image);
-
-        return false;
-      }
-
-      if (resolved_target && *resolved_target > manual_limit) {
-        *resolved_target = manual_limit;
-      }
     }
 
     wrote = create_rgba_png(image.rgba, image.pixel_count, image.width, image.height, out_data, out_size);

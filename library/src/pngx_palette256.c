@@ -708,9 +708,11 @@ bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pn
 
   resolved_dither = resolve_quant_dither(opts, &stats);
 
-  estimated_dither = estimate_bitdepth_dither_level(image.rgba, image.width, image.height, 8);
-  if (estimated_dither > resolved_dither) {
-    resolved_dither = estimated_dither;
+  if (opts->lossy_dither_auto) {
+    estimated_dither = estimate_bitdepth_dither_level(image.rgba, image.width, image.height, 8);
+    if (estimated_dither > resolved_dither) {
+      resolved_dither = estimated_dither;
+    }
   }
 
   gradient_dither_floor = tuned_opts.palette256_gradient_profile_dither_floor;
