@@ -151,7 +151,7 @@ jobs:
           tar -czf "../versioned-code.tar.gz" -C .. "$(basename "$PWD")"
           mv "../versioned-code.tar.gz" "./versioned-code.tar.gz"
       - name: Upload versioned code
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: versioned-code
           path: ./versioned-code.tar.gz
@@ -161,7 +161,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Download versioned code
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: versioned-code
           path: .
@@ -179,7 +179,7 @@ jobs:
           mkdir -p "${{ github.workspace }}/dist"
           tar -czf "${{ github.workspace }}/dist/colopresso_source.tar.gz" -C "/tmp" "colopresso"
       - name: Upload artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: colopresso-source
           path: dist/
@@ -193,7 +193,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Download versioned code
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: versioned-code
           path: .
@@ -270,7 +270,7 @@ jobs:
             Copy-Item $_.FullName -Destination "dist\"
           }
       - name: Upload artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: colopresso-electron-windows-${{ matrix.channel }}
           path: dist/
@@ -280,7 +280,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Download versioned code
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: versioned-code
           path: .
@@ -396,7 +396,7 @@ jobs:
           find "dist_build" -type f \( -name '*.dmg' -o -name '*.dmg.blockmap' -o -name '*.zip' -o -name '*.zip.blockmap' -o -name '*.yml' \) \
             -exec cp {} "dist/" \;
       - name: Upload artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: colopresso-electron-macos
           path: dist/
@@ -406,7 +406,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Download versioned code
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: versioned-code
           path: .
@@ -442,7 +442,7 @@ jobs:
           mkdir -p "dist"
           tar -czf "dist/colopresso_chrome.tar.gz" -C "${PWD}/build" "chrome"
       - name: Upload artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: colopresso-chrome-extension
           path: dist/
@@ -461,7 +461,7 @@ jobs:
       COLOPRESSO_CLI_EXE: 'build\cli\Release\colopresso.exe'
     steps:
       - name: Download versioned code
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: versioned-code
       - name: Extract versioned code
@@ -511,7 +511,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path "dist" | Out-Null
           Copy-Item "${env:COLOPRESSO_CLI_EXE}" "dist/colopresso_windows_cli_${{ matrix.runs-on == 'windows-11-arm' && 'arm64' || 'x64' }}${{ matrix.channel != 'latest' && format('_{0}', matrix.channel) || '' }}.exe"
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: colopresso-cli-windows-${{ matrix.runs-on == 'windows-11-arm' && 'arm64' || 'x64' }}-${{ matrix.channel }}
           path: dist/
@@ -530,7 +530,7 @@ jobs:
     runs-on: ${{ matrix.arch.runs-on }}
     steps:
       - name: Download versioned code
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: versioned-code
           path: .
@@ -637,7 +637,7 @@ jobs:
           mkdir -p "artifact"
           cp "build/cli/colopresso" "artifact/colopresso-cli-macos-${{ matrix.arch.name }}"
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: colopresso-cli-macos-${{ matrix.arch.name }}
           path: artifact/
@@ -654,7 +654,7 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Download versioned code
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: versioned-code
           path: .
@@ -693,7 +693,7 @@ jobs:
           mkdir -p "artifact"
           cp "build/cli/colopresso" "artifact/colopresso-cli-linux-${{ matrix.arch }}"
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: colopresso-cli-linux-${{ matrix.arch }}
           path: artifact/
@@ -717,23 +717,23 @@ jobs:
           fetch-depth: 1
           ref: ${{ github.ref }}
       - name: Download Chrome Extension Artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: colopresso-chrome-extension
           path: artifacts/
       - name: Download Source Artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: colopresso-source
           path: artifacts/
       - name: Download Electron Artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: colopresso-electron-*
           merge-multiple: true
           path: artifacts/
       - name: Download CLI Artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: colopresso-cli-*
           merge-multiple: true
