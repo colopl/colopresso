@@ -58,16 +58,24 @@ bool pngx_run_quantization(const uint8_t *png_data, size_t png_size, const pngx_
 }
 
 void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config) {
-  uint16_t lossy_max_colors = COLOPRESSO_PNGX_DEFAULT_LOSSY_MAX_COLORS;
+  uint16_t lossy_max_colors = COLOPRESSO_PNGX_DEFAULT_LOSSY_MAX_COLORS, palette256_alpha_bleed_max_distance = COLOPRESSO_PNGX_DEFAULT_PALETTE256_ALPHA_BLEED_MAX_DISTANCE;
   uint8_t level = COLOPRESSO_PNGX_DEFAULT_LEVEL, lossy_quality_min = COLOPRESSO_PNGX_DEFAULT_LOSSY_QUALITY_MIN, lossy_quality_max = COLOPRESSO_PNGX_DEFAULT_LOSSY_QUALITY_MAX,
           lossy_speed = COLOPRESSO_PNGX_DEFAULT_LOSSY_SPEED, lossy_type = COLOPRESSO_PNGX_DEFAULT_LOSSY_TYPE, lossy_reduced_bits_rgb = COLOPRESSO_PNGX_DEFAULT_REDUCED_BITS_RGB,
-          lossy_reduced_bits_alpha = COLOPRESSO_PNGX_DEFAULT_REDUCED_ALPHA_BITS, tmp;
+          lossy_reduced_bits_alpha = COLOPRESSO_PNGX_DEFAULT_REDUCED_ALPHA_BITS, tmp, palette256_alpha_bleed_opaque_threshold = COLOPRESSO_PNGX_DEFAULT_PALETTE256_ALPHA_BLEED_OPAQUE_THRESHOLD,
+          palette256_alpha_bleed_soft_limit = COLOPRESSO_PNGX_DEFAULT_PALETTE256_ALPHA_BLEED_SOFT_LIMIT;
   int32_t lossy_reduced_colors = COLOPRESSO_PNGX_DEFAULT_REDUCED_COLORS, clamped;
+  int16_t palette256_tune_speed_max = PNGX_PALETTE256_TUNE_SPEED_MAX, palette256_tune_quality_min_floor = PNGX_PALETTE256_TUNE_QUALITY_MIN_FLOOR,
+          palette256_tune_quality_max_target = PNGX_PALETTE256_TUNE_QUALITY_MAX_TARGET;
   bool strip_safe = COLOPRESSO_PNGX_DEFAULT_STRIP_SAFE, optimize_alpha = COLOPRESSO_PNGX_DEFAULT_OPTIMIZE_ALPHA, lossy_enable = COLOPRESSO_PNGX_DEFAULT_LOSSY_ENABLE, lossy_dither_auto = false,
        saliency_map_enable = COLOPRESSO_PNGX_DEFAULT_SALIENCY_MAP_ENABLE, chroma_anchor_enable = COLOPRESSO_PNGX_DEFAULT_CHROMA_ANCHOR_ENABLE,
        adaptive_dither_enable = COLOPRESSO_PNGX_DEFAULT_ADAPTIVE_DITHER_ENABLE, gradient_boost_enable = COLOPRESSO_PNGX_DEFAULT_GRADIENT_BOOST_ENABLE,
-       chroma_weight_enable = COLOPRESSO_PNGX_DEFAULT_CHROMA_WEIGHT_ENABLE, postprocess_smooth_enable = COLOPRESSO_PNGX_DEFAULT_POSTPROCESS_SMOOTH_ENABLE;
-  float lossy_dither_level = COLOPRESSO_PNGX_DEFAULT_LOSSY_DITHER_LEVEL, postprocess_smooth_importance_cutoff = COLOPRESSO_PNGX_DEFAULT_POSTPROCESS_SMOOTH_IMPORTANCE_CUTOFF;
+       chroma_weight_enable = COLOPRESSO_PNGX_DEFAULT_CHROMA_WEIGHT_ENABLE, postprocess_smooth_enable = COLOPRESSO_PNGX_DEFAULT_POSTPROCESS_SMOOTH_ENABLE,
+       palette256_gradient_profile_enable = COLOPRESSO_PNGX_DEFAULT_PALETTE256_GRADIENT_PROFILE_ENABLE, palette256_alpha_bleed_enable = COLOPRESSO_PNGX_DEFAULT_PALETTE256_ALPHA_BLEED_ENABLE;
+  float lossy_dither_level = COLOPRESSO_PNGX_DEFAULT_LOSSY_DITHER_LEVEL, postprocess_smooth_importance_cutoff = COLOPRESSO_PNGX_DEFAULT_POSTPROCESS_SMOOTH_IMPORTANCE_CUTOFF,
+        palette256_gradient_profile_dither_floor = PNGX_PALETTE256_GRADIENT_PROFILE_DITHER_FLOOR, palette256_profile_opaque_ratio_threshold = PNGX_PALETTE256_GRADIENT_PROFILE_OPAQUE_RATIO_THRESHOLD,
+        palette256_profile_gradient_mean_max = PNGX_PALETTE256_GRADIENT_PROFILE_GRADIENT_MEAN_MAX, palette256_profile_saturation_mean_max = PNGX_PALETTE256_GRADIENT_PROFILE_SATURATION_MEAN_MAX,
+        palette256_tune_opaque_ratio_threshold = PNGX_PALETTE256_TUNE_OPAQUE_RATIO_THRESHOLD, palette256_tune_gradient_mean_max = PNGX_PALETTE256_TUNE_GRADIENT_MEAN_MAX,
+        palette256_tune_saturation_mean_max = PNGX_PALETTE256_TUNE_SATURATION_MEAN_MAX;
 
   if (!opts) {
     return;
@@ -137,6 +145,52 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config) 
     chroma_weight_enable = config->pngx_chroma_weight_enable;
     postprocess_smooth_enable = config->pngx_postprocess_smooth_enable;
     postprocess_smooth_importance_cutoff = config->pngx_postprocess_smooth_importance_cutoff;
+
+    palette256_gradient_profile_enable = config->pngx_palette256_gradient_profile_enable;
+    if (config->pngx_palette256_gradient_dither_floor >= 0.0f && config->pngx_palette256_gradient_dither_floor <= 1.0f) {
+      palette256_gradient_profile_dither_floor = config->pngx_palette256_gradient_dither_floor;
+    }
+    palette256_alpha_bleed_enable = config->pngx_palette256_alpha_bleed_enable;
+
+    if (config->pngx_palette256_alpha_bleed_max_distance >= 0 && config->pngx_palette256_alpha_bleed_max_distance <= 65535) {
+      palette256_alpha_bleed_max_distance = (uint16_t)config->pngx_palette256_alpha_bleed_max_distance;
+    }
+    if (config->pngx_palette256_alpha_bleed_opaque_threshold >= 0 && config->pngx_palette256_alpha_bleed_opaque_threshold <= 255) {
+      palette256_alpha_bleed_opaque_threshold = (uint8_t)config->pngx_palette256_alpha_bleed_opaque_threshold;
+    }
+    if (config->pngx_palette256_alpha_bleed_soft_limit >= 0 && config->pngx_palette256_alpha_bleed_soft_limit <= 255) {
+      palette256_alpha_bleed_soft_limit = (uint8_t)config->pngx_palette256_alpha_bleed_soft_limit;
+    }
+
+    if (config->pngx_palette256_profile_opaque_ratio_threshold >= 0.0f && config->pngx_palette256_profile_opaque_ratio_threshold <= 1.0f) {
+      palette256_profile_opaque_ratio_threshold = config->pngx_palette256_profile_opaque_ratio_threshold;
+    }
+    if (config->pngx_palette256_profile_gradient_mean_max >= 0.0f && config->pngx_palette256_profile_gradient_mean_max <= 1.0f) {
+      palette256_profile_gradient_mean_max = config->pngx_palette256_profile_gradient_mean_max;
+    }
+    if (config->pngx_palette256_profile_saturation_mean_max >= 0.0f && config->pngx_palette256_profile_saturation_mean_max <= 1.0f) {
+      palette256_profile_saturation_mean_max = config->pngx_palette256_profile_saturation_mean_max;
+    }
+
+    if (config->pngx_palette256_tune_opaque_ratio_threshold >= 0.0f && config->pngx_palette256_tune_opaque_ratio_threshold <= 1.0f) {
+      palette256_tune_opaque_ratio_threshold = config->pngx_palette256_tune_opaque_ratio_threshold;
+    }
+    if (config->pngx_palette256_tune_gradient_mean_max >= 0.0f && config->pngx_palette256_tune_gradient_mean_max <= 1.0f) {
+      palette256_tune_gradient_mean_max = config->pngx_palette256_tune_gradient_mean_max;
+    }
+    if (config->pngx_palette256_tune_saturation_mean_max >= 0.0f && config->pngx_palette256_tune_saturation_mean_max <= 1.0f) {
+      palette256_tune_saturation_mean_max = config->pngx_palette256_tune_saturation_mean_max;
+    }
+
+    if (config->pngx_palette256_tune_speed_max >= 1 && config->pngx_palette256_tune_speed_max <= 10) {
+      palette256_tune_speed_max = (int16_t)config->pngx_palette256_tune_speed_max;
+    }
+    if (config->pngx_palette256_tune_quality_min_floor >= 0 && config->pngx_palette256_tune_quality_min_floor <= 100) {
+      palette256_tune_quality_min_floor = (int16_t)config->pngx_palette256_tune_quality_min_floor;
+    }
+    if (config->pngx_palette256_tune_quality_max_target >= 0 && config->pngx_palette256_tune_quality_max_target <= 100) {
+      palette256_tune_quality_max_target = (int16_t)config->pngx_palette256_tune_quality_max_target;
+    }
   } else {
     opts->protected_colors = NULL;
     opts->protected_colors_count = 0;
@@ -153,6 +207,54 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config) 
     postprocess_smooth_importance_cutoff = -1.0f;
   } else {
     postprocess_smooth_importance_cutoff = clamp_float(postprocess_smooth_importance_cutoff, 0.0f, 1.0f);
+  }
+
+  if (palette256_gradient_profile_dither_floor < 0.0f) {
+    palette256_gradient_profile_dither_floor = -1.0f;
+  } else {
+    palette256_gradient_profile_dither_floor = clamp_float(palette256_gradient_profile_dither_floor, 0.0f, 1.0f);
+  }
+
+  if (palette256_profile_opaque_ratio_threshold < 0.0f) {
+    palette256_profile_opaque_ratio_threshold = -1.0f;
+  } else {
+    palette256_profile_opaque_ratio_threshold = clamp_float(palette256_profile_opaque_ratio_threshold, 0.0f, 1.0f);
+  }
+  if (palette256_profile_gradient_mean_max < 0.0f) {
+    palette256_profile_gradient_mean_max = -1.0f;
+  } else {
+    palette256_profile_gradient_mean_max = clamp_float(palette256_profile_gradient_mean_max, 0.0f, 1.0f);
+  }
+  if (palette256_profile_saturation_mean_max < 0.0f) {
+    palette256_profile_saturation_mean_max = -1.0f;
+  } else {
+    palette256_profile_saturation_mean_max = clamp_float(palette256_profile_saturation_mean_max, 0.0f, 1.0f);
+  }
+
+  if (palette256_tune_opaque_ratio_threshold < 0.0f) {
+    palette256_tune_opaque_ratio_threshold = -1.0f;
+  } else {
+    palette256_tune_opaque_ratio_threshold = clamp_float(palette256_tune_opaque_ratio_threshold, 0.0f, 1.0f);
+  }
+  if (palette256_tune_gradient_mean_max < 0.0f) {
+    palette256_tune_gradient_mean_max = -1.0f;
+  } else {
+    palette256_tune_gradient_mean_max = clamp_float(palette256_tune_gradient_mean_max, 0.0f, 1.0f);
+  }
+  if (palette256_tune_saturation_mean_max < 0.0f) {
+    palette256_tune_saturation_mean_max = -1.0f;
+  } else {
+    palette256_tune_saturation_mean_max = clamp_float(palette256_tune_saturation_mean_max, 0.0f, 1.0f);
+  }
+
+  if (palette256_tune_speed_max < -1) {
+    palette256_tune_speed_max = -1;
+  }
+  if (palette256_tune_quality_min_floor < -1) {
+    palette256_tune_quality_min_floor = -1;
+  }
+  if (palette256_tune_quality_max_target < -1) {
+    palette256_tune_quality_max_target = -1;
   }
 
   opts->bridge.optimization_level = level;
@@ -176,6 +278,21 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config) 
   opts->chroma_weight_enable = chroma_weight_enable;
   opts->postprocess_smooth_enable = postprocess_smooth_enable;
   opts->postprocess_smooth_importance_cutoff = postprocess_smooth_importance_cutoff;
+  opts->palette256_gradient_profile_enable = palette256_gradient_profile_enable;
+  opts->palette256_gradient_profile_dither_floor = palette256_gradient_profile_dither_floor;
+  opts->palette256_alpha_bleed_enable = palette256_alpha_bleed_enable;
+  opts->palette256_alpha_bleed_max_distance = palette256_alpha_bleed_max_distance;
+  opts->palette256_alpha_bleed_opaque_threshold = palette256_alpha_bleed_opaque_threshold;
+  opts->palette256_alpha_bleed_soft_limit = palette256_alpha_bleed_soft_limit;
+  opts->palette256_profile_opaque_ratio_threshold = palette256_profile_opaque_ratio_threshold;
+  opts->palette256_profile_gradient_mean_max = palette256_profile_gradient_mean_max;
+  opts->palette256_profile_saturation_mean_max = palette256_profile_saturation_mean_max;
+  opts->palette256_tune_opaque_ratio_threshold = palette256_tune_opaque_ratio_threshold;
+  opts->palette256_tune_gradient_mean_max = palette256_tune_gradient_mean_max;
+  opts->palette256_tune_saturation_mean_max = palette256_tune_saturation_mean_max;
+  opts->palette256_tune_speed_max = palette256_tune_speed_max;
+  opts->palette256_tune_quality_min_floor = palette256_tune_quality_min_floor;
+  opts->palette256_tune_quality_max_target = palette256_tune_quality_max_target;
 }
 
 bool pngx_run_lossless_optimization(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_data, size_t *out_size) {

@@ -215,8 +215,7 @@ const ElectronAppInner: React.FC = () => {
       const likelyResetAfterComplete =
         updatePhase === 'downloading' &&
         maxPercentSeen >= 99.5 &&
-        ((typeof progressValue === 'number' && progressValue <= 5) ||
-          (typeof transferred === 'number' && typeof lastTransferred === 'number' && transferred < lastTransferred));
+        ((typeof progressValue === 'number' && progressValue <= 5) || (typeof transferred === 'number' && typeof lastTransferred === 'number' && transferred < lastTransferred));
 
       if (likelyResetAfterComplete) {
         updatePhase = 'extracting';

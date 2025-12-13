@@ -89,6 +89,21 @@ void cpres_config_init_defaults(cpres_config_t *config) {
   config->pngx_chroma_weight_enable = COLOPRESSO_PNGX_DEFAULT_CHROMA_WEIGHT_ENABLE;
   config->pngx_postprocess_smooth_enable = COLOPRESSO_PNGX_DEFAULT_POSTPROCESS_SMOOTH_ENABLE;
   config->pngx_postprocess_smooth_importance_cutoff = COLOPRESSO_PNGX_DEFAULT_POSTPROCESS_SMOOTH_IMPORTANCE_CUTOFF;
+  config->pngx_palette256_gradient_profile_enable = COLOPRESSO_PNGX_DEFAULT_PALETTE256_GRADIENT_PROFILE_ENABLE;
+  config->pngx_palette256_gradient_dither_floor = COLOPRESSO_PNGX_DEFAULT_PALETTE256_GRADIENT_DITHER_FLOOR;
+  config->pngx_palette256_alpha_bleed_enable = COLOPRESSO_PNGX_DEFAULT_PALETTE256_ALPHA_BLEED_ENABLE;
+  config->pngx_palette256_alpha_bleed_max_distance = COLOPRESSO_PNGX_DEFAULT_PALETTE256_ALPHA_BLEED_MAX_DISTANCE;
+  config->pngx_palette256_alpha_bleed_opaque_threshold = COLOPRESSO_PNGX_DEFAULT_PALETTE256_ALPHA_BLEED_OPAQUE_THRESHOLD;
+  config->pngx_palette256_alpha_bleed_soft_limit = COLOPRESSO_PNGX_DEFAULT_PALETTE256_ALPHA_BLEED_SOFT_LIMIT;
+  config->pngx_palette256_profile_opaque_ratio_threshold = COLOPRESSO_PNGX_DEFAULT_PALETTE256_PROFILE_OPAQUE_RATIO_THRESHOLD;
+  config->pngx_palette256_profile_gradient_mean_max = COLOPRESSO_PNGX_DEFAULT_PALETTE256_PROFILE_GRADIENT_MEAN_MAX;
+  config->pngx_palette256_profile_saturation_mean_max = COLOPRESSO_PNGX_DEFAULT_PALETTE256_PROFILE_SATURATION_MEAN_MAX;
+  config->pngx_palette256_tune_opaque_ratio_threshold = COLOPRESSO_PNGX_DEFAULT_PALETTE256_TUNE_OPAQUE_RATIO_THRESHOLD;
+  config->pngx_palette256_tune_gradient_mean_max = COLOPRESSO_PNGX_DEFAULT_PALETTE256_TUNE_GRADIENT_MEAN_MAX;
+  config->pngx_palette256_tune_saturation_mean_max = COLOPRESSO_PNGX_DEFAULT_PALETTE256_TUNE_SATURATION_MEAN_MAX;
+  config->pngx_palette256_tune_speed_max = COLOPRESSO_PNGX_DEFAULT_PALETTE256_TUNE_SPEED_MAX;
+  config->pngx_palette256_tune_quality_min_floor = COLOPRESSO_PNGX_DEFAULT_PALETTE256_TUNE_QUALITY_MIN_FLOOR;
+  config->pngx_palette256_tune_quality_max_target = COLOPRESSO_PNGX_DEFAULT_PALETTE256_TUNE_QUALITY_MAX_TARGET;
   config->pngx_threads = COLOPRESSO_PNGX_DEFAULT_THREADS;
 }
 

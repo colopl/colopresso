@@ -395,6 +395,204 @@ void emscripten_config_pngx_postprocess_smooth_importance_cutoff(cpres_config_t 
 }
 
 EMSCRIPTEN_KEEPALIVE
+void emscripten_config_pngx_palette256_gradient_profile_enable(cpres_config_t *config, int enabled) {
+  if (config) {
+    config->pngx_palette256_gradient_profile_enable = enabled ? true : false;
+  }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void emscripten_config_pngx_palette256_gradient_dither_floor(cpres_config_t *config, float dither_floor) {
+  if (!config) {
+    return;
+  }
+  if (dither_floor < 0.0f) {
+    config->pngx_palette256_gradient_dither_floor = -1.0f;
+  } else if (dither_floor <= 1.0f) {
+    config->pngx_palette256_gradient_dither_floor = dither_floor;
+  } else {
+    config->pngx_palette256_gradient_dither_floor = 1.0f;
+  }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void emscripten_config_pngx_palette256_alpha_bleed_enable(cpres_config_t *config, int enabled) {
+  if (config) {
+    config->pngx_palette256_alpha_bleed_enable = enabled ? true : false;
+  }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void emscripten_config_pngx_palette256_alpha_bleed_max_distance(cpres_config_t *config, int max_distance) {
+  if (!config) {
+    return;
+  }
+  if (max_distance < 0) {
+    max_distance = 0;
+  } else if (max_distance > 65535) {
+    max_distance = 65535;
+  }
+  config->pngx_palette256_alpha_bleed_max_distance = max_distance;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void emscripten_config_pngx_palette256_alpha_bleed_opaque_threshold(cpres_config_t *config, int opaque_threshold) {
+  if (!config) {
+    return;
+  }
+  if (opaque_threshold < 0) {
+    opaque_threshold = 0;
+  } else if (opaque_threshold > 255) {
+    opaque_threshold = 255;
+  }
+  config->pngx_palette256_alpha_bleed_opaque_threshold = opaque_threshold;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void emscripten_config_pngx_palette256_alpha_bleed_soft_limit(cpres_config_t *config, int soft_limit) {
+  if (!config) {
+    return;
+  }
+  if (soft_limit < 0) {
+    soft_limit = 0;
+  } else if (soft_limit > 255) {
+    soft_limit = 255;
+  }
+  config->pngx_palette256_alpha_bleed_soft_limit = soft_limit;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void emscripten_config_pngx_palette256_profile_opaque_ratio_threshold(cpres_config_t *config, float threshold) {
+  if (!config) {
+    return;
+  }
+  if (threshold < 0.0f) {
+    config->pngx_palette256_profile_opaque_ratio_threshold = -1.0f;
+  } else if (threshold <= 1.0f) {
+    config->pngx_palette256_profile_opaque_ratio_threshold = threshold;
+  } else {
+    config->pngx_palette256_profile_opaque_ratio_threshold = 1.0f;
+  }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void emscripten_config_pngx_palette256_profile_gradient_mean_max(cpres_config_t *config, float value) {
+  if (!config) {
+    return;
+  }
+  if (value < 0.0f) {
+    config->pngx_palette256_profile_gradient_mean_max = -1.0f;
+  } else if (value <= 1.0f) {
+    config->pngx_palette256_profile_gradient_mean_max = value;
+  } else {
+    config->pngx_palette256_profile_gradient_mean_max = 1.0f;
+  }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void emscripten_config_pngx_palette256_profile_saturation_mean_max(cpres_config_t *config, float value) {
+  if (!config) {
+    return;
+  }
+  if (value < 0.0f) {
+    config->pngx_palette256_profile_saturation_mean_max = -1.0f;
+  } else if (value <= 1.0f) {
+    config->pngx_palette256_profile_saturation_mean_max = value;
+  } else {
+    config->pngx_palette256_profile_saturation_mean_max = 1.0f;
+  }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void emscripten_config_pngx_palette256_tune_opaque_ratio_threshold(cpres_config_t *config, float threshold) {
+  if (!config) {
+    return;
+  }
+  if (threshold < 0.0f) {
+    config->pngx_palette256_tune_opaque_ratio_threshold = -1.0f;
+  } else if (threshold <= 1.0f) {
+    config->pngx_palette256_tune_opaque_ratio_threshold = threshold;
+  } else {
+    config->pngx_palette256_tune_opaque_ratio_threshold = 1.0f;
+  }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void emscripten_config_pngx_palette256_tune_gradient_mean_max(cpres_config_t *config, float value) {
+  if (!config) {
+    return;
+  }
+  if (value < 0.0f) {
+    config->pngx_palette256_tune_gradient_mean_max = -1.0f;
+  } else if (value <= 1.0f) {
+    config->pngx_palette256_tune_gradient_mean_max = value;
+  } else {
+    config->pngx_palette256_tune_gradient_mean_max = 1.0f;
+  }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void emscripten_config_pngx_palette256_tune_saturation_mean_max(cpres_config_t *config, float value) {
+  if (!config) {
+    return;
+  }
+  if (value < 0.0f) {
+    config->pngx_palette256_tune_saturation_mean_max = -1.0f;
+  } else if (value <= 1.0f) {
+    config->pngx_palette256_tune_saturation_mean_max = value;
+  } else {
+    config->pngx_palette256_tune_saturation_mean_max = 1.0f;
+  }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void emscripten_config_pngx_palette256_tune_speed_max(cpres_config_t *config, int speed_max) {
+  if (!config) {
+    return;
+  }
+  if (speed_max < 0) {
+    config->pngx_palette256_tune_speed_max = -1;
+    return;
+  }
+  if (speed_max < 1) {
+    speed_max = 1;
+  } else if (speed_max > 10) {
+    speed_max = 10;
+  }
+  config->pngx_palette256_tune_speed_max = speed_max;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void emscripten_config_pngx_palette256_tune_quality_min_floor(cpres_config_t *config, int value) {
+  if (!config) {
+    return;
+  }
+  if (value < 0) {
+    config->pngx_palette256_tune_quality_min_floor = -1;
+    return;
+  }
+  if (value > 100) {
+    value = 100;
+  }
+  config->pngx_palette256_tune_quality_min_floor = value;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void emscripten_config_pngx_palette256_tune_quality_max_target(cpres_config_t *config, int value) {
+  if (!config) {
+    return;
+  }
+  if (value < 0) {
+    config->pngx_palette256_tune_quality_max_target = -1;
+    return;
+  }
+  if (value > 100) {
+    value = 100;
+  }
+  config->pngx_palette256_tune_quality_max_target = value;
+}
+
+EMSCRIPTEN_KEEPALIVE
 cpres_error_t emscripten_get_last_error(void) { return g_last_error; }
 
 EMSCRIPTEN_KEEPALIVE

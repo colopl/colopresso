@@ -723,7 +723,8 @@ bool prepare_quant_support(const pngx_rgba_image_t *image, const pngx_options_t 
   uint16_t *importance_work = NULL, raw_min, raw_max;
   uint8_t r, g, b, a, value;
   size_t pixel_index, base, next_row_base, opaque_pixels, translucent_pixels, vibrant_pixels;
-  float gradient_sum, saturation_sum, luma, gradient, saturation, importance, alpha_factor, anchor_score, right_luma, below_luma, importance_mix, *luma_row_curr = NULL, *luma_row_next = NULL, *luma_row_tmp;
+  float gradient_sum, saturation_sum, luma, gradient, saturation, importance, alpha_factor, anchor_score, right_luma, below_luma, importance_mix, *luma_row_curr = NULL, *luma_row_next = NULL,
+                                                                                                                                                  *luma_row_tmp;
   bool need_map, need_buckets;
 
   if (!image || !opts || !support || !stats || image->pixel_count == 0) {

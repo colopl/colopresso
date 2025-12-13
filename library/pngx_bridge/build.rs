@@ -28,16 +28,12 @@ fn extract_version_from_lock(lock_content: &str, package_name: &str) -> Option<S
         if trimmed.starts_with("[[package]]") {
             in_target_package = false;
         } else if trimmed.starts_with("name = ") {
-            let name = trimmed
-                .trim_start_matches("name = ")
-                .trim_matches('"');
+            let name = trimmed.trim_start_matches("name = ").trim_matches('"');
             if name == package_name {
                 in_target_package = true;
             }
         } else if in_target_package && trimmed.starts_with("version = ") {
-            let version = trimmed
-                .trim_start_matches("version = ")
-                .trim_matches('"');
+            let version = trimmed.trim_start_matches("version = ").trim_matches('"');
             return Some(version.to_string());
         }
     }

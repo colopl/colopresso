@@ -68,6 +68,21 @@
 #define COLOPRESSO_PNGX_DEFAULT_CHROMA_WEIGHT_ENABLE true
 #define COLOPRESSO_PNGX_DEFAULT_POSTPROCESS_SMOOTH_ENABLE true
 #define COLOPRESSO_PNGX_DEFAULT_POSTPROCESS_SMOOTH_IMPORTANCE_CUTOFF 0.6f
+#define COLOPRESSO_PNGX_DEFAULT_PALETTE256_GRADIENT_PROFILE_ENABLE true
+#define COLOPRESSO_PNGX_DEFAULT_PALETTE256_GRADIENT_DITHER_FLOOR 0.78f
+#define COLOPRESSO_PNGX_DEFAULT_PALETTE256_ALPHA_BLEED_ENABLE true
+#define COLOPRESSO_PNGX_DEFAULT_PALETTE256_ALPHA_BLEED_MAX_DISTANCE 64
+#define COLOPRESSO_PNGX_DEFAULT_PALETTE256_ALPHA_BLEED_OPAQUE_THRESHOLD 248
+#define COLOPRESSO_PNGX_DEFAULT_PALETTE256_ALPHA_BLEED_SOFT_LIMIT 160
+#define COLOPRESSO_PNGX_DEFAULT_PALETTE256_PROFILE_OPAQUE_RATIO_THRESHOLD 0.90f
+#define COLOPRESSO_PNGX_DEFAULT_PALETTE256_PROFILE_GRADIENT_MEAN_MAX 0.16f
+#define COLOPRESSO_PNGX_DEFAULT_PALETTE256_PROFILE_SATURATION_MEAN_MAX 0.42f
+#define COLOPRESSO_PNGX_DEFAULT_PALETTE256_TUNE_OPAQUE_RATIO_THRESHOLD 0.90f
+#define COLOPRESSO_PNGX_DEFAULT_PALETTE256_TUNE_GRADIENT_MEAN_MAX 0.14f
+#define COLOPRESSO_PNGX_DEFAULT_PALETTE256_TUNE_SATURATION_MEAN_MAX 0.35f
+#define COLOPRESSO_PNGX_DEFAULT_PALETTE256_TUNE_SPEED_MAX 1
+#define COLOPRESSO_PNGX_DEFAULT_PALETTE256_TUNE_QUALITY_MIN_FLOOR 90
+#define COLOPRESSO_PNGX_DEFAULT_PALETTE256_TUNE_QUALITY_MAX_TARGET 100
 #define COLOPRESSO_PNGX_DEFAULT_THREADS 1
 #define COLOPRESSO_PNGX_LOSSY_TYPE_PALETTE256 0
 #define COLOPRESSO_PNGX_LOSSY_TYPE_LIMITED_RGBA4444 1
@@ -132,29 +147,44 @@ typedef struct {
   int avif_speed;         /* Encoder speed (0-10, higher=faster, lower=better) */
   int avif_threads;       /* Max threads (>=1) */
   /* PNGX */
-  int pngx_level;                                  /* Optimization preset level (0-6) */
-  bool pngx_strip_safe;                            /* Strip safe-to-remove ancillary chunks */
-  bool pngx_optimize_alpha;                        /* Enable alpha channel specific optimizations */
-  bool pngx_lossy_enable;                          /* Enable lossy pre-quantization step */
-  int pngx_lossy_type;                             /* See cpres_pngx_lossy_type_t */
-  int pngx_lossy_max_colors;                       /* Max palette colors (2-256 for indexed PNG) */
-  int pngx_lossy_reduced_colors;                   /* Reduced RGBA32 target colors (-1 auto, >=2 manual) */
-  int pngx_lossy_reduced_bits_rgb;                 /* Reduced RGBA32 grid bits for RGB (1-8) */
-  int pngx_lossy_reduced_alpha_bits;               /* Reduced RGBA32 grid bits for alpha (1-8) */
-  int pngx_lossy_quality_min;                      /* Min quality hint (0-100) */
-  int pngx_lossy_quality_max;                      /* Max quality hint (0-100) */
-  int pngx_lossy_speed;                            /* Quantization speed (1-10; higher=faster lower=better) */
-  float pngx_lossy_dither_level;                   /* Dithering level (0.0 - 1.0, or -1 for auto in Unity modes) */
-  bool pngx_saliency_map_enable;                   /* Enable saliency-guided importance map */
-  bool pngx_chroma_anchor_enable;                  /* Preserve high-chroma gradients */
-  bool pngx_adaptive_dither_enable;                /* Enable adaptive dithering strength */
-  bool pngx_gradient_boost_enable;                 /* Boost gradients for important regions */
-  bool pngx_chroma_weight_enable;                  /* Emphasize chroma in importance weighting */
-  bool pngx_postprocess_smooth_enable;             /* Apply palette smoothing postprocess */
-  float pngx_postprocess_smooth_importance_cutoff; /* Importance cutoff for smoothing (-1 disables gating) */
-  cpres_rgba_color_t *pngx_protected_colors;       /* Array of colors to protect from quantization (NULL if none) */
-  int pngx_protected_colors_count;                 /* Number of protected colors (0 if none, max 256) */
-  int pngx_threads;                                /* Max threads (>=1) */
+  int pngx_level;                                       /* Optimization preset level (0-6) */
+  bool pngx_strip_safe;                                 /* Strip safe-to-remove ancillary chunks */
+  bool pngx_optimize_alpha;                             /* Enable alpha channel specific optimizations */
+  bool pngx_lossy_enable;                               /* Enable lossy pre-quantization step */
+  int pngx_lossy_type;                                  /* See cpres_pngx_lossy_type_t */
+  int pngx_lossy_max_colors;                            /* Max palette colors (2-256 for indexed PNG) */
+  int pngx_lossy_reduced_colors;                        /* Reduced RGBA32 target colors (-1 auto, >=2 manual) */
+  int pngx_lossy_reduced_bits_rgb;                      /* Reduced RGBA32 grid bits for RGB (1-8) */
+  int pngx_lossy_reduced_alpha_bits;                    /* Reduced RGBA32 grid bits for alpha (1-8) */
+  int pngx_lossy_quality_min;                           /* Min quality hint (0-100) */
+  int pngx_lossy_quality_max;                           /* Max quality hint (0-100) */
+  int pngx_lossy_speed;                                 /* Quantization speed (1-10; higher=faster lower=better) */
+  float pngx_lossy_dither_level;                        /* Dithering level (0.0 - 1.0, or -1 for auto in Unity modes) */
+  bool pngx_saliency_map_enable;                        /* Enable saliency-guided importance map */
+  bool pngx_chroma_anchor_enable;                       /* Preserve high-chroma gradients */
+  bool pngx_adaptive_dither_enable;                     /* Enable adaptive dithering strength */
+  bool pngx_gradient_boost_enable;                      /* Boost gradients for important regions */
+  bool pngx_chroma_weight_enable;                       /* Emphasize chroma in importance weighting */
+  bool pngx_postprocess_smooth_enable;                  /* Apply palette smoothing postprocess */
+  float pngx_postprocess_smooth_importance_cutoff;      /* Importance cutoff for smoothing (-1 disables gating) */
+  bool pngx_palette256_gradient_profile_enable;         /* Enable gradient-profile auto tuning in palette256 */
+  float pngx_palette256_gradient_dither_floor;          /* Override gradient-profile dither floor (0.0-1.0, -1 = internal default) */
+  bool pngx_palette256_alpha_bleed_enable;              /* Enable alpha fringe mitigation (palette256 only) */
+  int pngx_palette256_alpha_bleed_max_distance;         /* Max bleed propagation distance (0-65535) */
+  int pngx_palette256_alpha_bleed_opaque_threshold;     /* Opaque seed alpha threshold (0-255) */
+  int pngx_palette256_alpha_bleed_soft_limit;           /* Apply bleed when alpha <= soft limit (0-255) */
+  float pngx_palette256_profile_opaque_ratio_threshold; /* Gradient profile: opaque ratio threshold (0.0-1.0, -1 = internal default) */
+  float pngx_palette256_profile_gradient_mean_max;      /* Gradient profile: gradient mean max (0.0-1.0, -1 = internal default) */
+  float pngx_palette256_profile_saturation_mean_max;    /* Gradient profile: saturation mean max (0.0-1.0, -1 = internal default) */
+  float pngx_palette256_tune_opaque_ratio_threshold;    /* Auto tune: opaque ratio threshold (0.0-1.0, -1 = internal default) */
+  float pngx_palette256_tune_gradient_mean_max;         /* Auto tune: gradient mean max (0.0-1.0, -1 = internal default) */
+  float pngx_palette256_tune_saturation_mean_max;       /* Auto tune: saturation mean max (0.0-1.0, -1 = internal default) */
+  int pngx_palette256_tune_speed_max;                   /* Auto tune: max speed override (1-10, -1 = internal default) */
+  int pngx_palette256_tune_quality_min_floor;           /* Auto tune: min quality floor (0-100, -1 = internal default) */
+  int pngx_palette256_tune_quality_max_target;          /* Auto tune: max quality target (0-100, -1 = internal default) */
+  cpres_rgba_color_t *pngx_protected_colors;            /* Array of colors to protect from quantization (NULL if none) */
+  int pngx_protected_colors_count;                      /* Number of protected colors (0 if none, max 256) */
+  int pngx_threads;                                     /* Max threads (>=1) */
 } cpres_config_t;
 
 typedef enum {

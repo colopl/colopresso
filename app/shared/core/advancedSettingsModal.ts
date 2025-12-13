@@ -1116,7 +1116,7 @@ function buildModalHTML(format: FormatDefinition, config: FormatOptions): string
     .map((section) => {
       const sectionLabel = section.labelKey ? t(section.labelKey) : section.section;
       const fieldsHTML = section.fields.map((field) => buildFieldHTML(field, (config as Record<string, unknown>)[field.id])).join('\n');
-      return `<div class="config-group"><h3>${sectionLabel}</h3>${fieldsHTML}</div>`;
+      return `<div class="config-group" data-section="${section.section}"><h3>${sectionLabel}</h3>${fieldsHTML}</div>`;
     })
     .join('\n');
 
@@ -1273,6 +1273,52 @@ function updatePngxLossyMaxColorsState(userInitiated = false): void {
   const paletteSelected = typeElement.value === '0';
   const limitedSelected = typeElement.value === '1';
   const reducedSelected = typeElement.value === '2';
+
+  const palette256Section = document.querySelector<HTMLDivElement>(".config-group[data-section='palette256']");
+  if (palette256Section) {
+    palette256Section.hidden = !paletteSelected;
+    palette256Section.style.display = paletteSelected ? '' : 'none';
+    palette256Section.setAttribute('aria-hidden', paletteSelected ? 'false' : 'true');
+  }
+
+  const palette256OnlyFields = [
+    'pngx_palette256_gradient_profile_enable',
+    'pngx_palette256_gradient_dither_floor',
+    'pngx_palette256_alpha_bleed_enable',
+    'pngx_palette256_alpha_bleed_max_distance',
+    'pngx_palette256_alpha_bleed_opaque_threshold',
+    'pngx_palette256_alpha_bleed_soft_limit',
+    'pngx_palette256_profile_opaque_ratio_threshold',
+    'pngx_palette256_profile_gradient_mean_max',
+    'pngx_palette256_profile_saturation_mean_max',
+    'pngx_palette256_tune_opaque_ratio_threshold',
+    'pngx_palette256_tune_gradient_mean_max',
+    'pngx_palette256_tune_saturation_mean_max',
+    'pngx_palette256_tune_speed_max',
+    'pngx_palette256_tune_quality_min_floor',
+    'pngx_palette256_tune_quality_max_target',
+  ];
+  palette256OnlyFields.forEach((id) => {
+    const input = document.querySelector<HTMLInputElement>(`[data-field-id='${id}']`);
+    if (!input) {
+      return;
+    }
+    input.disabled = !paletteSelected;
+    if (paletteSelected) {
+      input.removeAttribute('aria-disabled');
+    } else {
+      input.setAttribute('aria-disabled', 'true');
+    }
+
+    const wrapper = document.querySelector<HTMLDivElement>(`.config-item[data-wrapper='${id}']`);
+    if (!wrapper) {
+      return;
+    }
+    wrapper.hidden = !paletteSelected;
+    wrapper.style.display = paletteSelected ? '' : 'none';
+    wrapper.classList.toggle('disabled', !paletteSelected);
+  });
+
   if (limitedSelected && userInitiated && ditherAutoInput && !ditherAutoInput.checked) {
     ditherAutoInput.checked = true;
   }
