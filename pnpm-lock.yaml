@@ -29,7 +29,7 @@ importers:
         version: 0.1.32
       '@types/node':
         specifier: ^24.10.3
-        version: 24.10.3
+        version: 24.10.4
       '@types/react':
         specifier: ^19.2.7
         version: 19.2.7
@@ -38,7 +38,7 @@ importers:
         version: 19.2.3(@types/react@19.2.7)
       '@vitejs/plugin-react':
         specifier: ^5.1.2
-        version: 5.1.2(vite@7.2.7(@types/node@24.10.3)(jiti@2.6.1))
+        version: 5.1.2(vite@7.2.7(@types/node@24.10.4)(jiti@2.6.1))
       electron:
         specifier: ^39.2.6
         version: 39.2.7
@@ -56,7 +56,7 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^7.2.7
-        version: 7.2.7(@types/node@24.10.3)(jiti@2.6.1)
+        version: 7.2.7(@types/node@24.10.4)(jiti@2.6.1)
 
 packages:
 
@@ -577,11 +577,11 @@ packages:
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
-  '@types/node@22.19.2':
-    resolution: {integrity: sha512-LPM2G3Syo1GLzXLGJAKdqoU35XvrWzGJ21/7sgZTUpbkBaOasTj8tjwn6w+hCkqaa1TfJ/w67rJSwYItlJ2mYw==}
+  '@types/node@22.19.3':
+    resolution: {integrity: sha512-1N9SBnWYOJTrNZCdh/yJE+t910Y128BoyY+zBLWhL3r0TYzlTmFdXrPwHL9DyFZmlEXNQQolTZh3KHV31QDhyA==}
 
-  '@types/node@24.10.3':
-    resolution: {integrity: sha512-gqkrWUsS8hcm0r44yn7/xZeV1ERva/nLgrLxFRUGb7aoNMIJfZJ3AC261zDQuOAKC7MiXai1WCpYc48jAHoShQ==}
+  '@types/node@24.10.4':
+    resolution: {integrity: sha512-vnDVpYPMzs4wunl27jHrfmwojOGKya0xyM3sH+UE5iv5uPS6vX7UIoh6m+vQc5LGBq52HBKPIn/zcSZVzeDEZg==}
 
   '@types/plist@3.0.5':
     resolution: {integrity: sha512-E6OCaRmAe4WDmWNsL/9RMqdkkzDCY1etutkflWk4c+AcjDU07Pcz1fQwTX0TQz+Pxqn9i4L1TU3UFpjnrcDgxA==}
@@ -2383,7 +2383,7 @@ snapshots:
     dependencies:
       '@types/http-cache-semantics': 4.0.4
       '@types/keyv': 3.1.4
-      '@types/node': 24.10.3
+      '@types/node': 24.10.4
       '@types/responselike': 1.0.3
 
   '@types/chrome@0.1.32':
@@ -2405,7 +2405,7 @@ snapshots:
 
   '@types/fs-extra@9.0.13':
     dependencies:
-      '@types/node': 24.10.3
+      '@types/node': 24.10.4
 
   '@types/har-format@1.2.16': {}
 
@@ -2413,21 +2413,21 @@ snapshots:
 
   '@types/keyv@3.1.4':
     dependencies:
-      '@types/node': 24.10.3
+      '@types/node': 24.10.4
 
   '@types/ms@2.1.0': {}
 
-  '@types/node@22.19.2':
+  '@types/node@22.19.3':
     dependencies:
       undici-types: 6.21.0
 
-  '@types/node@24.10.3':
+  '@types/node@24.10.4':
     dependencies:
       undici-types: 7.16.0
 
   '@types/plist@3.0.5':
     dependencies:
-      '@types/node': 24.10.3
+      '@types/node': 24.10.4
       xmlbuilder: 15.1.1
     optional: true
 
@@ -2441,7 +2441,7 @@ snapshots:
 
   '@types/responselike@1.0.3':
     dependencies:
-      '@types/node': 24.10.3
+      '@types/node': 24.10.4
 
   '@types/use-sync-external-store@0.0.6': {}
 
@@ -2450,10 +2450,10 @@ snapshots:
 
   '@types/yauzl@2.10.3':
     dependencies:
-      '@types/node': 24.10.3
+      '@types/node': 24.10.4
     optional: true
 
-  '@vitejs/plugin-react@5.1.2(vite@7.2.7(@types/node@24.10.3)(jiti@2.6.1))':
+  '@vitejs/plugin-react@5.1.2(vite@7.2.7(@types/node@24.10.4)(jiti@2.6.1))':
     dependencies:
       '@babel/core': 7.28.5
       '@babel/plugin-transform-react-jsx-self': 7.27.1(@babel/core@7.28.5)
@@ -2461,7 +2461,7 @@ snapshots:
       '@rolldown/pluginutils': 1.0.0-beta.53
       '@types/babel__core': 7.20.5
       react-refresh: 0.18.0
-      vite: 7.2.7(@types/node@24.10.3)(jiti@2.6.1)
+      vite: 7.2.7(@types/node@24.10.4)(jiti@2.6.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -2889,7 +2889,7 @@ snapshots:
   electron@39.2.7:
     dependencies:
       '@electron/get': 2.0.3
-      '@types/node': 22.19.2
+      '@types/node': 22.19.3
       extract-zip: 2.0.1
     transitivePeerDependencies:
       - supports-color
@@ -3820,7 +3820,7 @@ snapshots:
       extsprintf: 1.4.1
     optional: true
 
-  vite@7.2.7(@types/node@24.10.3)(jiti@2.6.1):
+  vite@7.2.7(@types/node@24.10.4)(jiti@2.6.1):
     dependencies:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.3)
@@ -3829,7 +3829,7 @@ snapshots:
       rollup: 4.53.3
       tinyglobby: 0.2.15
     optionalDependencies:
-      '@types/node': 24.10.3
+      '@types/node': 24.10.4
       fsevents: 2.3.3
       jiti: 2.6.1
 
