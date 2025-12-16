@@ -18,8 +18,8 @@
 extern "C" {
 #endif
 
-extern void cpres_log(cpres_log_level_t level, const char *format, ...);
-extern void cpres_log_init(void);
+void cpres_log(cpres_log_level_t level, const char *format, ...);
+void cpres_log_init(void);
 
 #ifdef __cplusplus
 }

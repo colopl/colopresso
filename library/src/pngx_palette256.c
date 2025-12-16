@@ -20,8 +20,7 @@
 
 static inline void alpha_bleed_rgb_from_opaque(uint8_t *rgba, uint32_t width, uint32_t height, const pngx_options_t *opts) {
   uint32_t *seed_rgb, x, y, best_rgb;
-  uint16_t *dist, best, d;
-  uint16_t max_distance;
+  uint16_t *dist, best, d, max_distance;
   uint8_t opaque_threshold, soft_limit;
   size_t pixel_count, i, base, idx;
   bool has_seed;
@@ -199,8 +198,8 @@ static inline bool is_smooth_gradient_profile(const pngx_image_stats_t *stats, c
 
 static inline void tune_quant_params_for_image(PngxBridgeQuantParams *params, const pngx_options_t *opts, const pngx_image_stats_t *stats) {
   uint8_t quality_min, quality_max;
-  float opaque_ratio_threshold, gradient_mean_max, saturation_mean_max;
   int32_t speed_max, quality_min_floor, quality_max_target;
+  float opaque_ratio_threshold, gradient_mean_max, saturation_mean_max;
 
   if (!params || !opts || !stats) {
     return;
@@ -442,8 +441,8 @@ static inline bool init_write_struct(png_structp *png_ptr, png_infop *info_ptr) 
 }
 
 static inline bool memory_buffer_reserve(png_memory_buffer_t *buffer, size_t additional) {
-  size_t required, capacity;
   uint8_t *new_data;
+  size_t required, capacity;
 
   if (!buffer || additional > SIZE_MAX - buffer->size) {
     return false;
@@ -470,6 +469,17 @@ static inline bool memory_buffer_reserve(png_memory_buffer_t *buffer, size_t add
   buffer->capacity = capacity;
 
   return true;
+}
+
+static inline void memory_buffer_reset(png_memory_buffer_t *buffer) {
+  if (!buffer) {
+    return;
+  }
+
+  free(buffer->data);
+  buffer->data = NULL;
+  buffer->size = 0;
+  buffer->capacity = 0;
 }
 
 static inline void memory_write(png_structp png_ptr, png_bytep data, png_size_t length) {
@@ -605,7 +615,7 @@ static inline bool pngx_create_palette_png(const uint8_t *indices, size_t indice
   return finalize_memory_png(&buffer, out_data, out_size);
 }
 
-bool create_rgba_png(const uint8_t *rgba, size_t pixel_count, uint32_t width, uint32_t height, uint8_t **out_data, size_t *out_size) {
+extern bool create_rgba_png(const uint8_t *rgba, size_t pixel_count, uint32_t width, uint32_t height, uint8_t **out_data, size_t *out_size) {
   png_structp png_ptr;
   png_infop info_ptr;
   png_bytep *row_pointers;
@@ -661,11 +671,11 @@ bool create_rgba_png(const uint8_t *rgba, size_t pixel_count, uint32_t width, ui
 }
 
 bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_data, size_t *out_size, int *quant_quality) {
-  PngxBridgeQuantParams params, fallback_params;
-  PngxBridgeQuantOutput output;
+  PngxBridgeQuantParams params = {0}, fallback_params = {0};
+  PngxBridgeQuantOutput output = {0};
   PngxBridgeQuantStatus status;
   pngx_options_t tuned_opts;
-  pngx_quant_support_t support;
+  pngx_quant_support_t support = {0};
   pngx_image_stats_t stats;
   pngx_rgba_image_t image;
   size_t pixel_count;
@@ -688,7 +698,6 @@ bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pn
 
   pixel_count = image.pixel_count;
   image_stats_reset(&stats);
-  memset(&support, 0, sizeof(support));
   if (!prepare_quant_support(&image, opts, &support, &stats)) {
     rgba_image_reset(&image);
     quant_support_reset(&support);
@@ -732,10 +741,6 @@ bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pn
 
   tune_quant_params_for_image(&params, &tuned_opts, &stats);
 
-  output.palette = NULL;
-  output.palette_len = 0;
-  output.indices = NULL;
-  output.indices_len = 0;
   output.quality = -1;
   relaxed_quality = false;
 

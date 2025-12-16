@@ -21,14 +21,84 @@
 
 #include <png.h>
 
-#define PNGX_CHROMA_BUCKET_BITS 4
-#define PNGX_CHROMA_BUCKET_COUNT (PNGX_CHROMA_BUCKET_DIM * PNGX_CHROMA_BUCKET_DIM * PNGX_CHROMA_BUCKET_DIM)
-#define PNGX_CHROMA_BUCKET_DIM 16
-#define PNGX_CHROMA_BUCKET_SHIFT (8 - PNGX_CHROMA_BUCKET_BITS)
-#define PNGX_FULL_CHANNEL_BITS 8
-#define PNGX_IMPORTANCE_SCALE 65535.0f
-#define PNGX_LIMITED_RGBA4444_BITS 4
-#define PNGX_MAX_DERIVED_COLORS 48
+#define PNGX_COMMON_ANCHOR_AUTO_LIMIT_DEFAULT 16u
+#define PNGX_COMMON_ANCHOR_DISTANCE_SQ_THRESHOLD 625u
+#define PNGX_COMMON_ANCHOR_IMPORTANCE_BOOST_BASE 0.4f
+#define PNGX_COMMON_ANCHOR_IMPORTANCE_BOOST_SCALE 0.5f
+#define PNGX_COMMON_ANCHOR_IMPORTANCE_FACTOR 0.45f
+#define PNGX_COMMON_ANCHOR_IMPORTANCE_THRESHOLD 0.4f
+#define PNGX_COMMON_ANCHOR_LOW_COUNT_PENALTY 0.5f
+#define PNGX_COMMON_ANCHOR_LOW_COUNT_THRESHOLD 4u
+#define PNGX_COMMON_ANCHOR_SCALE_DIVISOR 8192u
+#define PNGX_COMMON_ANCHOR_SCALE_MIN 12u
+#define PNGX_COMMON_ANCHOR_SCORE_THRESHOLD 0.35f
+#define PNGX_COMMON_DITHER_ALPHA_OPAQUE_THRESHOLD 248u
+#define PNGX_COMMON_DITHER_ALPHA_TRANSLUCENT_THRESHOLD 32u
+#define PNGX_COMMON_DITHER_BASE_LEVEL 0.62f
+#define PNGX_COMMON_DITHER_COVERAGE_THRESHOLD 0.35f
+#define PNGX_COMMON_DITHER_GRADIENT_MIN 0.02f
+#define PNGX_COMMON_DITHER_HIGH_GRADIENT_BOOST 0.12f
+#define PNGX_COMMON_DITHER_LOW_BIT_BOOST 0.05f
+#define PNGX_COMMON_DITHER_LOW_BIT_GRADIENT_BOOST 0.05f
+#define PNGX_COMMON_DITHER_LOW_GRADIENT_CUT 0.12f
+#define PNGX_COMMON_DITHER_MAX 0.95f
+#define PNGX_COMMON_DITHER_MID_GRADIENT_BOOST 0.05f
+#define PNGX_COMMON_DITHER_MID_LOW_GRADIENT_CUT 0.05f
+#define PNGX_COMMON_DITHER_MIN 0.2f
+#define PNGX_COMMON_DITHER_OPAQUE_HIGH_BOOST 0.05f
+#define PNGX_COMMON_DITHER_OPAQUE_LOW_CUT 0.08f
+#define PNGX_COMMON_DITHER_SPAN_THRESHOLD 2.0f
+#define PNGX_COMMON_DITHER_TARGET_CAP 0.9f
+#define PNGX_COMMON_DITHER_TARGET_CAP_LOW_BIT 0.96f
+#define PNGX_COMMON_DITHER_TRANSLUCENT_CUT 0.05f
+#define PNGX_COMMON_FIXED_PALETTE_DISTANCE_SQ 400u
+#define PNGX_COMMON_FIXED_PALETTE_MAX 256u
+#define PNGX_COMMON_FS_COEFF_1_16 (1.0f / 16.0f)
+#define PNGX_COMMON_FS_COEFF_3_16 (3.0f / 16.0f)
+#define PNGX_COMMON_FS_COEFF_5_16 (5.0f / 16.0f)
+#define PNGX_COMMON_FS_COEFF_7_16 (7.0f / 16.0f)
+#define PNGX_COMMON_LUMA_B_COEFF 0.0722f
+#define PNGX_COMMON_LUMA_G_COEFF 0.7152f
+#define PNGX_COMMON_LUMA_R_COEFF 0.2126f
+#define PNGX_COMMON_PREPARE_ALPHA_BASE 0.4f
+#define PNGX_COMMON_PREPARE_ALPHA_MULTIPLIER 0.6f
+#define PNGX_COMMON_PREPARE_ALPHA_THRESHOLD 0.85f
+#define PNGX_COMMON_PREPARE_ANCHOR_IMPORTANCE_BONUS 0.05f
+#define PNGX_COMMON_PREPARE_ANCHOR_IMPORTANCE_THRESHOLD 0.75f
+#define PNGX_COMMON_PREPARE_ANCHOR_MIX 0.55f
+#define PNGX_COMMON_PREPARE_ANCHOR_SATURATION 0.45f
+#define PNGX_COMMON_PREPARE_ANCHOR_SCORE_THRESHOLD 0.35f
+#define PNGX_COMMON_PREPARE_BOOST_BASE 0.08f
+#define PNGX_COMMON_PREPARE_BOOST_FACTOR 0.3f
+#define PNGX_COMMON_PREPARE_BOOST_THRESHOLD 0.25f
+#define PNGX_COMMON_PREPARE_BUCKET_ALPHA 170u
+#define PNGX_COMMON_PREPARE_BUCKET_IMPORTANCE 0.55f
+#define PNGX_COMMON_PREPARE_BUCKET_SATURATION 0.35f
+#define PNGX_COMMON_PREPARE_CHROMA_WEIGHT 0.35f
+#define PNGX_COMMON_PREPARE_CUT_FACTOR 0.65f
+#define PNGX_COMMON_PREPARE_CUT_THRESHOLD 0.08f
+#define PNGX_COMMON_PREPARE_GRADIENT_SCALE 0.5f
+#define PNGX_COMMON_PREPARE_MAP_MIN_VALUE 4u
+#define PNGX_COMMON_PREPARE_MIX_GRADIENT 0.3f
+#define PNGX_COMMON_PREPARE_MIX_IMPORTANCE 0.6f
+#define PNGX_COMMON_PREPARE_VIBRANT_ALPHA 127u
+#define PNGX_COMMON_PREPARE_VIBRANT_GRADIENT 0.05f
+#define PNGX_COMMON_PREPARE_VIBRANT_SATURATION 0.55f
+#define PNGX_COMMON_RESOLVE_ADAPTIVE_FLAT_CUT 0.12f
+#define PNGX_COMMON_RESOLVE_ADAPTIVE_GRADIENT_BOOST 0.06f
+#define PNGX_COMMON_RESOLVE_ADAPTIVE_SATURATION_BOOST 0.03f
+#define PNGX_COMMON_RESOLVE_ADAPTIVE_SATURATION_CUT 0.02f
+#define PNGX_COMMON_RESOLVE_ADAPTIVE_VIBRANT_CUT 0.05f
+#define PNGX_COMMON_RESOLVE_AUTO_BASE 0.35f
+#define PNGX_COMMON_RESOLVE_AUTO_GRADIENT_WEIGHT 0.35f
+#define PNGX_COMMON_RESOLVE_AUTO_OPAQUE_CUT 0.06f
+#define PNGX_COMMON_RESOLVE_AUTO_SATURATION_WEIGHT 0.15f
+#define PNGX_COMMON_RESOLVE_DEFAULT_GRADIENT 0.2f
+#define PNGX_COMMON_RESOLVE_DEFAULT_OPAQUE 1.0f
+#define PNGX_COMMON_RESOLVE_DEFAULT_SATURATION 0.2f
+#define PNGX_COMMON_RESOLVE_DEFAULT_VIBRANT 0.05f
+#define PNGX_COMMON_RESOLVE_MAX 0.90f
+#define PNGX_COMMON_RESOLVE_MIN 0.02f
 #define PNGX_PALETTE256_GRADIENT_PROFILE_DITHER_FLOOR 0.78f
 #define PNGX_PALETTE256_GRADIENT_PROFILE_GRADIENT_MEAN_MAX 0.16f
 #define PNGX_PALETTE256_GRADIENT_PROFILE_OPAQUE_RATIO_THRESHOLD 0.90f
@@ -39,8 +109,6 @@
 #define PNGX_PALETTE256_TUNE_QUALITY_MIN_FLOOR 90
 #define PNGX_PALETTE256_TUNE_SATURATION_MEAN_MAX 0.35f
 #define PNGX_PALETTE256_TUNE_SPEED_MAX 1
-#define PNGX_POSTPROCESS_DISABLE_DITHER_THRESHOLD 0.25f
-#define PNGX_POSTPROCESS_MAX_COLOR_DISTANCE_SQ 900
 #define PNGX_REDUCED_ALPHA_DETAIL_WEIGHT 0.5f
 #define PNGX_REDUCED_ALPHA_LEVEL_LIMIT_FEW 4u
 #define PNGX_REDUCED_ALPHA_MIN_DITHER_FACTOR 0.04f
@@ -201,7 +269,17 @@
 #define PNGX_REDUCED_TUNE_VERY_FLAT_GRADIENT 0.08f
 #define PNGX_REDUCED_TUNE_VERY_FLAT_SATURATION 0.18f
 #define PNGX_REDUCED_VIBRANT_RATIO_LOW 0.04f
+#define PNGX_LIMITED_RGBA4444_BITS 4
 #define PNGX_RGBA_CHANNELS 4
+#define PNGX_CHROMA_BUCKET_BITS 4
+#define PNGX_CHROMA_BUCKET_SHIFT (8 - PNGX_CHROMA_BUCKET_BITS)
+#define PNGX_CHROMA_BUCKET_DIM 16
+#define PNGX_CHROMA_BUCKET_COUNT (PNGX_CHROMA_BUCKET_DIM * PNGX_CHROMA_BUCKET_DIM * PNGX_CHROMA_BUCKET_DIM)
+#define PNGX_FULL_CHANNEL_BITS 8
+#define PNGX_IMPORTANCE_SCALE 65535.0f
+#define PNGX_MAX_DERIVED_COLORS 48
+#define PNGX_POSTPROCESS_DISABLE_DITHER_THRESHOLD 0.25f
+#define PNGX_POSTPROCESS_MAX_COLOR_DISTANCE_SQ 900
 
 #ifdef __cplusplus
 extern "C" {
@@ -362,19 +440,18 @@ PNGX_DEFINE_CLAMP(uint16_t);
 PNGX_DEFINE_CLAMP(uint8_t);
 PNGX_DEFINE_CLAMP(float);
 
-extern bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_data, size_t *out_size, int *quant_quality);
-extern bool pngx_quantize_limited4444(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_data, size_t *out_size);
-extern bool pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint32_t *resolved_target, uint32_t *applied_colors, uint8_t **out_data,
-                                         size_t *out_size);
+bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_data, size_t *out_size, int *quant_quality);
+bool pngx_quantize_limited4444(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_data, size_t *out_size);
+bool pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint32_t *resolved_target, uint32_t *applied_colors, uint8_t **out_data, size_t *out_size);
 
-extern void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config);
-extern bool pngx_run_quantization(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_data, size_t *out_size, int *quant_quality);
-extern bool pngx_run_lossless_optimization(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_data, size_t *out_size);
-extern bool pngx_should_attempt_quantization(const pngx_options_t *opts);
-extern bool pngx_quantization_better(size_t baseline_size, size_t candidate_size);
+void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config);
+bool pngx_run_quantization(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_data, size_t *out_size, int *quant_quality);
+bool pngx_run_lossless_optimization(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_data, size_t *out_size);
+bool pngx_should_attempt_quantization(const pngx_options_t *opts);
+bool pngx_quantization_better(size_t baseline_size, size_t candidate_size);
 
-extern int pngx_get_last_error(void);
-extern void pngx_set_last_error(int error_code);
+int pngx_get_last_error(void);
+void pngx_set_last_error(int error_code);
 
 #ifdef __cplusplus
 }

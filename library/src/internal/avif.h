@@ -22,10 +22,10 @@
 extern "C" {
 #endif
 
-extern cpres_error_t cpres_avif_encode_rgba_to_memory(uint8_t *rgba_data, uint32_t width, uint32_t height, uint8_t **avif_data, size_t *avif_size, const cpres_config_t *config);
+cpres_error_t cpres_avif_encode_rgba_to_memory(uint8_t *rgba_data, uint32_t width, uint32_t height, uint8_t **avif_data, size_t *avif_size, const cpres_config_t *config);
 
-extern int cpres_avif_get_last_error(void);
-extern void cpres_avif_set_last_error(int error_code);
+int cpres_avif_get_last_error(void);
+void cpres_avif_set_last_error(int error_code);
 
 #ifdef __cplusplus
 }

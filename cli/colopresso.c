@@ -9,22 +9,20 @@
  * Developed with AI (LLM) code assistance. See `NOTICE` for details.
  */
 
-/*
- * colopresso CLI
- */
-#include <errno.h>
-#include <limits.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <ctype.h>
-#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <errno.h>
+#include <limits.h>
+#include <ctype.h>
+#include <inttypes.h>
 #include <string.h>
 
 #include <colopresso.h>
 #include <colopresso/portable.h>
-#include <internal/pngx.h>
+
+#include "../library/src/internal/pngx.h"
 
 typedef enum {
   FORMAT_WEBP,
@@ -115,10 +113,11 @@ static const char *describe_pngx_type(int type) {
   default:
     break;
   }
+
   return "Unknown";
 }
 
-static bool parse_pngx_type_option(const char *value, int *type_out) {
+static inline bool parse_pngx_type_option(const char *value, int *type_out) {
   char lowered[32], normalized[32];
   size_t len, i, norm_len = 0;
 
@@ -156,6 +155,7 @@ static bool parse_pngx_type_option(const char *value, int *type_out) {
     *type_out = CPRES_PNGX_LOSSY_TYPE_REDUCED_RGBA32;
     return true;
   }
+
   return false;
 }
 
@@ -176,6 +176,7 @@ static inline void format_libavif_version(uint32_t version, char *buf, size_t bu
     snprintf(buf, buf_size, "unknown");
     return;
   }
+
   major = version / 1000000;
   minor = (version % 1000000) / 10000;
   patch = (version % 10000) / 100;
@@ -222,7 +223,7 @@ static inline void format_bytes(int64_t bytes, char *buf, size_t buf_size) {
   snprintf(buf, buf_size, "%.1f %s", size, sizes[i]);
 }
 
-static int64_t get_file_size(const char *path) {
+static inline int64_t get_file_size(const char *path) {
   struct stat st;
 
   if (stat(path, &st) == 0) {
@@ -232,7 +233,7 @@ static int64_t get_file_size(const char *path) {
   return -1;
 }
 
-static bool write_file_from_memory(const char *path, const uint8_t *data, size_t size) {
+static inline bool write_file_from_memory(const char *path, const uint8_t *data, size_t size) {
   FILE *fp;
   size_t written;
 
@@ -251,7 +252,7 @@ static bool write_file_from_memory(const char *path, const uint8_t *data, size_t
   return written == size;
 }
 
-static void print_output_larger_warning(const char *format_name, int64_t input_size, size_t output_size) {
+static inline void print_output_larger_warning(const char *format_name, int64_t input_size, size_t output_size) {
   int64_t safe_input = input_size > 0 ? input_size : (int64_t)output_size, output_bytes = (int64_t)output_size;
   char input_size_buf[32], output_size_buf[32];
   double ratio, increase;
@@ -291,6 +292,7 @@ static inline bool parse_long_value(const char *str, long *value) {
   }
 
   *value = parsed;
+
   return true;
 }
 
@@ -327,6 +329,7 @@ static inline bool parse_double_value(const char *str, double *value) {
   }
 
   *value = parsed;
+
   return true;
 }
 
@@ -381,11 +384,9 @@ static inline bool parse_hex_color(const char *hex_str, cpres_rgba_color_t *colo
   return true;
 }
 
-static int32_t parse_protected_colors(const char *color_list, cpres_rgba_color_t **colors_out) {
+static inline int32_t parse_protected_colors(const char *color_list, cpres_rgba_color_t **colors_out) {
   int32_t count = 0, i = 0;
-  char *token, *saveptr;
-  char *list_copy_tmp = NULL;
-  char *list_copy = NULL;
+  char *token, *saveptr, *list_copy_tmp = NULL, *list_copy = NULL;
   cpres_rgba_color_t *colors;
 
   if (!color_list || color_list[0] == '\0' || !colors_out) {
@@ -485,6 +486,7 @@ static inline output_format_t parse_format(const char *format_str) {
   } else if (strcmp(format_str, "pngx") == 0 || strcmp(format_str, "png") == 0) {
     return FORMAT_PNGX;
   }
+
   return FORMAT_UNKNOWN;
 }
 
@@ -513,7 +515,7 @@ static inline output_format_t infer_format_from_extension(const char *path) {
   if (strcmp(lower_ext, ".avif") == 0) {
     return FORMAT_AVIF;
   }
-  if (strcmp(lower_ext, ".png") == 0 || strcmp(lower_ext, ".pngx") == 0) {
+  if (strcmp(lower_ext, ".png") == 0) {
     return FORMAT_PNGX;
   }
 
@@ -522,12 +524,12 @@ static inline output_format_t infer_format_from_extension(const char *path) {
 
 static inline bool path_has_extension_ci(const char *path, const char *extension) {
   size_t path_len = strlen(path), ext_len = strlen(extension), i;
+  const char *path_ext = path + path_len - ext_len;
 
   if (ext_len == 0 || path_len < ext_len) {
     return false;
   }
-
-  const char *path_ext = path + path_len - ext_len;
+  
   for (i = 0; i < ext_len; i++) {
     if (tolower((unsigned char)path_ext[i]) != tolower((unsigned char)extension[i])) {
       return false;
@@ -563,7 +565,7 @@ static inline const char *get_format_name(output_format_t format) {
   }
 }
 
-static char *build_output_path(const char *output_base, output_format_t format) {
+static inline char *build_output_path(const char *output_base, output_format_t format) {
   const char *ext = get_extension(format);
   size_t len = strlen(output_base) + strlen(ext) + 1;
   char *output_path = malloc(len);
@@ -577,7 +579,7 @@ static char *build_output_path(const char *output_base, output_format_t format) 
   return output_path;
 }
 
-static bool should_append_extension(const char *output_base, output_format_t format, bool format_specified) {
+static inline bool should_append_extension(const char *output_base, output_format_t format, bool format_specified) {
   const char *existing_extension, *expected_extension;
   output_format_t inferred;
 
@@ -601,7 +603,7 @@ static bool should_append_extension(const char *output_base, output_format_t for
   return true;
 }
 
-static void print_verbose_summary(const cpres_config_t *config, output_format_t format, const char *input_file,
+static inline void print_verbose_summary(const cpres_config_t *config, output_format_t format, const char *input_file,
                                   const char *output_file, int64_t input_size,
                                   const cpres_rgba_color_t *protected_colors, int32_t protected_colors_count) {
   char version_buf[32];
@@ -763,7 +765,7 @@ static void print_verbose_summary(const cpres_config_t *config, output_format_t 
   }
 }
 
-static void print_conversion_success(int64_t input_size, int64_t output_size) {
+static inline void print_conversion_success(int64_t input_size, int64_t output_size) {
   char input_size_buf[32], output_size_buf[32];
   double ratio, reduction;
 
@@ -812,11 +814,13 @@ static inline int32_t handle_size_increase_error(int64_t input_size, int64_t out
   return 0;
 }
 
-static bool handle_long_option(const char *name, const char *optarg, cpres_config_t *config,
+static inline bool handle_long_option(const char *name, const char *optarg, cpres_config_t *config,
                                cpres_rgba_color_t **protected_colors, int32_t *protected_colors_count,
                                bool *dither_specified) {
   long long_val;
   double double_val;
+  int32_t count;
+  cpres_rgba_color_t *parsed_colors;
 
   if (strcmp(name, "sns") == 0) {
     if (!parse_long_range(optarg, 0, 100, &long_val)) {
@@ -1232,8 +1236,8 @@ static bool handle_long_option(const char *name, const char *optarg, cpres_confi
   }
 
   if (strcmp(name, "protect-color") == 0) {
-    cpres_rgba_color_t *parsed_colors = NULL;
-    int32_t count = parse_protected_colors(optarg, &parsed_colors);
+    parsed_colors = NULL;
+    count = parse_protected_colors(optarg, &parsed_colors);
 
     if (count < 0) {
       fprintf(stderr, "Error: Failed to parse protected colors\n");
@@ -1255,7 +1259,7 @@ static bool handle_long_option(const char *name, const char *optarg, cpres_confi
   return false;
 }
 
-static void print_usage(const char *program_name) {
+static inline void print_usage(const char *program_name) {
   printf("Usage: %s [--format=<format>] [OPTIONS] <input.png> <output>\n", program_name);
   printf("\nPNG converter and optimizer\n");
   printf("\nNote: The output file extension will be automatically determined from the format.\n");
@@ -1335,7 +1339,7 @@ static void print_usage(const char *program_name) {
   printf("                                             Example: --protect-color=FF0000,00FF00,0000FFFF\n");
 }
 
-static void print_version(void) {
+static inline void print_version(void) {
   char version_buf[32];
 
   format_version(cpres_get_version(), version_buf, sizeof(version_buf));
@@ -1359,7 +1363,7 @@ static void print_version(void) {
   printf("  libimagequant:   v%s\n", version_buf);
 }
 
-static void init_cli_context(cli_context_t *ctx) {
+static inline void init_cli_context(cli_context_t *ctx) {
   uint32_t cpu_count;
 
   memset(ctx, 0, sizeof(*ctx));
@@ -1384,7 +1388,7 @@ static void init_cli_context(cli_context_t *ctx) {
   ctx->config.pngx_lossy_speed = 1;
 }
 
-static void free_cli_context(cli_context_t *ctx) {
+static inline void free_cli_context(cli_context_t *ctx) {
   if (!ctx) {
     return;
   }
@@ -1401,18 +1405,16 @@ static void free_cli_context(cli_context_t *ctx) {
   ctx->config.pngx_protected_colors_count = 0;
 }
 
-static bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, int *exit_code) {
+static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, int *exit_code) {
+  const char *input_file, *output_base, *output_extension;
   output_format_t format = FORMAT_UNKNOWN, inferred_format;
   int32_t quality_min = 0, quality_max = 0;
-  bool format_specified = false, verbose = false, append_extension;
-  bool quality_scalar_set = false, quality_range_set = false;
-  bool pngx_type_specified = false, dither_specified = false;
-  float quality_scalar_value = 0.0f;
+  bool format_specified = false, verbose = false, append_extension, quality_scalar_set = false, quality_range_set = false, pngx_type_specified = false, dither_specified = false;
+  char *output_file;
   int opt, option_index = 0;
   long parsed_long = 0;
-  double parsed_double = 0.0;
-  const char *input_file, *output_base, *output_extension;
-  char *output_file;
+  float quality_scalar_value = 0.0f;
+  double parsed_double = 0.0;  
 
   if (argc < 2) {
     print_usage(argv[0]);
@@ -1612,7 +1614,7 @@ static bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, int *exi
   return true;
 }
 
-static int run_conversion(cli_context_t *ctx) {
+static inline int run_conversion(cli_context_t *ctx) {
   int64_t input_size, output_size, ref_input_size;
   int32_t size_check;
   uint8_t *png_data = NULL, *encoded_data = NULL;
@@ -1723,8 +1725,8 @@ bailout:
 }
 
 int main(int argc, char *argv[]) {
-  int exit_code = 0;
   cli_context_t ctx;
+  int exit_code = 0;
 
   init_cli_context(&ctx);
 

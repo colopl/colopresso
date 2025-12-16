@@ -33,7 +33,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends "cmake" "gcc" "lcov" "nasm"
           cmake -B "build" -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_COVERAGE=ON -DCOLOPRESSO_USE_TESTS=ON
           cmake --build "build" --parallel
-          cmake --build "build" --target coverage
+          cmake --build "build" --target "coverage"
           mv "${{ github.workspace }}/build/coverage/html" "${{ github.workspace }}/pages/coverage"
       - name: Setup Pages
         uses: actions/configure-pages@v5

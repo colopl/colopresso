@@ -502,10 +502,10 @@ static inline uint64_t pack_rgba64(const uint16_t *pixel, uint8_t channel_bits) 
 
 int main(int argc, char **argv) {
   const char *input_path;
-  png_image_t image = {0};
   uint64_t *colors = NULL, unique_colors = 0;
   uint8_t idx, channel_bits, *value_seen = NULL, *value_rows[CHANNEL_COUNT] = {NULL};
   size_t pixel_count = 0, base = 0, value_limit, i;
+  png_image_t image = {0};
   channel_stats_t channels[CHANNEL_COUNT] = {{0}};
   capacity_value_t max_colors = capacity_from_u64(0);
   color_mode_t color_mode;

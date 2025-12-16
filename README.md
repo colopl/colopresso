@@ -121,7 +121,7 @@ Open the cloned `libcolopresso` directory with Visual Studio Code and attach to 
 3. `rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Release -DCOLOPRESSO_USE_UTILS=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_USE_CLI=ON`
 4. `cmake --build "build" --parallel`
 5. `ctest --test-dir "build" --output-on-failure --parallel`
-6. `./build/cli/colopresso` holds the CLI binary, `./build/utils/cpres` contains utility binaries, and `./build` contains `libcolopresso.a`
+6. `./build/cli/colopresso` holds the CLI binary, `./build/utils` contains utility binaries, and `./build` contains `libcolopresso.a`
 
 ### Coverage Output
 

@@ -208,30 +208,31 @@ typedef enum {
 } cpres_log_level_t;
 
 typedef void (*cpres_log_callback_t)(cpres_log_level_t level, const char *message);
-void cpres_config_init_defaults(cpres_config_t *config);
 
-cpres_error_t cpres_encode_webp_memory(const uint8_t *png_data, size_t png_size, uint8_t **webp_data, size_t *webp_size, const cpres_config_t *config);
-cpres_error_t cpres_encode_avif_memory(const uint8_t *png_data, size_t png_size, uint8_t **avif_data, size_t *avif_size, const cpres_config_t *config);
-cpres_error_t cpres_encode_pngx_memory(const uint8_t *png_data, size_t png_size, uint8_t **optimized_data, size_t *optimized_size, const cpres_config_t *config);
+extern void cpres_config_init_defaults(cpres_config_t *config);
+
+extern cpres_error_t cpres_encode_webp_memory(const uint8_t *png_data, size_t png_size, uint8_t **webp_data, size_t *webp_size, const cpres_config_t *config);
+extern cpres_error_t cpres_encode_avif_memory(const uint8_t *png_data, size_t png_size, uint8_t **avif_data, size_t *avif_size, const cpres_config_t *config);
+extern cpres_error_t cpres_encode_pngx_memory(const uint8_t *png_data, size_t png_size, uint8_t **optimized_data, size_t *optimized_size, const cpres_config_t *config);
 
 #if COLOPRESSO_WITH_FILE_OPS
 #include <colopresso/file.h>
 #endif
 
-void cpres_set_log_callback(cpres_log_callback_t callback);
-const char *cpres_error_string(cpres_error_t error);
+extern void cpres_set_log_callback(cpres_log_callback_t callback);
+extern const char *cpres_error_string(cpres_error_t error);
 
-void cpres_free(uint8_t *data);
+extern void cpres_free(uint8_t *data);
 
-uint32_t cpres_get_version(void);
-uint32_t cpres_get_libwebp_version(void);
-uint32_t cpres_get_libpng_version(void);
-uint32_t cpres_get_libavif_version(void);
+extern uint32_t cpres_get_version(void);
+extern uint32_t cpres_get_libwebp_version(void);
+extern uint32_t cpres_get_libpng_version(void);
+extern uint32_t cpres_get_libavif_version(void);
 
-uint32_t cpres_get_pngx_oxipng_version(void);
-uint32_t cpres_get_pngx_libimagequant_version(void);
+extern uint32_t cpres_get_pngx_oxipng_version(void);
+extern uint32_t cpres_get_pngx_libimagequant_version(void);
 
-uint32_t cpres_get_buildtime(void);
+extern uint32_t cpres_get_buildtime(void);
 
 #ifdef __cplusplus
 }

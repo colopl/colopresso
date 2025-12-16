@@ -54,9 +54,8 @@ function(colopresso_register_test SOURCE)
   add_test(NAME ${_test_name} COMMAND ${_test_name})
 
   if(COLOPRESSO_USE_MSAN)
-    set(_msan_supp "${CMAKE_SOURCE_DIR}/suppressions/msan.supp")
     set_tests_properties(${_test_name} PROPERTIES
-      ENVIRONMENT "MSAN_OPTIONS=suppressions=${_msan_supp}:halt_on_error=0:print_stats=1:exitcode=0"
+      ENVIRONMENT "MSAN_OPTIONS=halt_on_error=0:track_origins=2"
     )
   endif()
 

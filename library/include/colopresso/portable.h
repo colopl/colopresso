@@ -58,13 +58,13 @@ extern struct tm *gmtime_r(const time_t *timer, struct tm *buf);
 
 #endif
 
-uint32_t colopresso_get_cpu_count(void);
-const char *colopresso_extract_extension(const char *path);
-void colopresso_tm_set_gmt_offset(struct tm *tm);
+extern uint32_t colopresso_get_cpu_count(void);
+extern const char *colopresso_extract_extension(const char *path);
+extern void colopresso_tm_set_gmt_offset(struct tm *tm);
 
 #if COLOPRESSO_WITH_FILE_OPS
-bool colopresso_fseeko(FILE *fp, uint64_t offset, int whence);
-bool colopresso_ftello(FILE *fp, uint64_t *position_out);
+extern bool colopresso_fseeko(FILE *fp, uint64_t offset, int whence);
+extern bool colopresso_ftello(FILE *fp, uint64_t *position_out);
 #endif
 
 #ifdef __cplusplus

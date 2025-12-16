@@ -5,7 +5,7 @@
  *
  * Copyright (C) 2025 COLOPL, Inc.
  *
- * Author: Go Kudo <g-kudo@colopl.co.jp>
+ * Author: Go Kudo <g-kudo@colopl43.co.jp>
  * Developed with AI (LLM) code assistance. See `NOTICE` for details.
  */
 
@@ -33,6 +33,7 @@ static void png_read_from_memory(png_structp png_ptr, png_bytep data, png_size_t
 
   reader = (png_memory_reader_t *)png_get_io_ptr(png_ptr);
   if (reader->pos + length > reader->size) {
+    cpres_log(CPRES_LOG_LEVEL_ERROR, "Attempted to read past end of PNG data");
     png_error(png_ptr, "Read past end of data");
     return;
   }
@@ -42,7 +43,7 @@ static void png_read_from_memory(png_structp png_ptr, png_bytep data, png_size_t
   reader->pos += length;
 }
 
-static cpres_error_t read_png_common(png_structp png, png_infop info, uint8_t **rgba_data, png_uint_32 *width, png_uint_32 *height) {
+static inline cpres_error_t read_png_common(png_structp png, png_infop info, uint8_t **rgba_data, png_uint_32 *width, png_uint_32 *height) {
   png_byte color_type, bit_depth;
   png_bytep *row_pointers;
   png_uint_32 y;
@@ -117,7 +118,7 @@ static cpres_error_t read_png_common(png_structp png, png_infop info, uint8_t **
   return CPRES_OK;
 }
 
-cpres_error_t cpres_png_decode_from_memory(const uint8_t *png_data, size_t png_size, uint8_t **rgba_data, png_uint_32 *width, png_uint_32 *height) {
+extern cpres_error_t cpres_png_decode_from_memory(const uint8_t *png_data, size_t png_size, uint8_t **rgba_data, png_uint_32 *width, png_uint_32 *height) {
   png_structp png;
   png_infop info;
   png_memory_reader_t reader = {0};
@@ -160,7 +161,7 @@ cpres_error_t cpres_png_decode_from_memory(const uint8_t *png_data, size_t png_s
 }
 
 #if COLOPRESSO_WITH_FILE_OPS
-cpres_error_t cpres_png_decode_from_file(const char *filename, uint8_t **rgba_data, png_uint_32 *width, png_uint_32 *height) {
+extern cpres_error_t cpres_png_decode_from_file(const char *filename, uint8_t **rgba_data, png_uint_32 *width, png_uint_32 *height) {
   FILE *fp;
   png_structp png;
   png_infop info;
