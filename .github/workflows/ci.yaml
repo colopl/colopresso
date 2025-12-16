@@ -341,13 +341,13 @@ jobs:
             --volume "${PWD}/assets:/assets:ro" \
             alpine:latest \
             /bin/sh -c '
+              /colopresso --verbose --format=pngx /assets/increase.png /tmp/increase.png; EXIT_CODE=$?; \
+              if test ${EXIT_CODE} -ne 2; then echo "Error: Expected exit code 2, got ${EXIT_CODE}"; exit 1; fi \
               set -e;
               /colopresso --version && \
               /colopresso --verbose --format=webp /assets/example.png /tmp/example.webp && \
               /colopresso --verbose --format=avif /assets/example.png /tmp/example.avif && \
               /colopresso --verbose --format=pngx /assets/example.png /tmp/example.png && \
-              /colopresso --verbose --format=pngx /assets/increase.png /tmp/increase.png; EXIT_CODE=$?; \
-              if test ${EXIT_CODE} -ne 2; then echo "Error: Expected exit code 2, got ${EXIT_CODE}"; exit 1; fi
             ' && \
           docker run \
             --rm \
@@ -355,11 +355,11 @@ jobs:
             --volume "${PWD}/assets:/assets:ro" \
             busybox:musl \
             /bin/sh -c '
+              /colopresso --verbose --format=pngx /assets/increase.png /tmp/increase.png; EXIT_CODE=$?; \
+              if test ${EXIT_CODE} -ne 2; then echo "Error: Expected exit code 2, got ${EXIT_CODE}"; exit 1; fi
               set -e;
               /colopresso --version && \
               /colopresso --verbose --format=webp /assets/example.png /tmp/example.webp && \
               /colopresso --verbose --format=avif /assets/example.png /tmp/example.avif && \
               /colopresso --verbose --format=pngx /assets/example.png /tmp/example.png && \
-              /colopresso --verbose --format=pngx /assets/increase.png /tmp/increase.png; EXIT_CODE=$?; \
-              if test ${EXIT_CODE} -ne 2; then echo "Error: Expected exit code 2, got ${EXIT_CODE}"; exit 1; fi
             '
