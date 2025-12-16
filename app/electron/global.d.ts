@@ -64,6 +64,7 @@ interface ElectronAPI {
   onUpdateDownloadComplete?: (handler: (payload: Record<string, unknown>) => void) => () => void;
   onUpdateDownloadError?: (handler: (payload: Record<string, unknown>) => void) => () => void;
   getUpdateChannel?: () => Promise<string | undefined>;
+  getArchitecture?: () => Promise<string | undefined>;
 }
 
 declare global {

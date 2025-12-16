@@ -81,6 +81,60 @@ interface ResolvedUpdateConfig {
   releaseType: 'release' | 'prerelease';
 }
 
+function normalizeUpdateChannelName(baseChannel: string): string {
+  const trimmed = (baseChannel || '').trim();
+  const normalized = (trimmed.length > 0 ? trimmed : 'latest')
+    .toLowerCase()
+    .replace(/_/g, '-')
+    .replace(/[^0-9a-z-]/g, '');
+
+  return normalized.length > 0 ? normalized : 'latest';
+}
+
+function resolveEffectiveUpdateChannel(config: ResolvedUpdateConfig): string {
+  return normalizeUpdateChannelName(config.channel);
+}
+
+function selectWindowsUpdateFileForCurrentArch(info: UpdateInfo): void {
+  if (process.platform !== 'win32') {
+    return;
+  }
+
+  const files = info.files;
+  if (!Array.isArray(files) || files.length <= 1) {
+    return;
+  }
+
+  const arch = process.arch;
+  const preferredNeedle = `_${arch}.exe`;
+  const fallbackNeedle = `${arch}.exe`;
+
+  const matching = files.filter((file) => {
+    if (!file || typeof file.url !== 'string') {
+      return false;
+    }
+    return file.url.includes(preferredNeedle) || file.url.includes(fallbackNeedle);
+  });
+
+  if (matching.length === 1) {
+    const selected = matching[0];
+    const mutableInfo = info as unknown as { files?: typeof files; path?: string; sha512?: string };
+    mutableInfo.files = [selected];
+    if (typeof selected.url === 'string') {
+      mutableInfo.path = selected.url;
+    }
+    if (typeof selected.sha512 === 'string') {
+      mutableInfo.sha512 = selected.sha512;
+    }
+    return;
+  }
+
+  console.warn('[auto-update] unable to uniquely select update file for arch', {
+    arch,
+    fileUrls: files.map((file) => (file && typeof file.url === 'string' ? file.url : '(invalid)')),
+  });
+}
+
 function sanitizeRelativePath(input: string): string {
   if (typeof input !== 'string' || input.trim().length === 0) {
     throw new Error('Invalid relative path');
@@ -140,10 +194,11 @@ function resolveUpdateConfig(): ResolvedUpdateConfig {
   const owner = typeof primary.owner === 'string' && primary.owner.trim().length > 0 ? primary.owner : 'colopl';
   const repo = typeof primary.repo === 'string' && primary.repo.trim().length > 0 ? primary.repo : 'colopresso';
   const flavor: UpdateFlavor = primary.flavor ?? 'internal';
-  const releaseType: 'release' | 'prerelease' = primary.releaseType === 'prerelease' || channel !== 'latest' ? 'prerelease' : 'release';
+  const releaseType: 'release' | 'prerelease' =
+    primary.releaseType === 'prerelease' ? 'prerelease' : primary.releaseType === 'release' ? 'release' : normalizeUpdateChannelName(channel) === 'latest' ? 'release' : 'prerelease';
 
   return {
-    channel,
+    channel: normalizeUpdateChannelName(channel),
     allowPrerelease: releaseType === 'prerelease',
     owner,
     repo,
@@ -153,7 +208,8 @@ function resolveUpdateConfig(): ResolvedUpdateConfig {
 }
 
 function getUpdateChannel(): string {
-  return resolveUpdateConfig().channel;
+  const config = resolveUpdateConfig();
+  return resolveEffectiveUpdateChannel(config);
 }
 
 function getDialogParent(): BrowserWindow | null {
@@ -176,7 +232,6 @@ async function promptForUpdateDownload(info: UpdateInfo, config: ResolvedUpdateC
     translate('updater.dialog.updateAvailable.detail.availableVersion', { version: info.version }),
     translate('updater.dialog.updateAvailable.detail.channel', { channel: config.channel }),
     translate('updater.dialog.updateAvailable.detail.platform', { platform: `${process.platform} ${process.arch}` }),
-    translate('updater.dialog.updateAvailable.detail.releasePage', { url: releaseUrl }),
   ];
 
   const { response } = await showMessageBoxWithOptionalParent({
@@ -220,9 +275,11 @@ function setupAutoUpdate(): void {
 
   autoUpdateInitialized = true;
   const config = resolveUpdateConfig();
+  const effectiveChannel = resolveEffectiveUpdateChannel(config);
 
   console.info('[auto-update] resolved config', {
     channel: config.channel,
+    effectiveChannel,
     allowPrerelease: config.allowPrerelease,
     releaseType: config.releaseType,
     owner: config.owner,
@@ -231,9 +288,9 @@ function setupAutoUpdate(): void {
 
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
-  autoUpdater.allowDowngrade = false;
   autoUpdater.allowPrerelease = config.allowPrerelease;
-  autoUpdater.channel = config.channel;
+  autoUpdater.channel = effectiveChannel;
+  autoUpdater.allowDowngrade = false;
   autoUpdater.logger = console;
 
   autoUpdater.on('download-progress', (progress) => {
@@ -252,7 +309,8 @@ function setupAutoUpdate(): void {
 
   autoUpdater.on('update-available', async (info) => {
     try {
-      const shouldDownload = await promptForUpdateDownload(info, config);
+      selectWindowsUpdateFileForCurrentArch(info);
+      const shouldDownload = await promptForUpdateDownload(info, { ...config, channel: effectiveChannel });
       if (!shouldDownload) {
         if (mainWindow) {
           mainWindow.setProgressBar(-1);
@@ -308,8 +366,8 @@ function createWindow(): void {
   const windowOptions = {
     width: 540,
     minWidth: 540,
-    height: 960,
-    minHeight: 960,
+    height: 1000,
+    minHeight: 900,
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
@@ -550,6 +608,7 @@ function registerIpcHandlers(): void {
   ipcMain.handle('save-zip-dialog', handleSaveZipDialog);
   ipcMain.handle('save-json-dialog', handleSaveJsonDialog);
   ipcMain.handle('get-update-channel', () => getUpdateChannel());
+  ipcMain.handle('get-architecture', () => process.arch);
 }
 
 app.whenReady().then(() => {

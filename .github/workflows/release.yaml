@@ -808,7 +808,6 @@ jobs:
             fi
           done
 
-          # For stable (latest) runs, publish internal stable assets on the public release.
           if test "${{ needs.Prepare.outputs.update_channel }}" = "latest" && test "${INTERNAL_RAW}" = "colopl_internal"; then
             for FILE in "${{ github.workspace }}/internal_assets"/*; do
               if test -f "${FILE}"; then

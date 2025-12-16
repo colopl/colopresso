@@ -146,9 +146,11 @@ const ElectronAppInner: React.FC = () => {
     try {
       const Module = await ensureModule();
       const base = getVersionInfo(Module);
-
       const getUpdateChannel = window.electronAPI?.getUpdateChannel;
+      const getArchitecture = window.electronAPI?.getArchitecture;
       let releaseChannel: string | undefined;
+      let architecture: string | undefined;
+
       if (typeof getUpdateChannel === 'function') {
         const channel = await getUpdateChannel();
         if (typeof channel === 'string' && channel.trim().length > 0) {
@@ -156,7 +158,22 @@ const ElectronAppInner: React.FC = () => {
         }
       }
 
-      return releaseChannel ? { ...base, releaseChannel } : base;
+      if (typeof getArchitecture === 'function') {
+        const arch = await getArchitecture();
+        if (typeof arch === 'string' && arch.trim().length > 0) {
+          architecture = arch.trim();
+        }
+      }
+
+      if (releaseChannel || architecture) {
+        return {
+          ...base,
+          ...(releaseChannel ? { releaseChannel } : {}),
+          ...(architecture ? { architecture } : {}),
+        };
+      }
+
+      return base;
     } catch (_error) {
       return null;
     }
