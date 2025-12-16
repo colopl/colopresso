@@ -167,6 +167,7 @@ export interface BuildInfoPayload {
   pngxLibimagequantVersion?: number;
   buildtime?: number;
   releaseChannel?: string;
+  architecture?: string;
 }
 
 export interface BuildInfoState {

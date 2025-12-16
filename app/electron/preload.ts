@@ -51,6 +51,7 @@ const api: ElectronAPI = {
     return () => ipcRenderer.removeListener('update-download-error', listener);
   },
   getUpdateChannel: () => ipcRenderer.invoke('get-update-channel'),
+  getArchitecture: () => ipcRenderer.invoke('get-architecture'),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', api);

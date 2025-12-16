@@ -31,6 +31,7 @@ const BuildInfoPanel: React.FC<BuildInfoPanelProps> = ({ title, buildInfo, t }) 
     const libimagequantVersion = formatLibimagequantVersion(payload.pngxLibimagequantVersion);
     const buildtime = formatBuildtime(payload.buildtime);
     const releaseChannel = (payload.releaseChannel ?? '').trim();
+    const architecture = (payload.architecture ?? '').trim();
 
     return (
       <div className={styles.buildInfo}>
@@ -43,6 +44,7 @@ const BuildInfoPanel: React.FC<BuildInfoPanelProps> = ({ title, buildInfo, t }) 
         <div className={styles.buildInfoItem}>- libimagequant: {libimagequantVersion}</div>
         <div className={styles.buildInfoItem}>- buildtime: {buildtime}</div>
         {releaseChannel && <div className={styles.buildInfoItem}>- Release Channel: {releaseChannel}</div>}
+        {architecture && <div className={styles.buildInfoItem}>- Architecture: {architecture}</div>}
       </div>
     );
   }

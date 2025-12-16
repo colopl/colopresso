@@ -308,7 +308,6 @@ const bundle: TranslationBundle = {
             availableVersion: '利用可能なバージョン: {version}',
             channel: 'アップデートチャネル: {channel}',
             platform: 'プラットフォーム: {platform}',
-            releasePage: 'リリースページ: {url}',
           },
         },
         readyToInstall: {
@@ -316,7 +315,7 @@ const bundle: TranslationBundle = {
           message: 'バージョン {version} のインストールを完了するために再起動します。続行しますか？',
           detail: '進行中の処理があれば保存してから再起動してください。',
           buttons: {
-            restartNow: '今すぐ再起動',
+            restartNow: '今すぐアプリを再起動',
             later: 'あとで',
           },
         },

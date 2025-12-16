@@ -309,7 +309,6 @@ const bundle: TranslationBundle = {
             availableVersion: 'Available version: {version}',
             channel: 'Update channel: {channel}',
             platform: 'Platform: {platform}',
-            releasePage: 'Release page: {url}',
           },
         },
         readyToInstall: {
@@ -317,7 +316,7 @@ const bundle: TranslationBundle = {
           message: 'Restart to finish installing version {version}. Continue?',
           detail: 'Save your work before restarting.',
           buttons: {
-            restartNow: 'Restart now',
+            restartNow: 'Restart App now',
             later: 'Later',
           },
         },
