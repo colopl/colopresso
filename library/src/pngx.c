@@ -27,8 +27,7 @@ void pngx_set_last_error(int error_code) { g_pngx_last_error = error_code; }
 
 bool pngx_run_quantization(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_data, size_t *out_size, int *quant_quality) {
   const char *label;
-  uint32_t resolved_colors = 0;
-  uint32_t applied_colors = 0;
+  uint32_t resolved_colors = 0, applied_colors = 0;
   bool success;
 
   if (!png_data || png_size == 0 || !opts || !out_data || !out_size) {
@@ -328,4 +327,6 @@ bool pngx_should_attempt_quantization(const pngx_options_t *opts) {
   return opts->lossy_enable;
 }
 
-bool pngx_quantization_better(size_t baseline_size, size_t candidate_size) { return candidate_size == 0 ? false : (baseline_size == 0 ? true : candidate_size < baseline_size); }
+bool pngx_quantization_better(size_t baseline_size, size_t candidate_size) {
+  return candidate_size == 0 ? false : (baseline_size == 0 ? true : candidate_size < baseline_size);
+}

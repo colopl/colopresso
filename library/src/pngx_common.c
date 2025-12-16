@@ -364,13 +364,7 @@ bool load_rgba_image(const uint8_t *png_data, size_t png_size, pngx_rgba_image_t
 uint8_t clamp_reduced_bits(uint8_t bits) {
   const uint8_t min_bits = (uint8_t)COLOPRESSO_PNGX_REDUCED_BITS_MIN, max_bits = (uint8_t)COLOPRESSO_PNGX_REDUCED_BITS_MAX;
 
-  if (bits < min_bits) {
-    return min_bits;
-  }
-  if (bits > max_bits) {
-    return max_bits;
-  }
-  return bits;
+  return bits < min_bits ? min_bits : (bits > max_bits ? max_bits : bits);
 }
 
 uint8_t quantize_channel_value(float value, uint8_t bits_per_channel) {
@@ -378,13 +372,7 @@ uint8_t quantize_channel_value(float value, uint8_t bits_per_channel) {
   float clamped, scaled, rounded, quantized;
 
   if (bits_per_channel >= 8) {
-    if (value < 0.0f) {
-      return 0;
-    }
-    if (value > 255.0f) {
-      return 255;
-    }
-    return (uint8_t)(value + 0.5f);
+    return value < 0.0f ? 0 : (value > 255.0f ? 255 : (uint8_t)(value + 0.5f));
   }
 
   if (bits_per_channel < 1) {
@@ -433,20 +421,19 @@ uint8_t quantize_bits(uint8_t value, uint8_t bits) {
 }
 
 void snap_rgba_to_bits(uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a, uint8_t bits_rgb, uint8_t bits_alpha) {
-  bits_rgb = clamp_reduced_bits(bits_rgb);
-  bits_alpha = clamp_reduced_bits(bits_alpha);
+  uint8_t rgb = clamp_reduced_bits(bits_rgb), alpha = clamp_reduced_bits(bits_alpha);
 
   if (r) {
-    *r = quantize_bits(*r, bits_rgb);
+    *r = quantize_bits(*r, rgb);
   }
   if (g) {
-    *g = quantize_bits(*g, bits_rgb);
+    *g = quantize_bits(*g, rgb);
   }
   if (b) {
-    *b = quantize_bits(*b, bits_rgb);
+    *b = quantize_bits(*b, rgb);
   }
   if (a) {
-    *a = quantize_bits(*a, bits_alpha);
+    *a = quantize_bits(*a, alpha);
   }
 }
 
@@ -458,9 +445,7 @@ void snap_rgba_image_to_bits(uint8_t *rgba, size_t pixel_count, uint8_t bits_rgb
     return;
   }
 
-  bits_rgb = clamp_reduced_bits(bits_rgb);
-  bits_alpha = clamp_reduced_bits(bits_alpha);
-  if (bits_rgb >= 8 && bits_alpha >= 8) {
+  if (clamp_reduced_bits(bits_rgb) >= 8 && clamp_reduced_bits(bits_alpha) >= 8) {
     return;
   }
 
@@ -500,8 +485,8 @@ float estimate_bitdepth_dither_level(const uint8_t *rgba, png_uint_32 width, png
   png_uint_32 y, x;
   uint8_t r, g, b, a;
   size_t pixel_count, gradient_samples, opaque_pixels, translucent_pixels, base, right, below;
-  double gradient_accum;
   float base_level, target, right_luma, below_luma, luma, normalized_gradient, opaque_ratio, translucent_ratio, min_luma, max_luma, coverage, gradient_span;
+  double gradient_accum;
 
   if (!rgba || width == 0 || height == 0) {
     return clamp_float(COLOPRESSO_PNGX_DEFAULT_LOSSY_DITHER_LEVEL, 0.0f, 1.0f);

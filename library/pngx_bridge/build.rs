@@ -41,6 +41,7 @@ fn extract_version_from_lock(lock_content: &str, package_name: &str) -> Option<S
 }
 
 fn main() {
+    println!("cargo:rustc-check-cfg=cfg(pngx_bridge_msan)");
     println!("cargo:rerun-if-changed=src/lib.rs");
     println!("cargo:rerun-if-changed=cbindgen.toml");
     println!("cargo:rerun-if-changed=Cargo.lock");

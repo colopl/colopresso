@@ -75,8 +75,8 @@ jobs:
             --build-arg ENABLE_CLANG="1" \
             --build-arg ENABLE_EMSDK="1" \
             --build-arg EMSDK_VERSION="${{ needs.Prepare.outputs.emsdk_version }}" \
-            --target base \
-            --tag ci \
+            --target "base" \
+            --tag "ci" \
             .
       - name: Build and test on container
         run: |
@@ -86,10 +86,13 @@ jobs:
             --workdir "/workspace" \
             ci \
             /bin/bash -lc '
+              set -e;
               rm -rf "build" && \
               cmake -B "build" -DCMAKE_BUILD_TYPE="Release" -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_USE_UTILS=ON -DCOLOPRESSO_USE_CLI=ON && \
               cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))" && \
               ctest --test-dir "build" --output-on-failure --parallel && \
+              \
+              rustup toolchain install nightly && rustup component add rust-src --toolchain nightly && \
               \
               rm -rf "build" && \
               cmake -B "build" \
@@ -118,7 +121,7 @@ jobs:
               rm -rf "build" && \
               emcmake cmake -B "build" \
                 -DCMAKE_BUILD_TYPE="Release" \
-                -DCOLOPRESSO_NODE_BUILD=ON && \
+                -DCOLOPRESSO_NODE_BUILD=ON \
                 -DCOLOPRESSO_USE_TESTS=ON \
                 -DCOLOPRESSO_USE_UTILS=ON \
                 -DCOLOPRESSO_USE_CLI=ON && \
@@ -321,6 +324,7 @@ jobs:
             --workdir "/workspace" \
             cli \
             /bin/sh -c '
+              set -e;
               cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS="-static" -DCOLOPRESSO_USE_CLI=ON -DCOLOPRESSO_USE_TESTS=ON && \
               cmake --build build --config Release --target colopresso_cli --parallel=$(($(nproc)-1)) && \
               strip build/cli/colopresso && \
@@ -337,6 +341,7 @@ jobs:
             --volume "${PWD}/assets:/assets:ro" \
             alpine:latest \
             /bin/sh -c '
+              set -e;
               /colopresso --version && \
               /colopresso --verbose --format=webp /assets/example.png /tmp/example.webp && \
               /colopresso --verbose --format=avif /assets/example.png /tmp/example.avif && \
@@ -350,6 +355,7 @@ jobs:
             --volume "${PWD}/assets:/assets:ro" \
             busybox:musl \
             /bin/sh -c '
+              set -e;
               /colopresso --version && \
               /colopresso --verbose --format=webp /assets/example.png /tmp/example.webp && \
               /colopresso --verbose --format=avif /assets/example.png /tmp/example.avif && \

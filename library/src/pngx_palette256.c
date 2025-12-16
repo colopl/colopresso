@@ -17,11 +17,11 @@
 
 #include "internal/log.h"
 #include "internal/pngx_common.h"
+#include "internal/sanitizer.h"
 
 static inline void alpha_bleed_rgb_from_opaque(uint8_t *rgba, uint32_t width, uint32_t height, const pngx_options_t *opts) {
   uint32_t *seed_rgb, x, y, best_rgb;
-  uint16_t *dist, best, d;
-  uint16_t max_distance;
+  uint16_t *dist, best, d, max_distance;
   uint8_t opaque_threshold, soft_limit;
   size_t pixel_count, i, base, idx;
   bool has_seed;
@@ -199,8 +199,8 @@ static inline bool is_smooth_gradient_profile(const pngx_image_stats_t *stats, c
 
 static inline void tune_quant_params_for_image(PngxBridgeQuantParams *params, const pngx_options_t *opts, const pngx_image_stats_t *stats) {
   uint8_t quality_min, quality_max;
-  float opaque_ratio_threshold, gradient_mean_max, saturation_mean_max;
   int32_t speed_max, quality_min_floor, quality_max_target;
+  float opaque_ratio_threshold, gradient_mean_max, saturation_mean_max;
 
   if (!params || !opts || !stats) {
     return;
@@ -442,8 +442,8 @@ static inline bool init_write_struct(png_structp *png_ptr, png_infop *info_ptr) 
 }
 
 static inline bool memory_buffer_reserve(png_memory_buffer_t *buffer, size_t additional) {
-  size_t required, capacity;
   uint8_t *new_data;
+  size_t required, capacity;
 
   if (!buffer || additional > SIZE_MAX - buffer->size) {
     return false;
@@ -684,6 +684,10 @@ bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pn
     return false;
   }
 
+  memset(&params, 0, sizeof(params));
+  memset(&fallback_params, 0, sizeof(fallback_params));
+  memset(&output, 0, sizeof(output));
+
   alpha_bleed_rgb_from_opaque(image.rgba, image.width, image.height, opts);
 
   pixel_count = image.pixel_count;
@@ -784,6 +788,9 @@ bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pn
 
   success = false;
   if (output.indices && output.indices_len == pixel_count && output.palette && output.palette_len > 0 && output.palette_len <= 256) {
+    MSAN_UNPOISON(output.palette, output.palette_len * sizeof(cpres_rgba_color_t));
+    MSAN_UNPOISON(output.indices, output.indices_len * sizeof(uint8_t));
+
     sanitize_transparent_palette(output.palette, output.palette_len);
     postprocess_indices(output.indices, image.width, image.height, output.palette, output.palette_len, &support, &tuned_opts);
     success = pngx_create_palette_png(output.indices, output.indices_len, output.palette, output.palette_len, image.width, image.height, out_data, out_size);

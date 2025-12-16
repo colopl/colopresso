@@ -232,7 +232,12 @@ fn quantize_image(
     }
 
     if params.dithering_level >= 0.0 && params.dithering_level.is_finite() {
-        if result.set_dithering_level(params.dithering_level).is_err() {
+        let dithering_level = if cfg!(pngx_bridge_msan) {
+            0.0
+        } else {
+            params.dithering_level
+        };
+        if result.set_dithering_level(dithering_level).is_err() {
             return Err(QuantizeError::Generic);
         }
     }
@@ -262,17 +267,18 @@ pub unsafe extern "C" fn pngx_bridge_optimize_lossless(
     }
 
     let input_slice = slice::from_raw_parts(input_data, input_size);
-    let opts = if options.is_null() {
-        PngxBridgeLosslessOptions {
-            optimization_level: 5,
-            strip_safe: true,
-            optimize_alpha: true,
-        }
+    let default_opts = PngxBridgeLosslessOptions {
+        optimization_level: 5,
+        strip_safe: true,
+        optimize_alpha: true,
+    };
+    let opts_ref = if options.is_null() {
+        &default_opts
     } else {
-        *options
+        &*options
     };
 
-    let rust_opts = convert_lossless_options(&opts);
+    let rust_opts = convert_lossless_options(opts_ref);
     let attempt = catch_unwind(AssertUnwindSafe(|| {
         oxipng::optimize_from_memory(input_slice, &rust_opts)
     }));
@@ -314,15 +320,10 @@ pub unsafe extern "C" fn pngx_bridge_quantize(
         return PngxBridgeQuantStatus::Error;
     }
 
-    let mut out = PngxBridgeQuantOutput {
-        palette: ptr::null_mut(),
-        palette_len: 0,
-        indices: ptr::null_mut(),
-        indices_len: 0,
-        quality: -1,
-    };
+    let mut out: PngxBridgeQuantOutput = unsafe { std::mem::zeroed() };
+    out.quality = -1;
 
-    let params_ref = *params;
+    let params_ref = &*params;
     let expected = (width as usize).checked_mul(height as usize);
     if expected != Some(pixel_count) {
         unsafe {
@@ -334,7 +335,7 @@ pub unsafe extern "C" fn pngx_bridge_quantize(
     let pixels_slice = slice::from_raw_parts(pixels, pixel_count);
 
     let outcome = catch_unwind(AssertUnwindSafe(|| {
-        quantize_image(pixels_slice, width as usize, height as usize, &params_ref)
+        quantize_image(pixels_slice, width as usize, height as usize, params_ref)
     }));
 
     let outcome = match outcome {
