@@ -67,9 +67,12 @@ if(_colopresso_sanitizers)
 
     set(AOM_TARGET_CPU "generic" CACHE STRING "Use generic libaom build under MemorySanitizer" FORCE)
     message(STATUS "Setting libaom target CPU to 'generic' for MemorySanitizer compatibility")
-
-    set(WEBP_ENABLE_SIMD OFF CACHE BOOL "Disable libwebp SIMD for MemorySanitizer" FORCE)
-    message(STATUS "Disabling libwebp SIMD optimizations for MemorySanitizer compatibility")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64)$")
+      message(STATUS "Keeping libwebp SIMD enabled under MemorySanitizer on amd64 (disabling SSE2 is ABI-incompatible)")
+    else()
+      set(WEBP_ENABLE_SIMD OFF CACHE BOOL "Disable libwebp SIMD for MemorySanitizer" FORCE)
+      message(STATUS "Disabling libwebp SIMD optimizations for MemorySanitizer compatibility")
+    endif()
   endif()
 
   set(_colopresso_sanitizer_flags)
