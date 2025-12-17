@@ -5,7 +5,7 @@
  *
  * Copyright (C) 2025 COLOPL, Inc.
  *
- * Author: Go Kudo <g-kudo@colopl43.co.jp>
+ * Author: Go Kudo <g-kudo@colopl.co.jp>
  * Developed with AI (LLM) code assistance. See `NOTICE` for details.
  */
 
