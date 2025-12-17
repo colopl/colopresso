@@ -212,3 +212,16 @@
    ...
    fun:pthread_create*
 }
+
+{
+   crossbeam_channel_context_possible
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   ...
+   fun:*std*thread*current*init_current*
+   ...
+   fun:*crossbeam_channel*context*Context*new*
+   ...
+   fun:*crossbeam_channel*context*Context*with*
+ }

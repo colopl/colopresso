@@ -21,8 +21,6 @@
 #include <colopresso.h>
 #include <colopresso/portable.h>
 
-#include "internal/sanitizer.h"
-
 #include "internal/log.h"
 #include "internal/png.h"
 
@@ -30,7 +28,7 @@
 #include "internal/pngx.h"
 #include "internal/webp.h"
 
-void cpres_config_init_defaults(cpres_config_t *config) {
+extern void cpres_config_init_defaults(cpres_config_t *config) {
   if (!config) {
     return;
   }
@@ -107,7 +105,7 @@ void cpres_config_init_defaults(cpres_config_t *config) {
   config->pngx_threads = COLOPRESSO_PNGX_DEFAULT_THREADS;
 }
 
-cpres_error_t cpres_encode_webp_memory(const uint8_t *png_data, size_t png_size, uint8_t **webp_data, size_t *webp_size, const cpres_config_t *config) {
+extern cpres_error_t cpres_encode_webp_memory(const uint8_t *png_data, size_t png_size, uint8_t **webp_data, size_t *webp_size, const cpres_config_t *config) {
   uint32_t width, height;
   cpres_error_t error;
   uint8_t *rgba_data;
@@ -154,7 +152,7 @@ cpres_error_t cpres_encode_webp_memory(const uint8_t *png_data, size_t png_size,
   return error;
 }
 
-cpres_error_t cpres_encode_avif_memory(const uint8_t *png_data, size_t png_size, uint8_t **avif_data, size_t *avif_size, const cpres_config_t *config) {
+extern cpres_error_t cpres_encode_avif_memory(const uint8_t *png_data, size_t png_size, uint8_t **avif_data, size_t *avif_size, const cpres_config_t *config) {
   uint32_t width, height;
   uint8_t *rgba_data;
   size_t encoded_size;
@@ -199,7 +197,7 @@ cpres_error_t cpres_encode_avif_memory(const uint8_t *png_data, size_t png_size,
   return error;
 }
 
-cpres_error_t cpres_encode_pngx_memory(const uint8_t *png_data, size_t png_size, uint8_t **optimized_data, size_t *optimized_size, const cpres_config_t *config) {
+extern cpres_error_t cpres_encode_pngx_memory(const uint8_t *png_data, size_t png_size, uint8_t **optimized_data, size_t *optimized_size, const cpres_config_t *config) {
   pngx_options_t opts;
   uint8_t *lossless_data, *quant_data, *quant_optimized, *final_data;
   size_t lossless_size, quant_size, quant_optimized_size, final_size, candidate_size;
@@ -316,21 +314,19 @@ cpres_error_t cpres_encode_pngx_memory(const uint8_t *png_data, size_t png_size,
     cpres_log(CPRES_LOG_LEVEL_WARNING, "PNGX: RGBA lossy output larger than input (%zu > %zu) but forcing write per RGBA mode", final_size, png_size);
   }
 
-  MSAN_UNPOISON(final_data, final_size);
-
   *optimized_data = final_data;
   *optimized_size = final_size;
 
   return CPRES_OK;
 }
 
-void cpres_free(uint8_t *data) {
+extern void cpres_free(uint8_t *data) {
   if (data) {
     free(data);
   }
 }
 
-const char *cpres_error_string(cpres_error_t error) {
+extern const char *cpres_error_string(cpres_error_t error) {
   switch (error) {
   case CPRES_OK:
     return "Success";
@@ -357,19 +353,19 @@ const char *cpres_error_string(cpres_error_t error) {
   }
 }
 
-uint32_t cpres_get_version(void) { return (uint32_t)COLOPRESSO_VERSION; }
+extern uint32_t cpres_get_version(void) { return (uint32_t)COLOPRESSO_VERSION; }
 
-uint32_t cpres_get_libwebp_version(void) { return (uint32_t)WebPGetEncoderVersion(); }
+extern uint32_t cpres_get_libwebp_version(void) { return (uint32_t)WebPGetEncoderVersion(); }
 
-uint32_t cpres_get_libpng_version(void) { return (uint32_t)png_access_version_number(); }
+extern uint32_t cpres_get_libpng_version(void) { return (uint32_t)png_access_version_number(); }
 
-uint32_t cpres_get_libavif_version(void) { return (uint32_t)AVIF_VERSION; }
+extern uint32_t cpres_get_libavif_version(void) { return (uint32_t)AVIF_VERSION; }
 
-uint32_t cpres_get_pngx_oxipng_version(void) { return pngx_bridge_oxipng_version(); }
+extern uint32_t cpres_get_pngx_oxipng_version(void) { return pngx_bridge_oxipng_version(); }
 
-uint32_t cpres_get_pngx_libimagequant_version(void) { return pngx_bridge_libimagequant_version(); }
+extern uint32_t cpres_get_pngx_libimagequant_version(void) { return pngx_bridge_libimagequant_version(); }
 
-uint32_t cpres_get_buildtime(void) {
+extern uint32_t cpres_get_buildtime(void) {
 #ifdef COLOPRESSO_BUILDTIME
   return (uint32_t)COLOPRESSO_BUILDTIME;
 #else

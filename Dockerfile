@@ -142,7 +142,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     pip3 install --resume-retries=5 --no-cache-dir "numpy" "opencv-python" "Pillow" "scikit-image" "flake8" "black" && \
     update-alternatives --install "/usr/bin/python" python "$(which "python3")" 100 && \
     . "/etc/profile.d/cargo.sh" && \
-    rustup component add "rustfmt"
+    rustup component add "rustfmt" && \
+    rustup toolchain install "nightly" && \
+    rustup component add "rust-src" --toolchain "nightly"
 
 ENV EDITOR="vim"
 ENV VISUAL="vim"

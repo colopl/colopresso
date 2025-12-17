@@ -29,7 +29,7 @@ int cpres_avif_get_last_error(void) { return g_avif_last_error; }
 
 void cpres_avif_set_last_error(int error_code) { g_avif_last_error = error_code; }
 
-static void apply_avif_config(avifEncoder *encoder, const cpres_config_t *config) {
+static inline void apply_avif_config(avifEncoder *encoder, const cpres_config_t *config) {
   float quality;
   int alpha_quality, threads, speed;
 
@@ -103,7 +103,7 @@ static avifImage *create_avif_image_from_rgba(uint8_t *rgba_data, uint32_t width
   return image;
 }
 
-static cpres_error_t encode_avif_common(uint8_t *rgba_data, uint32_t width, uint32_t height, avifRWData *output, const cpres_config_t *config) {
+static inline cpres_error_t encode_avif_common(uint8_t *rgba_data, uint32_t width, uint32_t height, avifRWData *output, const cpres_config_t *config) {
   avifImage *image = NULL;
   avifEncoder *encoder = NULL;
   avifResult result;
@@ -156,7 +156,7 @@ static cpres_error_t encode_avif_common(uint8_t *rgba_data, uint32_t width, uint
   return CPRES_OK;
 }
 
-cpres_error_t cpres_avif_encode_rgba_to_memory(uint8_t *rgba_data, uint32_t width, uint32_t height, uint8_t **avif_data, size_t *avif_size, const cpres_config_t *config) {
+extern cpres_error_t cpres_avif_encode_rgba_to_memory(uint8_t *rgba_data, uint32_t width, uint32_t height, uint8_t **avif_data, size_t *avif_size, const cpres_config_t *config) {
   avifRWData encoded = AVIF_DATA_EMPTY;
   cpres_error_t err;
 

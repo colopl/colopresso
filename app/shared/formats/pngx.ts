@@ -178,7 +178,6 @@ const sections: FormatSection[] = [
         step: 0.01,
         defaultValue: 0.9,
         labelKey: 'formats.pngx.fields.palette256_profile_opaque_ratio_threshold',
-        noteKey: 'settingsModal.notes.pngxPalette256Threshold',
       },
       {
         id: 'pngx_palette256_profile_gradient_mean_max',
@@ -188,7 +187,6 @@ const sections: FormatSection[] = [
         step: 0.01,
         defaultValue: 0.16,
         labelKey: 'formats.pngx.fields.palette256_profile_gradient_mean_max',
-        noteKey: 'settingsModal.notes.pngxPalette256Threshold',
       },
       {
         id: 'pngx_palette256_profile_saturation_mean_max',
@@ -198,7 +196,6 @@ const sections: FormatSection[] = [
         step: 0.01,
         defaultValue: 0.42,
         labelKey: 'formats.pngx.fields.palette256_profile_saturation_mean_max',
-        noteKey: 'settingsModal.notes.pngxPalette256Threshold',
       },
       {
         id: 'pngx_palette256_tune_opaque_ratio_threshold',
@@ -208,7 +205,6 @@ const sections: FormatSection[] = [
         step: 0.01,
         defaultValue: 0.9,
         labelKey: 'formats.pngx.fields.palette256_tune_opaque_ratio_threshold',
-        noteKey: 'settingsModal.notes.pngxPalette256Threshold',
       },
       {
         id: 'pngx_palette256_tune_gradient_mean_max',
@@ -218,7 +214,6 @@ const sections: FormatSection[] = [
         step: 0.01,
         defaultValue: 0.14,
         labelKey: 'formats.pngx.fields.palette256_tune_gradient_mean_max',
-        noteKey: 'settingsModal.notes.pngxPalette256Threshold',
       },
       {
         id: 'pngx_palette256_tune_saturation_mean_max',
@@ -228,7 +223,6 @@ const sections: FormatSection[] = [
         step: 0.01,
         defaultValue: 0.35,
         labelKey: 'formats.pngx.fields.palette256_tune_saturation_mean_max',
-        noteKey: 'settingsModal.notes.pngxPalette256Threshold',
       },
       {
         id: 'pngx_palette256_tune_speed_max',
@@ -238,7 +232,6 @@ const sections: FormatSection[] = [
         step: 1,
         defaultValue: 1,
         labelKey: 'formats.pngx.fields.palette256_tune_speed_max',
-        noteKey: 'settingsModal.notes.pngxPalette256Threshold',
       },
       {
         id: 'pngx_palette256_tune_quality_min_floor',
@@ -248,7 +241,6 @@ const sections: FormatSection[] = [
         step: 1,
         defaultValue: 90,
         labelKey: 'formats.pngx.fields.palette256_tune_quality_min_floor',
-        noteKey: 'settingsModal.notes.pngxPalette256Threshold',
       },
       {
         id: 'pngx_palette256_tune_quality_max_target',
@@ -258,7 +250,6 @@ const sections: FormatSection[] = [
         step: 1,
         defaultValue: 100,
         labelKey: 'formats.pngx.fields.palette256_tune_quality_max_target',
-        noteKey: 'settingsModal.notes.pngxPalette256Threshold',
       },
     ],
   },

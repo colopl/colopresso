@@ -17,5 +17,6 @@
 /library/pngx_bridge/target
 /.venv
 /_codeql_detected_source_root
+/quality
 *.DS_Store
 Thumbs.db

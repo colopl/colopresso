@@ -45,7 +45,7 @@ static inline bool cpres_get_file_size_bytes(const char *path, size_t *size_out)
   return true;
 }
 
-cpres_error_t cpres_read_file_to_memory(const char *path, uint8_t **data_out, size_t *size_out) {
+extern cpres_error_t cpres_read_file_to_memory(const char *path, uint8_t **data_out, size_t *size_out) {
   FILE *fp;
   uint64_t file_size64;
   uint8_t *buffer;

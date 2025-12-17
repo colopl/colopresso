@@ -119,7 +119,7 @@ $ git clone --recursive "https://github.com/colopl/colopresso.git"
 3. `rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Release -DCOLOPRESSO_USE_UTILS=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_USE_CLI=ON`
 4. `cmake --build "build" --parallel`
 5. `ctest --test-dir "build" --output-on-failure --parallel`
-6. `./build/cli/colopresso` に CLI バイナリが、`./build/utils/cpres` にユーティリティバイナリが含まれ、`./build` に `libcolopresso.a` が含まれます
+6. `./build/cli/colopresso` に CLI バイナリが、`./build/utils` にユーティリティバイナリが含まれ、`./build` に `libcolopresso.a` が含まれます
 
 ### カバレッジ出力
 

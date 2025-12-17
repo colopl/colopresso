@@ -27,7 +27,7 @@ struct _cpres_datetime_t {
   uint8_t sec;
 };
 
-cpres_datetime_timestamp_t cpres_datetime_timestamp(void) {
+extern cpres_datetime_timestamp_t cpres_datetime_timestamp(void) {
   time_t tm;
 
   tm = time(NULL);
@@ -38,7 +38,7 @@ cpres_datetime_timestamp_t cpres_datetime_timestamp(void) {
   return (cpres_datetime_timestamp_t)tm;
 }
 
-void cpres_datetime_destroy(cpres_datetime_t *pdt) {
+extern void cpres_datetime_destroy(cpres_datetime_t *pdt) {
   if (!pdt) {
     return;
   }
@@ -46,7 +46,7 @@ void cpres_datetime_destroy(cpres_datetime_t *pdt) {
   free(pdt);
 }
 
-cpres_datetime_t *cpres_datetime_create_from_timestamp(cpres_datetime_timestamp_t timestamp) {
+extern cpres_datetime_t *cpres_datetime_create_from_timestamp(cpres_datetime_timestamp_t timestamp) {
   cpres_datetime_t *pdt;
   time_t t;
   struct tm tm;
@@ -71,9 +71,9 @@ cpres_datetime_t *cpres_datetime_create_from_timestamp(cpres_datetime_timestamp_
   return pdt;
 }
 
-cpres_datetime_t *cpres_datetime_create(void) { return cpres_datetime_create_from_timestamp(cpres_datetime_timestamp()); }
+extern cpres_datetime_t *cpres_datetime_create(void) { return cpres_datetime_create_from_timestamp(cpres_datetime_timestamp()); }
 
-cpres_datetime_timestamp_t cpres_datetime_get_timestamp(const cpres_datetime_t *pdt) {
+extern cpres_datetime_timestamp_t cpres_datetime_get_timestamp(const cpres_datetime_t *pdt) {
   struct tm tm = {0};
   time_t local_time, gmt_time;
   struct tm gmt_tm;
@@ -102,7 +102,7 @@ cpres_datetime_timestamp_t cpres_datetime_get_timestamp(const cpres_datetime_t *
   return (cpres_datetime_timestamp_t)local_time + (local_time - gmt_time);
 }
 
-uint16_t cpres_datetime_get_year(const cpres_datetime_t *pdt) {
+extern uint16_t cpres_datetime_get_year(const cpres_datetime_t *pdt) {
   if (!pdt) {
     return 0;
   }
@@ -110,7 +110,7 @@ uint16_t cpres_datetime_get_year(const cpres_datetime_t *pdt) {
   return pdt->year;
 }
 
-uint8_t cpres_datetime_get_mon(const cpres_datetime_t *pdt) {
+extern uint8_t cpres_datetime_get_mon(const cpres_datetime_t *pdt) {
   if (!pdt) {
     return 0;
   }
@@ -118,7 +118,7 @@ uint8_t cpres_datetime_get_mon(const cpres_datetime_t *pdt) {
   return pdt->month;
 }
 
-uint8_t cpres_datetime_get_day(const cpres_datetime_t *pdt) {
+extern uint8_t cpres_datetime_get_day(const cpres_datetime_t *pdt) {
   if (!pdt) {
     return 0;
   }
@@ -126,7 +126,7 @@ uint8_t cpres_datetime_get_day(const cpres_datetime_t *pdt) {
   return pdt->day;
 }
 
-uint8_t cpres_datetime_get_hour(const cpres_datetime_t *pdt) {
+extern uint8_t cpres_datetime_get_hour(const cpres_datetime_t *pdt) {
   if (!pdt) {
     return 0;
   }
@@ -134,7 +134,7 @@ uint8_t cpres_datetime_get_hour(const cpres_datetime_t *pdt) {
   return pdt->hour;
 }
 
-uint8_t cpres_datetime_get_min(const cpres_datetime_t *pdt) {
+extern uint8_t cpres_datetime_get_min(const cpres_datetime_t *pdt) {
   if (!pdt) {
     return 0;
   }
@@ -142,7 +142,7 @@ uint8_t cpres_datetime_get_min(const cpres_datetime_t *pdt) {
   return pdt->min;
 }
 
-uint8_t cpres_datetime_get_sec(const cpres_datetime_t *pdt) {
+extern uint8_t cpres_datetime_get_sec(const cpres_datetime_t *pdt) {
   if (!pdt) {
     return 0;
   }
@@ -174,7 +174,7 @@ uint8_t cpres_datetime_get_sec(const cpres_datetime_t *pdt) {
  * - Min: 0000-01-01 00:00 => 00000000000000010000100000000000 => 0x0010800
  * - Max: 4095-12-31 23:59 => 11111111111111001111110111111011 => 0xFFFCFDFB
  */
-cpres_datetime_buildtime_t cpres_datetime_encode_buildtime(cpres_datetime_timestamp_t timestamp) {
+extern cpres_datetime_buildtime_t cpres_datetime_encode_buildtime(cpres_datetime_timestamp_t timestamp) {
   cpres_datetime_t *pdt;
   cpres_datetime_buildtime_t bt;
 
@@ -195,7 +195,7 @@ cpres_datetime_buildtime_t cpres_datetime_encode_buildtime(cpres_datetime_timest
   return bt;
 }
 
-cpres_datetime_timestamp_t cpres_datetime_decode_buildtime(cpres_datetime_buildtime_t buildtime) {
+extern cpres_datetime_timestamp_t cpres_datetime_decode_buildtime(cpres_datetime_buildtime_t buildtime) {
   struct tm t = {0};
   time_t local_time, gmt_time;
   struct tm gmt_tm;
@@ -220,7 +220,7 @@ cpres_datetime_timestamp_t cpres_datetime_decode_buildtime(cpres_datetime_buildt
   return (cpres_datetime_timestamp_t)local_time + (local_time - gmt_time);
 }
 
-bool cpres_datetime_buildtime2str(cpres_datetime_buildtime_t buildtime, cpres_datetime_buildtime_str_t str) {
+extern bool cpres_datetime_buildtime2str(cpres_datetime_buildtime_t buildtime, cpres_datetime_buildtime_str_t str) {
   cpres_datetime_t *pdt;
 
   pdt = cpres_datetime_create_from_timestamp(cpres_datetime_decode_buildtime(buildtime));

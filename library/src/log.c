@@ -56,4 +56,4 @@ void cpres_log(cpres_log_level_t level, const char *format, ...) {
   }
 }
 
-void cpres_set_log_callback(cpres_log_callback_t callback) { g_log_callback = callback; }
+extern void cpres_set_log_callback(cpres_log_callback_t callback) { g_log_callback = callback; }

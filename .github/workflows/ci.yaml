@@ -46,6 +46,7 @@ jobs:
           retention-days: 1
   LinuxAndChromeExtension:
     needs: Prepare
+    timeout-minutes: 360
     strategy:
       matrix:
         include:
@@ -69,14 +70,14 @@ jobs:
       - name: Build container
         run: |
           docker build \
-            --file Dockerfile \
+            --file "Dockerfile" \
             --build-arg PLATFORM="${{ matrix.platform }}" \
             --build-arg ENABLE_VALGRIND="1" \
             --build-arg ENABLE_CLANG="1" \
             --build-arg ENABLE_EMSDK="1" \
             --build-arg EMSDK_VERSION="${{ needs.Prepare.outputs.emsdk_version }}" \
-            --target base \
-            --tag ci \
+            --target "base" \
+            --tag "ci" \
             .
       - name: Build and test on container
         run: |
@@ -86,23 +87,34 @@ jobs:
             --workdir "/workspace" \
             ci \
             /bin/bash -lc '
-              rm -rf "build" && \
-              cmake -B "build" -DCMAKE_BUILD_TYPE="Release" -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_USE_UTILS=ON -DCOLOPRESSO_USE_CLI=ON && \
-              cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))" && \
-              ctest --test-dir "build" --output-on-failure --parallel && \
-              \
-              rm -rf "build" && \
+              set -e
+
+              rm -rf "build"
               cmake -B "build" \
-                -DCMAKE_BUILD_TYPE="Debug" \
-                -DCOLOPRESSO_USE_VALGRIND=ON \
+                -DCMAKE_BUILD_TYPE="Release" \
                 -DCOLOPRESSO_USE_TESTS=ON \
                 -DCOLOPRESSO_USE_UTILS=ON \
-                -DCOLOPRESSO_USE_CLI=ON && \
-              cmake --build "build" --config "Debug" --parallel="$(($(nproc)-1))" && \
-              ctest --test-dir "build" --output-on-failure --parallel && \
-              \
-              for OPTS in ASAN MSAN UBSAN; do \
-                rm -rf "build" && \
+                -DCOLOPRESSO_USE_CLI=ON
+              cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
+              ctest --test-dir "build" --output-on-failure --parallel
+
+              rustup toolchain install nightly
+              rustup component add rust-src --toolchain nightly
+
+              if test "${{ github.ref }}" = "refs/heads/main"; then
+                rm -rf "build"
+                cmake -B "build" \
+                  -DCMAKE_BUILD_TYPE="Debug" \
+                  -DCOLOPRESSO_USE_VALGRIND=ON \
+                  -DCOLOPRESSO_USE_TESTS=ON \
+                  -DCOLOPRESSO_USE_UTILS=ON \
+                  -DCOLOPRESSO_USE_CLI=ON
+                cmake --build "build" --config "Debug" --parallel="$(($(nproc)-1))"
+                ctest --test-dir "build" --output-on-failure
+              fi
+
+              for OPTS in ASAN MSAN UBSAN; do
+                rm -rf "build"
                 cmake -B "build" \
                   -DCMAKE_C_COMPILER="$(which "clang")" \
                   -DCMAKE_CXX_COMPILER="$(which "clang++")" \
@@ -110,25 +122,25 @@ jobs:
                   -DCOLOPRESSO_USE_TESTS=ON \
                   -DCOLOPRESSO_USE_UTILS=ON \
                   -DCOLOPRESSO_USE_CLI=ON \
-                  -DCOLOPRESSO_USE_${OPTS}=ON && \
-                cmake --build "build" --config "Debug" --parallel="$(($(nproc)-1))" && \
-                ctest --test-dir "build" --output-on-failure --parallel; \
+                  -DCOLOPRESSO_USE_${OPTS}=ON
+                cmake --build "build" --config "Debug" --parallel="$(($(nproc)-1))"
+                ctest --test-dir "build" --output-on-failure --parallel
               done
-              \
-              rm -rf "build" && \
+
+              rm -rf "build"
               emcmake cmake -B "build" \
                 -DCMAKE_BUILD_TYPE="Release" \
-                -DCOLOPRESSO_NODE_BUILD=ON && \
+                -DCOLOPRESSO_NODE_BUILD=ON \
                 -DCOLOPRESSO_USE_TESTS=ON \
                 -DCOLOPRESSO_USE_UTILS=ON \
-                -DCOLOPRESSO_USE_CLI=ON && \
-              cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))" && \
+                -DCOLOPRESSO_USE_CLI=ON
+              cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
               ctest --test-dir "build" --output-on-failure --parallel
-              \
-              rm -rf "build" && \
+
+              rm -rf "build"
               emcmake cmake -B "build" \
                 -DCMAKE_BUILD_TYPE="Release" \
-                -DCOLOPRESSO_CHROME_EXTENSION=ON && \
+                -DCOLOPRESSO_CHROME_EXTENSION=ON
               cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
             '
   WindowsElectron:
@@ -219,7 +231,7 @@ jobs:
           echo "${EMSDK}/node/$(ls "${EMSDK}/node" | head -n 1)_64bit/bin" >> "${GITHUB_PATH}"
       - name: Build Electron app
         run: |
-          emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--mac" && \
+          emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--mac"
           cmake --build "build" --config "Release" --parallel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -244,7 +256,7 @@ jobs:
       - name: Build
         run: cmake --build "build" --config "Release" --parallel
       - name: Test
-        run: ctest --test-dir "build" --build-config "Release" --output-on-failure
+        run: ctest --test-dir "build" --build-config "Release" --output-on-failure --parallel
       - name: Test CLI
         run: build\cli\Release\colopresso.exe --version
   macOSCLI:
@@ -310,8 +322,8 @@ jobs:
       - name: Build container
         run: |
           docker build \
-            --file Dockerfile.alpine \
-            --tag cli \
+            --file "Dockerfile.alpine" \
+            --tag "cli" \
             .
       - name: Build CLI in container
         run: |
@@ -319,14 +331,19 @@ jobs:
             --rm \
             --volume "${PWD}:/workspace" \
             --workdir "/workspace" \
-            cli \
+            "cli" \
             /bin/sh -c '
-              cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS="-static" -DCOLOPRESSO_USE_CLI=ON -DCOLOPRESSO_USE_TESTS=ON && \
-              cmake --build build --config Release --target colopresso_cli --parallel=$(($(nproc)-1)) && \
-              strip build/cli/colopresso && \
-              build/cli/colopresso --version && \
-              build/cli/colopresso --verbose --format=webp assets/example.png /tmp/example.webp && \
-              build/cli/colopresso --verbose --format=avif assets/example.png /tmp/example.avif && \
+              set -e
+              cmake -B build \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_EXE_LINKER_FLAGS="-static" \
+                -DCOLOPRESSO_USE_CLI=ON \
+                -DCOLOPRESSO_USE_TESTS=ON
+              cmake --build build --config Release --target colopresso_cli --parallel=$(($(nproc)-1))
+              strip build/cli/colopresso
+              build/cli/colopresso --version
+              build/cli/colopresso --verbose --format=webp assets/example.png /tmp/example.webp
+              build/cli/colopresso --verbose --format=avif assets/example.png /tmp/example.avif
               build/cli/colopresso --verbose --format=pngx assets/example.png /tmp/example.png
             '
       - name: Test binary in minimal container
@@ -337,23 +354,37 @@ jobs:
             --volume "${PWD}/assets:/assets:ro" \
             alpine:latest \
             /bin/sh -c '
-              /colopresso --version && \
-              /colopresso --verbose --format=webp /assets/example.png /tmp/example.webp && \
-              /colopresso --verbose --format=avif /assets/example.png /tmp/example.avif && \
-              /colopresso --verbose --format=pngx /assets/example.png /tmp/example.png && \
-              /colopresso --verbose --format=pngx /assets/increase.png /tmp/increase.png; EXIT_CODE=$?; \
-              if test ${EXIT_CODE} -ne 2; then echo "Error: Expected exit code 2, got ${EXIT_CODE}"; exit 1; fi
-            ' && \
+              set +e
+              /colopresso --verbose --format=pngx /assets/increase.png /tmp/increase.png
+              EXIT_CODE=$?
+              if test ${EXIT_CODE} -ne 2; then
+                echo "Error: Expected exit code 2, got ${EXIT_CODE}"
+                exit 1
+              fi
+
+              set -e
+              /colopresso --version
+              /colopresso --verbose --format=webp /assets/example.png /tmp/example.webp
+              /colopresso --verbose --format=avif /assets/example.png /tmp/example.avif
+              /colopresso --verbose --format=pngx /assets/example.png /tmp/example.png
+            '
           docker run \
             --rm \
             --volume "${PWD}/build/cli/colopresso:/colopresso:ro" \
             --volume "${PWD}/assets:/assets:ro" \
             busybox:musl \
             /bin/sh -c '
-              /colopresso --version && \
-              /colopresso --verbose --format=webp /assets/example.png /tmp/example.webp && \
-              /colopresso --verbose --format=avif /assets/example.png /tmp/example.avif && \
-              /colopresso --verbose --format=pngx /assets/example.png /tmp/example.png && \
-              /colopresso --verbose --format=pngx /assets/increase.png /tmp/increase.png; EXIT_CODE=$?; \
-              if test ${EXIT_CODE} -ne 2; then echo "Error: Expected exit code 2, got ${EXIT_CODE}"; exit 1; fi
+              set +e
+              /colopresso --verbose --format=pngx /assets/increase.png /tmp/increase.png
+              EXIT_CODE=$?
+              if test ${EXIT_CODE} -ne 2; then
+                echo "Error: Expected exit code 2, got ${EXIT_CODE}"
+                exit 1
+              fi
+
+              set -e
+              /colopresso --version
+              /colopresso --verbose --format=webp /assets/example.png /tmp/example.webp
+              /colopresso --verbose --format=avif /assets/example.png /tmp/example.avif
+              /colopresso --verbose --format=pngx /assets/example.png /tmp/example.png
             '
