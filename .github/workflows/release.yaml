@@ -417,7 +417,7 @@ jobs:
       - name: Setup builder
         run: |
           docker build \
-            --file Dockerfile \
+            --file "Dockerfile" \
             --tag "chrome" \
             --build-arg ENABLE_VALGRIND=0 \
             --build-arg ENABLE_CLANG=0 \
@@ -476,7 +476,7 @@ jobs:
       - name: Configure CMake
         run: cmake -B build -DCMAKE_BUILD_TYPE="Release" -DCOLOPRESSO_USE_CLI=ON
       - name: Build
-        run: cmake --build "build" --config "Release" --target colopresso_cli --parallel
+        run: cmake --build "build" --config "Release" --target "colopresso_cli" --parallel
       - name: Test
         run: ctest --test-dir "build" --build-config "Release" --output-on-failure
       - name: Check CLI
@@ -666,7 +666,7 @@ jobs:
       - name: Build container
         run: |
           docker build \
-            --file Dockerfile.alpine \
+            --file "Dockerfile.alpine" \
             --tag "cli-${{ matrix.arch }}" \
             .
       - name: Build CLI in container
@@ -679,7 +679,7 @@ jobs:
             sh -c '
               set -e; \
               cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS="-static" -DCOLOPRESSO_USE_CLI=ON && \
-              cmake --build build --config Release --target colopresso_cli --parallel=$(($(nproc)-1)) && \
+              cmake --build build --config Release --target "colopresso_cli" --parallel=$(($(nproc)-1)) && \
               strip build/cli/colopresso && \
               build/cli/colopresso --version
             '
