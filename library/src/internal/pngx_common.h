@@ -30,6 +30,7 @@ void snap_rgba_to_bits(uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a, uint8_t b
 void snap_rgba_image_to_bits(uint8_t *rgba, size_t pixel_count, uint8_t bits_rgb, uint8_t bits_alpha);
 uint32_t color_distance_sq(const cpres_rgba_color_t *lhs, const cpres_rgba_color_t *rhs);
 float estimate_bitdepth_dither_level(const uint8_t *rgba, png_uint_32 width, png_uint_32 height, uint8_t bits_per_channel);
+float estimate_bitdepth_dither_level_limited4444(const uint8_t *rgba, png_uint_32 width, png_uint_32 height);
 void build_fixed_palette(const pngx_options_t *source_opts, pngx_quant_support_t *support, pngx_options_t *patched_opts);
 float resolve_quant_dither(const pngx_options_t *opts, const pngx_image_stats_t *stats);
 bool prepare_quant_support(const pngx_rgba_image_t *image, const pngx_options_t *opts, pngx_quant_support_t *support, pngx_image_stats_t *stats);

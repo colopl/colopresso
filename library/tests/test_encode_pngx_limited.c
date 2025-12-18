@@ -75,9 +75,9 @@ void test_pngx_limited_rgba4444_auto_dither_estimation(void) {
   };
   float dither = 0.0f;
 
-  dither = estimate_bitdepth_dither_level(rgba, 2, 2, PNGX_LIMITED_RGBA4444_BITS);
+  dither = estimate_bitdepth_dither_level_limited4444(rgba, 2, 2);
 
-  TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.55f, dither);
+  TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.05f, dither);
 }
 
 void test_pngx_limited_rgba4444_bitdepth_reduction(void) {
