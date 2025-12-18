@@ -151,7 +151,7 @@ bool pngx_quantize_limited4444(const uint8_t *png_data, size_t png_size, const p
   }
 
   if (opts->lossy_dither_auto) {
-    resolved_dither = estimate_bitdepth_dither_level(image.rgba, image.width, image.height, lossy_type_bits(opts->lossy_type));
+    resolved_dither = estimate_bitdepth_dither_level_limited4444(image.rgba, image.width, image.height);
   } else {
     resolved_dither = clamp_float(opts->lossy_dither_level, 0.0f, 1.0f);
   }
@@ -164,9 +164,9 @@ bool pngx_quantize_limited4444(const uint8_t *png_data, size_t png_size, const p
   if (success) {
     const char *label = lossy_type_label(opts->lossy_type);
     if (opts->lossy_dither_auto) {
-      cpres_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Auto dither %.2f selected for %s", resolved_dither, label);
+      colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Auto dither %.2f selected for %s", resolved_dither, label);
     } else {
-      cpres_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Manual dither %.2f used for %s", resolved_dither, label);
+      colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Manual dither %.2f used for %s", resolved_dither, label);
     }
   }
 

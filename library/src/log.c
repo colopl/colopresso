@@ -24,11 +24,9 @@
 #endif
 #endif
 
-static cpres_log_callback_t g_log_callback = NULL;
+static colopresso_log_callback_t g_log_callback = NULL;
 
-void cpres_log_init(void) { g_log_callback = NULL; }
-
-void cpres_log(cpres_log_level_t level, const char *format, ...) {
+void colopresso_log(colopresso_log_level_t level, const char *format, ...) {
   const char truncated[] = "... [truncated]";
   char buffer[2048];
   int result;
@@ -56,4 +54,13 @@ void cpres_log(cpres_log_level_t level, const char *format, ...) {
   }
 }
 
-extern void cpres_set_log_callback(cpres_log_callback_t callback) { g_log_callback = callback; }
+void colopresso_log_reset(void) { g_log_callback = NULL; }
+
+extern void cpres_set_log_callback(colopresso_log_callback_t callback) { 
+  if (!callback) {
+    colopresso_log_reset();
+    return;
+  }
+
+  g_log_callback = callback; 
+}

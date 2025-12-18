@@ -205,9 +205,9 @@ typedef enum {
   CPRES_LOG_LEVEL_INFO = 1,
   CPRES_LOG_LEVEL_WARNING = 2,
   CPRES_LOG_LEVEL_ERROR = 3,
-} cpres_log_level_t;
+} colopresso_log_level_t;
 
-typedef void (*cpres_log_callback_t)(cpres_log_level_t level, const char *message);
+typedef void (*colopresso_log_callback_t)(colopresso_log_level_t level, const char *message);
 
 extern void cpres_config_init_defaults(cpres_config_t *config);
 
@@ -219,7 +219,7 @@ extern cpres_error_t cpres_encode_pngx_memory(const uint8_t *png_data, size_t pn
 #include <colopresso/file.h>
 #endif
 
-extern void cpres_set_log_callback(cpres_log_callback_t callback);
+extern void cpres_set_log_callback(colopresso_log_callback_t callback);
 extern const char *cpres_error_string(cpres_error_t error);
 
 extern void cpres_free(uint8_t *data);

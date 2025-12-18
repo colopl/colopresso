@@ -1222,7 +1222,7 @@ static inline bool enforce_manual_reduced_limit(pngx_rgba_image_t *image, uint32
     *applied_colors = (uint32_t)unique_after;
   }
 
-  cpres_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Reduced RGBA32 manual target enforcement trimmed %zu -> %zu colors", freq_count, unique_after);
+  colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Reduced RGBA32 manual target enforcement trimmed %zu -> %zu colors", freq_count, unique_after);
 
   success = true;
 
@@ -1405,7 +1405,7 @@ static inline bool reduce_rgba_custom_bitdepth_dither(uint8_t *rgba, png_uint_32
   if (!err_curr || !err_next) {
     free(err_curr);
     free(err_next);
-    cpres_log(CPRES_LOG_LEVEL_ERROR, "PNGX: Reduced RGBA32 dither allocation failed");
+    colopresso_log(CPRES_LOG_LEVEL_ERROR, "PNGX: Reduced RGBA32 dither allocation failed");
 
     return false;
   }
@@ -2134,7 +2134,7 @@ bool pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t png_size, cons
 
     wrote = create_rgba_png(image.rgba, image.pixel_count, image.width, image.height, out_data, out_size);
     if (wrote) {
-      cpres_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Reduced RGBA32 grid passthrough kept %zu colors (capacity=%u)", grid_unique, grid_cap);
+      colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Reduced RGBA32 grid passthrough kept %zu colors (capacity=%u)", grid_unique, grid_cap);
     }
 
     quant_support_reset(&support);
@@ -2169,9 +2169,9 @@ bool pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t png_size, cons
     if (auto_trim_limit > 0 && auto_trim_limit < actual) {
       if (enforce_manual_reduced_limit(&image, auto_trim_limit, bits_rgb, bits_alpha, &actual)) {
         auto_trim_applied = true;
-        cpres_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Reduced RGBA32 auto trim applied %u -> %u colors", target, auto_trim_limit);
+        colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Reduced RGBA32 auto trim applied %u -> %u colors", target, auto_trim_limit);
       } else {
-        cpres_log(CPRES_LOG_LEVEL_WARNING, "PNGX: Reduced RGBA32 auto trim request failed (limit=%u)", auto_trim_limit);
+        colopresso_log(CPRES_LOG_LEVEL_WARNING, "PNGX: Reduced RGBA32 auto trim request failed (limit=%u)", auto_trim_limit);
         auto_trim_limit = 0;
       }
     } else {

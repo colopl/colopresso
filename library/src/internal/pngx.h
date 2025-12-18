@@ -411,13 +411,13 @@ typedef struct {
 } pngx_quant_support_t;
 
 /* from pngx_bridge rust library */
-extern PngxBridgeResult pngx_bridge_optimize_lossless(const uint8_t *input_data, size_t input_size, uint8_t **output_data, size_t *output_size, const PngxBridgeLosslessOptions *options);
-extern PngxBridgeQuantStatus pngx_bridge_quantize(const cpres_rgba_color_t *pixels, size_t pixel_count, uint32_t width, uint32_t height, const PngxBridgeQuantParams *params,
+PngxBridgeResult pngx_bridge_optimize_lossless(const uint8_t *input_data, size_t input_size, uint8_t **output_data, size_t *output_size, const PngxBridgeLosslessOptions *options);
+PngxBridgeQuantStatus pngx_bridge_quantize(const cpres_rgba_color_t *pixels, size_t pixel_count, uint32_t width, uint32_t height, const PngxBridgeQuantParams *params,
                                                   PngxBridgeQuantOutput *output);
-extern void pngx_bridge_free(uint8_t *ptr);
-extern uint32_t pngx_bridge_oxipng_version(void);
-extern uint32_t pngx_bridge_libimagequant_version(void);
-extern bool pngx_bridge_init_threads(int num_threads);
+void pngx_bridge_free(uint8_t *ptr);
+uint32_t pngx_bridge_oxipng_version(void);
+uint32_t pngx_bridge_libimagequant_version(void);
+bool pngx_bridge_init_threads(int num_threads);
 
 #define PNGX_DEFINE_CLAMP(type)                                                                                                                                                                        \
   static inline type clamp_##type(type value, type min_value, type max_value) {                                                                                                                        \
@@ -443,7 +443,6 @@ PNGX_DEFINE_CLAMP(float);
 bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_data, size_t *out_size, int *quant_quality);
 bool pngx_quantize_limited4444(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_data, size_t *out_size);
 bool pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint32_t *resolved_target, uint32_t *applied_colors, uint8_t **out_data, size_t *out_size);
-
 void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config);
 bool pngx_run_quantization(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_data, size_t *out_size, int *quant_quality);
 bool pngx_run_lossless_optimization(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_data, size_t *out_size);

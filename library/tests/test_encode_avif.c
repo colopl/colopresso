@@ -39,7 +39,7 @@ void test_avif_encode_rgba_with_zero_dimensions(void) {
 
   cpres_config_init_defaults(&cfg);
 
-  error = cpres_avif_encode_rgba_to_memory(pixel, 0, 1, &out_data, &out_size, &cfg);
+  error = avif_encode_rgba_to_memory(pixel, 0, 1, &out_data, &out_size, &cfg);
 
   TEST_ASSERT_EQUAL_INT(CPRES_ERROR_OUT_OF_MEMORY, error);
   TEST_ASSERT_NULL(out_data);
@@ -202,9 +202,9 @@ void test_avif_free_with_valid_pointer(void) {
 }
 
 void test_avif_last_error(void) {
-  cpres_avif_set_last_error(0);
-  cpres_avif_set_last_error(1234);
-  TEST_ASSERT_EQUAL(1234, cpres_avif_get_last_error());
+  avif_set_last_error(0);
+  avif_set_last_error(1234);
+  TEST_ASSERT_EQUAL(1234, avif_get_last_error());
 }
 
 void test_avif_memory_alpha_quality_variations(void) {
@@ -457,10 +457,10 @@ void test_avif_null_params(void) {
 
   cpres_config_init_defaults(&cfg);
 
-  TEST_ASSERT_EQUAL_INT(CPRES_ERROR_INVALID_PARAMETER, cpres_avif_encode_rgba_to_memory(NULL, 1, 1, &out_data, &out_size, &cfg));
-  TEST_ASSERT_EQUAL_INT(CPRES_ERROR_INVALID_PARAMETER, cpres_avif_encode_rgba_to_memory(dummy, 1, 1, NULL, &out_size, &cfg));
-  TEST_ASSERT_EQUAL_INT(CPRES_ERROR_INVALID_PARAMETER, cpres_avif_encode_rgba_to_memory(dummy, 1, 1, &out_data, NULL, &cfg));
-  TEST_ASSERT_EQUAL_INT(CPRES_ERROR_INVALID_PARAMETER, cpres_avif_encode_rgba_to_memory(dummy, 1, 1, &out_data, &out_size, NULL));
+  TEST_ASSERT_EQUAL_INT(CPRES_ERROR_INVALID_PARAMETER, avif_encode_rgba_to_memory(NULL, 1, 1, &out_data, &out_size, &cfg));
+  TEST_ASSERT_EQUAL_INT(CPRES_ERROR_INVALID_PARAMETER, avif_encode_rgba_to_memory(dummy, 1, 1, NULL, &out_size, &cfg));
+  TEST_ASSERT_EQUAL_INT(CPRES_ERROR_INVALID_PARAMETER, avif_encode_rgba_to_memory(dummy, 1, 1, &out_data, NULL, &cfg));
+  TEST_ASSERT_EQUAL_INT(CPRES_ERROR_INVALID_PARAMETER, avif_encode_rgba_to_memory(dummy, 1, 1, &out_data, &out_size, NULL));
 }
 
 int main(void) {

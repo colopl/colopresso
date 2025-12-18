@@ -33,11 +33,11 @@ void test_log_callback_and_truncate(void) {
   test_log_capture_t capture;
   char buf[5000];
 
-  cpres_log_init();
+  colopresso_log_reset();
   test_log_capture_begin(&capture);
   memset(buf, 'A', sizeof(buf));
   buf[sizeof(buf) - 1] = '\0';
-  cpres_log(CPRES_LOG_LEVEL_INFO, "%s", buf);
+  colopresso_log(CPRES_LOG_LEVEL_INFO, "%s", buf);
 
   TEST_ASSERT_EQUAL(CPRES_LOG_LEVEL_INFO, capture.last_level);
   printf("%s\n", capture.message);

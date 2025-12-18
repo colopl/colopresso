@@ -103,7 +103,7 @@ Open the cloned `libcolopresso` directory with Visual Studio Code and attach to 
 - `COLOPRESSO_USE_CLI`        ON/OFF [default: OFF] Enables building the CLI binary. Requires `COLOPRESSO_WITH_FILE_OPS=ON`.
 - `COLOPRESSO_USE_UTILS`      ON/OFF [default: OFF] Builds code under `library/utils/`. Automatically disabled if `COLOPRESSO_WITH_FILE_OPS=OFF`.
 - `COLOPRESSO_USE_TESTS`      ON/OFF [default: OFF] Builds code under `library/tests/`.
-- `COLOPRESSO_WITH_FILE_OPS`  ON/OFF [default: ON] Enables file I/O APIs (`cpres_encode_*_file`, `cpres_png_decode_from_file`). Relies on standard file I/O (`fopen`, `fwrite`, etc.). Memory-based APIs (`cpres_encode_*_memory`) are always available. Enabling Chrome Extension or Electron builds forces this to `OFF`.
+- `COLOPRESSO_WITH_FILE_OPS`  ON/OFF [default: ON] Enables file I/O APIs (`cpres_encode_*_file`). Relies on standard file I/O (`fopen`, `fwrite`, etc.). Memory-based APIs (`cpres_encode_*_memory`) are always available. Enabling Chrome Extension or Electron builds forces this to `OFF`.
 
 ### GCC (GNU C Compiler) && `-DCMAKE_BUILD_TYPE=Debug`
 - `COLOPRESSO_USE_VALGRIND`     ON/OFF Enables Valgrind integration if available.

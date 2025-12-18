@@ -69,9 +69,9 @@ static inline bool decode_png_rgba(const uint8_t *png_data, size_t png_size, uin
     return false;
   }
 
-  status = cpres_png_decode_from_memory(png_data, png_size, rgba, width, height);
+  status = png_decode_from_memory(png_data, png_size, rgba, width, height);
   if (status != CPRES_OK) {
-    cpres_log(CPRES_LOG_LEVEL_WARNING, "PNGX: Failed to decode PNG (%d)", (int)status);
+    colopresso_log(CPRES_LOG_LEVEL_WARNING, "PNGX: Failed to decode PNG (%d)", (int)status);
     return false;
   }
 
@@ -490,6 +490,97 @@ extern float estimate_bitdepth_dither_level(const uint8_t *rgba, png_uint_32 wid
   }
 
   return clamp_float(target, PNGX_COMMON_DITHER_MIN, PNGX_COMMON_DITHER_MAX);
+}
+
+extern float estimate_bitdepth_dither_level_limited4444(const uint8_t *rgba, png_uint_32 width, png_uint_32 height) {
+  uint8_t r, g, b, a;
+  size_t pixel_count, gradient_samples, opaque_pixels, translucent_pixels, base, right, below;
+  float right_luma, below_luma, luma, normalized_gradient, opaque_ratio, translucent_ratio, min_luma, max_luma, coverage, gradient_span, target;
+  double gradient_accum;
+  png_uint_32 y, x;
+
+  if (!rgba || width == 0 || height == 0) {
+    return 0.0f;
+  }
+
+  pixel_count = (size_t)width * (size_t)height;
+  gradient_accum = 0.0;
+  gradient_samples = 0;
+  opaque_pixels = 0;
+  translucent_pixels = 0;
+  min_luma = 255.0f;
+  max_luma = 0.0f;
+
+  for (y = 0; y < height; ++y) {
+    for (x = 0; x < width; ++x) {
+      base = (((size_t)y * (size_t)width) + (size_t)x) * 4;
+      r = rgba[base + 0];
+      g = rgba[base + 1];
+      b = rgba[base + 2];
+      a = rgba[base + 3];
+      luma = calc_luma(r, g, b);
+
+      if (luma < min_luma) {
+        min_luma = luma;
+      }
+      if (luma > max_luma) {
+        max_luma = luma;
+      }
+
+      if (a > PNGX_COMMON_DITHER_ALPHA_OPAQUE_THRESHOLD) {
+        ++opaque_pixels;
+      } else if (a > PNGX_COMMON_DITHER_ALPHA_TRANSLUCENT_THRESHOLD) {
+        ++translucent_pixels;
+      }
+
+      if (x + 1 < width) {
+        right = base + 4;
+        right_luma = calc_luma(rgba[right + 0], rgba[right + 1], rgba[right + 2]);
+        gradient_accum += absf(right_luma - luma);
+        ++gradient_samples;
+      }
+
+      if (y + 1 < height) {
+        below = (((size_t)(y + 1) * (size_t)width) + (size_t)x) * 4;
+        below_luma = calc_luma(rgba[below + 0], rgba[below + 1], rgba[below + 2]);
+        gradient_accum += absf(below_luma - luma);
+        ++gradient_samples;
+      }
+    }
+  }
+
+  if (gradient_samples == 0) {
+    gradient_samples = 1;
+  }
+
+  normalized_gradient = (float)(gradient_accum / ((double)gradient_samples * 255.0));
+  opaque_ratio = (pixel_count > 0) ? (float)((double)opaque_pixels / (double)pixel_count) : 0.0f;
+  translucent_ratio = (pixel_count > 0) ? (float)((double)translucent_pixels / (double)pixel_count) : 0.0f;
+
+  coverage = (max_luma - min_luma) / 255.0f;
+  if (coverage < 0.0f) {
+    coverage = 0.0f;
+  } else if (coverage > 1.0f) {
+    coverage = 1.0f;
+  }
+
+  gradient_span = coverage / ((normalized_gradient > PNGX_COMMON_DITHER_GRADIENT_MIN) ? normalized_gradient : PNGX_COMMON_DITHER_GRADIENT_MIN);
+
+  target = 0.0f;
+
+  if (coverage > PNGX_COMMON_DITHER_COVERAGE_THRESHOLD && gradient_span > PNGX_COMMON_DITHER_SPAN_THRESHOLD && normalized_gradient < 0.20f) {
+    target = 0.55f;
+  }
+
+  if (translucent_ratio > 0.3f) {
+    target *= 0.5f;
+  }
+
+  if (opaque_ratio > 0.9f) {
+    target += 0.05f;
+  }
+
+  return clamp_float(target, 0.0f, 1.0f);
 }
 
 extern void build_fixed_palette(const pngx_options_t *source_opts, pngx_quant_support_t *support, pngx_options_t *patched_opts) {

@@ -101,7 +101,7 @@ $ git clone --recursive "https://github.com/colopl/colopresso.git"
 - `COLOPRESSO_USE_CLI`        ON/OFF [デフォルト: OFF] CLI バイナリのビルドを有効にします。`COLOPRESSO_WITH_FILE_OPS=ON` が必要です。
 - `COLOPRESSO_USE_UTILS`      ON/OFF [デフォルト: OFF] `library/utils/` 以下のコードをビルドします。`COLOPRESSO_WITH_FILE_OPS=OFF` の場合、自動的に無効になります。
 - `COLOPRESSO_USE_TESTS`      ON/OFF [デフォルト: OFF] `library/tests/` 以下のコードをビルドします。
-- `COLOPRESSO_WITH_FILE_OPS`  ON/OFF [デフォルト: ON] ファイル I/O API (`cpres_encode_*_file`, `cpres_png_decode_from_file`) を有効にします。標準ファイル I/O (`fopen`, `fwrite` など) に依存します。メモリベースの API (`cpres_encode_*_memory`) は常に利用可能です。Chrome Extension または Electron ビルドを有効にすると、強制的に `OFF` になります。
+- `COLOPRESSO_WITH_FILE_OPS`  ON/OFF [デフォルト: ON] ファイル I/O API (`cpres_encode_*_file`) を有効にします。標準ファイル I/O (`fopen`, `fwrite` など) に依存します。メモリベースの API (`cpres_encode_*_memory`) は常に利用可能です。Chrome Extension または Electron ビルドを有効にすると、強制的に `OFF` になります。
 
 ### GCC (GNU C Compiler) && `-DCMAKE_BUILD_TYPE=Debug`
 - `COLOPRESSO_USE_VALGRIND`     ON/OFF 利用可能な場合、Valgrind 統合を有効にします。

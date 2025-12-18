@@ -25,9 +25,9 @@
 
 static int g_last_webp_error = 0;
 
-int cpres_webp_get_last_error(void) { return g_last_webp_error; }
+int webp_get_last_error(void) { return g_last_webp_error; }
 
-void cpres_webp_set_last_error(int error_code) { g_last_webp_error = error_code; }
+void webp_set_last_error(int error_code) { g_last_webp_error = error_code; }
 
 static void apply_webp_config(WebPConfig *webp_config, const cpres_config_t *config) {
   webp_config->quality = config->webp_quality;
@@ -57,7 +57,7 @@ static void apply_webp_config(WebPConfig *webp_config, const cpres_config_t *con
   webp_config->lossless = config->webp_lossless;
 }
 
-cpres_error_t cpres_webp_encode_rgba_to_memory(uint8_t *rgba_data, uint32_t width, uint32_t height, uint8_t **webp_data, size_t *webp_size, const cpres_config_t *config) {
+cpres_error_t webp_encode_rgba_to_memory(uint8_t *rgba_data, uint32_t width, uint32_t height, uint8_t **webp_data, size_t *webp_size, const cpres_config_t *config) {
   WebPConfig webp_config;
   WebPPicture picture;
   WebPMemoryWriter writer;
@@ -70,7 +70,7 @@ cpres_error_t cpres_webp_encode_rgba_to_memory(uint8_t *rgba_data, uint32_t widt
   memset(&picture, 0, sizeof(picture));
   memset(&writer, 0, sizeof(writer));
 
-  cpres_log(CPRES_LOG_LEVEL_DEBUG, "Starting WebP encoding to memory - %dx%d pixels", width, height);
+  colopresso_log(CPRES_LOG_LEVEL_DEBUG, "Starting WebP encoding to memory - %dx%d pixels", width, height);
 
   if (!WebPConfigPreset(&webp_config, WEBP_PRESET_DEFAULT, config->webp_quality)) {
     return CPRES_ERROR_INVALID_PARAMETER;
@@ -99,18 +99,18 @@ cpres_error_t cpres_webp_encode_rgba_to_memory(uint8_t *rgba_data, uint32_t widt
   picture.writer = WebPMemoryWrite;
   picture.custom_ptr = &writer;
 
-  cpres_log(CPRES_LOG_LEVEL_DEBUG, "Starting WebP encoding (memory)...");
+  colopresso_log(CPRES_LOG_LEVEL_DEBUG, "Starting WebP encoding (memory)...");
 
   if (!WebPEncode(&webp_config, &picture)) {
-    cpres_webp_set_last_error(picture.error_code);
-    cpres_log(CPRES_LOG_LEVEL_ERROR, "WebP encoding failed - error code: %d", picture.error_code);
+    webp_set_last_error(picture.error_code);
+    colopresso_log(CPRES_LOG_LEVEL_ERROR, "WebP encoding failed - error code: %d", picture.error_code);
     WebPMemoryWriterClear(&writer);
     WebPPictureFree(&picture);
     return CPRES_ERROR_ENCODE_FAILED;
   }
-  cpres_webp_set_last_error(0);
+  webp_set_last_error(0);
 
-  cpres_log(CPRES_LOG_LEVEL_DEBUG, "WebP encoding successful - size: %zu bytes", writer.size);
+  colopresso_log(CPRES_LOG_LEVEL_DEBUG, "WebP encoding successful - size: %zu bytes", writer.size);
 
   *webp_data = (uint8_t *)malloc(writer.size);
   if (!*webp_data) {

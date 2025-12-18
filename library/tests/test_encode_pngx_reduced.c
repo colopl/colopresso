@@ -104,7 +104,7 @@ void test_pngx_reduced_rgba32_manual_target(void) {
   TEST_ASSERT_NOT_NULL(pngx_data);
   TEST_ASSERT_GREATER_THAN_size_t(0, pngx_size);
 
-  error = cpres_png_decode_from_memory(pngx_data, pngx_size, &rgba, &width, &height);
+  error = png_decode_from_memory(pngx_data, pngx_size, &rgba, &width, &height);
   TEST_ASSERT_EQUAL_INT(CPRES_OK, error);
   TEST_ASSERT_NOT_NULL(rgba);
   TEST_ASSERT_GREATER_THAN(0, width);
@@ -130,7 +130,7 @@ void test_pngx_reduced_rgba32_auto_target(void) {
   png_data = load_test_asset_png("example_reduce.png", &png_size);
   TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example_reduce.png not found for Reduced RGBA32 auto test");
 
-  error = cpres_png_decode_from_memory(png_data, png_size, &src_rgba, &width, &height);
+  error = png_decode_from_memory(png_data, png_size, &src_rgba, &width, &height);
   TEST_ASSERT_EQUAL_INT(CPRES_OK, error);
   counted = count_unique_rgba_colors(src_rgba, (size_t)width * (size_t)height, &unique_in);
   TEST_ASSERT_TRUE(counted);
@@ -146,7 +146,7 @@ void test_pngx_reduced_rgba32_auto_target(void) {
   TEST_ASSERT_NOT_NULL(pngx_data);
   TEST_ASSERT_GREATER_THAN_size_t(0, pngx_size);
 
-  error = cpres_png_decode_from_memory(pngx_data, pngx_size, &dst_rgba, &width, &height);
+  error = png_decode_from_memory(pngx_data, pngx_size, &dst_rgba, &width, &height);
   TEST_ASSERT_EQUAL_INT(CPRES_OK, error);
   counted = count_unique_rgba_colors(dst_rgba, (size_t)width * (size_t)height, &unique_out);
   TEST_ASSERT_TRUE(counted);
@@ -181,7 +181,7 @@ void test_pngx_reduced_rgba32_grid_bits(void) {
   TEST_ASSERT_NOT_NULL(pngx_data);
   TEST_ASSERT_GREATER_THAN_size_t(0, pngx_size);
 
-  error = cpres_png_decode_from_memory(pngx_data, pngx_size, &rgba, &width, &height);
+  error = png_decode_from_memory(pngx_data, pngx_size, &rgba, &width, &height);
   TEST_ASSERT_EQUAL_INT(CPRES_OK, error);
   TEST_ASSERT_NOT_NULL(rgba);
   TEST_ASSERT_GREATER_THAN(0, width);
@@ -240,7 +240,7 @@ void test_pngx_reduced_rgba32_zero_dither_no_dither_quantization(void) {
   TEST_ASSERT_NOT_NULL(pngx_data);
   TEST_ASSERT_GREATER_THAN_size_t(0, pngx_size);
 
-  error = cpres_png_decode_from_memory(pngx_data, pngx_size, &decoded, &decoded_width, &decoded_height);
+  error = png_decode_from_memory(pngx_data, pngx_size, &decoded, &decoded_width, &decoded_height);
   TEST_ASSERT_EQUAL_INT(CPRES_OK, error);
   TEST_ASSERT_NOT_NULL(decoded);
   TEST_ASSERT_EQUAL_UINT32(width, decoded_width);
@@ -337,7 +337,7 @@ void test_pngx_reduced_rgba32_grid_passthrough_auto_target(void) {
   TEST_ASSERT_EQUAL_UINT32_MESSAGE(256u, resolved_target, "expected full 2-bit grid capacity in passthrough");
   TEST_ASSERT_EQUAL_UINT32_MESSAGE(256u, applied_colors, "expected applied colors to match grid capacity in passthrough");
 
-  decode_error = cpres_png_decode_from_memory(out_png, out_size, &decoded, &decoded_width, &decoded_height);
+  decode_error = png_decode_from_memory(out_png, out_size, &decoded, &decoded_width, &decoded_height);
   cpres_free(out_png);
   TEST_ASSERT_EQUAL_INT(CPRES_OK, decode_error);
   TEST_ASSERT_NOT_NULL(decoded);
@@ -428,7 +428,7 @@ void test_pngx_reduced_rgba32_auto_trim_applies_on_head_dominant_long_tail_image
   TEST_ASSERT_GREATER_THAN_UINT32(0u, resolved_target);
   TEST_ASSERT_GREATER_THAN_UINT32(0u, applied_colors);
 
-  decode_error = cpres_png_decode_from_memory(out_png, out_size, &decoded, &decoded_width, &decoded_height);
+  decode_error = png_decode_from_memory(out_png, out_size, &decoded, &decoded_width, &decoded_height);
   cpres_free(out_png);
   TEST_ASSERT_EQUAL_INT(CPRES_OK, decode_error);
   TEST_ASSERT_NOT_NULL(decoded);
@@ -500,7 +500,7 @@ void test_pngx_reduced_rgba32_gentle_cut_path_executes_for_1024_unique_colors(vo
 
   TEST_ASSERT_LESS_THAN_UINT32(1024u, resolved_target);
 
-  decode_error = cpres_png_decode_from_memory(out_png, out_size, &decoded, &decoded_width, &decoded_height);
+  decode_error = png_decode_from_memory(out_png, out_size, &decoded, &decoded_width, &decoded_height);
   cpres_free(out_png);
   TEST_ASSERT_EQUAL_INT(CPRES_OK, decode_error);
   TEST_ASSERT_NOT_NULL(decoded);
@@ -580,7 +580,7 @@ void test_pngx_reduced_rgba32_all_colors_protected_results_in_no_unlocked_entrie
   TEST_ASSERT_EQUAL_UINT32(4u, resolved_target);
   TEST_ASSERT_EQUAL_UINT32(4u, applied_colors);
 
-  decode_error = cpres_png_decode_from_memory(out_png, out_size, &decoded, &decoded_width, &decoded_height);
+  decode_error = png_decode_from_memory(out_png, out_size, &decoded, &decoded_width, &decoded_height);
   cpres_free(out_png);
   TEST_ASSERT_EQUAL_INT(CPRES_OK, decode_error);
   TEST_ASSERT_NOT_NULL(decoded);
