@@ -596,10 +596,10 @@ EMSCRIPTEN_KEEPALIVE
 cpres_error_t emscripten_get_last_error(void) { return g_last_error; }
 
 EMSCRIPTEN_KEEPALIVE
-int emscripten_get_last_webp_error(void) { return cpres_webp_get_last_error(); }
+int emscripten_get_last_webp_error(void) { return webp_get_last_error(); }
 
 EMSCRIPTEN_KEEPALIVE
-int emscripten_get_last_avif_error(void) { return cpres_avif_get_last_error(); }
+int emscripten_get_last_avif_error(void) { return avif_get_last_error(); }
 
 EMSCRIPTEN_KEEPALIVE
 const char *emscripten_get_error_string(cpres_error_t error) { return cpres_error_string(error); }

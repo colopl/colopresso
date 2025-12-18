@@ -33,7 +33,7 @@ static void png_read_from_memory(png_structp png_ptr, png_bytep data, png_size_t
 
   reader = (png_memory_reader_t *)png_get_io_ptr(png_ptr);
   if (reader->pos + length > reader->size) {
-    cpres_log(CPRES_LOG_LEVEL_ERROR, "Attempted to read past end of PNG data");
+    colopresso_log(CPRES_LOG_LEVEL_ERROR, "Attempted to read past end of PNG data");
     png_error(png_ptr, "Read past end of data");
     return;
   }
@@ -89,7 +89,7 @@ static inline cpres_error_t read_png_common(png_structp png, png_infop info, uin
   row_bytes = png_get_rowbytes(png, info);
 
   if (*height > 0 && row_bytes > SIZE_MAX / (*height)) {
-    cpres_log(CPRES_LOG_LEVEL_ERROR, "Integer overflow detected: image too large");
+    colopresso_log(CPRES_LOG_LEVEL_ERROR, "Integer overflow detected: image too large");
     return CPRES_ERROR_OUT_OF_MEMORY;
   }
 
@@ -118,7 +118,7 @@ static inline cpres_error_t read_png_common(png_structp png, png_infop info, uin
   return CPRES_OK;
 }
 
-extern cpres_error_t cpres_png_decode_from_memory(const uint8_t *png_data, size_t png_size, uint8_t **rgba_data, png_uint_32 *width, png_uint_32 *height) {
+extern cpres_error_t png_decode_from_memory(const uint8_t *png_data, size_t png_size, uint8_t **rgba_data, png_uint_32 *width, png_uint_32 *height) {
   png_structp png;
   png_infop info;
   png_memory_reader_t reader = {0};
@@ -161,7 +161,7 @@ extern cpres_error_t cpres_png_decode_from_memory(const uint8_t *png_data, size_
 }
 
 #if COLOPRESSO_WITH_FILE_OPS
-extern cpres_error_t cpres_png_decode_from_file(const char *filename, uint8_t **rgba_data, png_uint_32 *width, png_uint_32 *height) {
+extern cpres_error_t png_decode_from_file(const char *filename, uint8_t **rgba_data, png_uint_32 *width, png_uint_32 *height) {
   FILE *fp;
   png_structp png;
   png_infop info;

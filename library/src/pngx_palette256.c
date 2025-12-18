@@ -773,14 +773,14 @@ bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pn
     rgba_image_reset(&image);
     quant_support_reset(&support);
     if (status == PNGX_BRIDGE_QUANT_STATUS_QUALITY_TOO_LOW) {
-      cpres_log(CPRES_LOG_LEVEL_WARNING, "PNGX: Quantization quality too low");
+      colopresso_log(CPRES_LOG_LEVEL_WARNING, "PNGX: Quantization quality too low");
     }
 
     return false;
   }
 
   if (relaxed_quality) {
-    cpres_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Relaxed quantization quality floor");
+    colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Relaxed quantization quality floor");
   }
 
   if (quant_quality) {

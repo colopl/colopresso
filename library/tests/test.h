@@ -40,7 +40,7 @@ static inline bool format_test_asset_path(char *buffer, size_t buffer_size, cons
 }
 
 typedef struct {
-  cpres_log_level_t last_level;
+  colopresso_log_level_t last_level;
   char message[2048];
   bool called;
 } test_log_capture_t;
@@ -51,7 +51,7 @@ static size_t g_test_cached_example_png_size = 0;
 static size_t g_test_cached_tiny_example_png_size = 0;
 static test_log_capture_t *g_test_log_capture_target = NULL;
 
-static void common_log_capture_callback(cpres_log_level_t level, const char *message) {
+static void common_log_capture_callback(colopresso_log_level_t level, const char *message) {
   if (!g_test_log_capture_target) {
     return;
   }
@@ -203,7 +203,7 @@ static inline uint8_t *load_test_asset_png(const char *name, size_t *out_size) {
   return buffer;
 }
 
-static inline void test_default_log_callback(cpres_log_level_t level, const char *message) {
+static inline void test_default_log_callback(colopresso_log_level_t level, const char *message) {
   printf("LOG (%u): %s\n", (uint8_t)level, message);
   fflush(stdout);
 }

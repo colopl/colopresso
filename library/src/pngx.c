@@ -44,7 +44,7 @@ bool pngx_run_quantization(const uint8_t *png_data, size_t png_size, const pngx_
     success = pngx_quantize_reduced_rgba32(png_data, png_size, opts, &resolved_colors, &applied_colors, out_data, out_size);
     if (success) {
       label = lossy_type_label(opts->lossy_type);
-      cpres_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: %s target %u colors -> %u unique", label, resolved_colors, applied_colors);
+      colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: %s target %u colors -> %u unique", label, resolved_colors, applied_colors);
     }
     return success;
   }

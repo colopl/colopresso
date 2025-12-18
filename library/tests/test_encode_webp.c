@@ -203,14 +203,14 @@ void test_webp_last_error(void) {
   cfg.webp_alpha_quality = -123;
   cfg.webp_method = 99;
   cfg.webp_lossless = 1;
-  error = cpres_webp_encode_rgba_to_memory(rgba, 2, 2, &out_data, &out_size, &cfg);
+  error = webp_encode_rgba_to_memory(rgba, 2, 2, &out_data, &out_size, &cfg);
   if (error == CPRES_OK) {
     cpres_free(out_data);
   }
 
-  cpres_webp_set_last_error(4321);
+  webp_set_last_error(4321);
 
-  TEST_ASSERT_EQUAL(4321, cpres_webp_get_last_error());
+  TEST_ASSERT_EQUAL(4321, webp_get_last_error());
 }
 
 void test_webp_memory_alpha_compression_filtering_variations(void) {

@@ -128,18 +128,18 @@ extern cpres_error_t cpres_encode_webp_memory(const uint8_t *png_data, size_t pn
   encoded_size = 0;
 
   rgba_data = NULL;
-  error = cpres_png_decode_from_memory(png_data, png_size, &rgba_data, &width, &height);
+  error = png_decode_from_memory(png_data, png_size, &rgba_data, &width, &height);
   if (error != CPRES_OK) {
-    cpres_log(CPRES_LOG_LEVEL_ERROR, "PNG decode from memory failed: %s", cpres_error_string(error));
+    colopresso_log(CPRES_LOG_LEVEL_ERROR, "PNG decode from memory failed: %s", cpres_error_string(error));
     return error;
   }
 
-  cpres_log(CPRES_LOG_LEVEL_DEBUG, "PNG decoded from memory - %dx%d pixels", width, height);
+  colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNG decoded from memory - %dx%d pixels", width, height);
 
-  error = cpres_webp_encode_rgba_to_memory(rgba_data, width, height, webp_data, &encoded_size, config);
+  error = webp_encode_rgba_to_memory(rgba_data, width, height, webp_data, &encoded_size, config);
   if (error == CPRES_OK) {
     if (*webp_data && encoded_size >= png_size) {
-      cpres_log(CPRES_LOG_LEVEL_WARNING, "WebP: Encoded output larger than input (%zu > %zu)", encoded_size, png_size);
+      colopresso_log(CPRES_LOG_LEVEL_WARNING, "WebP: Encoded output larger than input (%zu > %zu)", encoded_size, png_size);
       cpres_free(*webp_data);
       *webp_data = NULL;
       error = CPRES_ERROR_OUTPUT_NOT_SMALLER;
@@ -174,18 +174,18 @@ extern cpres_error_t cpres_encode_avif_memory(const uint8_t *png_data, size_t pn
   encoded_size = 0;
 
   rgba_data = NULL;
-  error = cpres_png_decode_from_memory(png_data, png_size, &rgba_data, &width, &height);
+  error = png_decode_from_memory(png_data, png_size, &rgba_data, &width, &height);
   if (error != CPRES_OK) {
-    cpres_log(CPRES_LOG_LEVEL_ERROR, "PNG decode (AVIF) from memory failed: %s", cpres_error_string(error));
+    colopresso_log(CPRES_LOG_LEVEL_ERROR, "PNG decode (AVIF) from memory failed: %s", cpres_error_string(error));
     return error;
   }
 
-  cpres_log(CPRES_LOG_LEVEL_DEBUG, "PNG decoded (AVIF) from memory - %dx%d pixels", width, height);
+  colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNG decoded (AVIF) from memory - %dx%d pixels", width, height);
 
-  error = cpres_avif_encode_rgba_to_memory(rgba_data, width, height, avif_data, &encoded_size, config);
+  error = avif_encode_rgba_to_memory(rgba_data, width, height, avif_data, &encoded_size, config);
   if (error == CPRES_OK) {
     if (*avif_data && encoded_size >= png_size) {
-      cpres_log(CPRES_LOG_LEVEL_WARNING, "AVIF: Encoded output larger than input (%zu > %zu)", encoded_size, png_size);
+      colopresso_log(CPRES_LOG_LEVEL_WARNING, "AVIF: Encoded output larger than input (%zu > %zu)", encoded_size, png_size);
       cpres_free(*avif_data);
       *avif_data = NULL;
       error = CPRES_ERROR_OUTPUT_NOT_SMALLER;
@@ -232,7 +232,7 @@ extern cpres_error_t cpres_encode_pngx_memory(const uint8_t *png_data, size_t pn
   quant_quality = -1;
   threads = 0;
 
-  cpres_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Starting optimization - input size: %zu bytes", png_size);
+  colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Starting optimization - input size: %zu bytes", png_size);
 
   pngx_fill_pngx_options(&opts, config);
 
@@ -245,7 +245,7 @@ extern cpres_error_t cpres_encode_pngx_memory(const uint8_t *png_data, size_t pn
 
   quant_ok = pngx_should_attempt_quantization(&opts) && pngx_run_quantization(png_data, png_size, &opts, &quant_data, &quant_size, &quant_quality);
   if (quant_ok) {
-    cpres_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Quantization produced %zu bytes (quality=%d)", quant_size, quant_quality);
+    colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Quantization produced %zu bytes (quality=%d)", quant_size, quant_quality);
   }
 
   lossless_ok = pngx_run_lossless_optimization(png_data, png_size, &opts, &lossless_data, &lossless_size);
@@ -258,7 +258,7 @@ extern cpres_error_t cpres_encode_pngx_memory(const uint8_t *png_data, size_t pn
     memcpy(lossless_data, png_data, png_size);
     lossless_size = png_size;
   }
-  cpres_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Lossless optimization produced %zu bytes", lossless_size);
+  colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Lossless optimization produced %zu bytes", lossless_size);
 
   final_data = lossless_data;
   final_size = lossless_size;
@@ -268,7 +268,7 @@ extern cpres_error_t cpres_encode_pngx_memory(const uint8_t *png_data, size_t pn
     if (!quant_is_rgba_lossy) {
       quant_lossless_ok = pngx_run_lossless_optimization(quant_data, quant_size, &opts, &quant_optimized, &quant_optimized_size);
       if (quant_lossless_ok) {
-        cpres_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Lossless optimization on quantized data produced %zu bytes", quant_optimized_size);
+        colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Lossless optimization on quantized data produced %zu bytes", quant_optimized_size);
         free(quant_data);
         quant_data = NULL;
       } else {
@@ -290,11 +290,11 @@ extern cpres_error_t cpres_encode_pngx_memory(const uint8_t *png_data, size_t pn
       final_size = candidate_size;
       final_is_quantized = true;
       free(lossless_data);
-      cpres_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Selected quantized result (%zu bytes)", final_size);
+      colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Selected quantized result (%zu bytes)", final_size);
     } else {
       free(quant_optimized);
       quant_optimized = NULL;
-      cpres_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Selected lossless result (%zu bytes)", final_size);
+      colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Selected lossless result (%zu bytes)", final_size);
     }
   }
 
@@ -304,14 +304,14 @@ extern cpres_error_t cpres_encode_pngx_memory(const uint8_t *png_data, size_t pn
 
   if (final_size >= png_size) {
     if (!(quant_is_rgba_lossy && final_is_quantized)) {
-      cpres_log(CPRES_LOG_LEVEL_WARNING, "PNGX: Optimized output larger than input (%zu > %zu)", final_size, png_size);
+      colopresso_log(CPRES_LOG_LEVEL_WARNING, "PNGX: Optimized output larger than input (%zu > %zu)", final_size, png_size);
       free(final_data);
       *optimized_data = NULL;
       *optimized_size = final_size;
       return CPRES_ERROR_OUTPUT_NOT_SMALLER;
     }
 
-    cpres_log(CPRES_LOG_LEVEL_WARNING, "PNGX: RGBA lossy output larger than input (%zu > %zu) but forcing write per RGBA mode", final_size, png_size);
+    colopresso_log(CPRES_LOG_LEVEL_WARNING, "PNGX: RGBA lossy output larger than input (%zu > %zu) but forcing write per RGBA mode", final_size, png_size);
   }
 
   *optimized_data = final_data;

@@ -22,11 +22,7 @@
 extern "C" {
 #endif
 
-extern cpres_error_t cpres_png_decode_from_memory(const uint8_t *png_data, size_t png_size, uint8_t **rgba_data, png_uint_32 *width, png_uint_32 *height);
-
-#if COLOPRESSO_WITH_FILE_OPS
-extern cpres_error_t cpres_png_decode_from_file(const char *filename, uint8_t **rgba_data, png_uint_32 *width, png_uint_32 *height);
-#endif
+cpres_error_t png_decode_from_memory(const uint8_t *png_data, size_t png_size, uint8_t **rgba_data, png_uint_32 *width, png_uint_32 *height);
 
 #ifdef __cplusplus
 }

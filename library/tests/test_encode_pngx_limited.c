@@ -102,7 +102,7 @@ void test_pngx_limited_rgba4444_bitdepth_reduction(void) {
   TEST_ASSERT_EQUAL_UINT8(8, pngx_data[24]);
   TEST_ASSERT_EQUAL_UINT8(6, pngx_data[25]);
 
-  error = cpres_png_decode_from_memory(pngx_data, pngx_size, &rgba, &width, &height);
+  error = png_decode_from_memory(pngx_data, pngx_size, &rgba, &width, &height);
   TEST_ASSERT_EQUAL_INT(CPRES_OK, error);
   TEST_ASSERT_NOT_NULL(rgba);
   assert_channel_levels_within_bits(rgba, (size_t)width * (size_t)height, 4);
@@ -127,7 +127,7 @@ void test_pngx_limited_rgba4444_color_usage_limits(void) {
   TEST_ASSERT_NOT_NULL(pngx_data);
   TEST_ASSERT_GREATER_THAN_size_t(0, pngx_size);
 
-  error = cpres_png_decode_from_memory(pngx_data, pngx_size, &rgba, &width, &height);
+  error = png_decode_from_memory(pngx_data, pngx_size, &rgba, &width, &height);
 
   TEST_ASSERT_EQUAL_INT(CPRES_OK, error);
   TEST_ASSERT_NOT_NULL(rgba);

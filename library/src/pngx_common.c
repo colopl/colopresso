@@ -69,9 +69,9 @@ static inline bool decode_png_rgba(const uint8_t *png_data, size_t png_size, uin
     return false;
   }
 
-  status = cpres_png_decode_from_memory(png_data, png_size, rgba, width, height);
+  status = png_decode_from_memory(png_data, png_size, rgba, width, height);
   if (status != CPRES_OK) {
-    cpres_log(CPRES_LOG_LEVEL_WARNING, "PNGX: Failed to decode PNG (%d)", (int)status);
+    colopresso_log(CPRES_LOG_LEVEL_WARNING, "PNGX: Failed to decode PNG (%d)", (int)status);
     return false;
   }
 

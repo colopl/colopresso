@@ -310,7 +310,7 @@ void test_pngx_palette256_protected_colors(void) {
   png_data = get_cached_example_png(&png_size);
   TEST_ASSERT_NOT_NULL(png_data);
 
-  decode_error = cpres_png_decode_from_memory(png_data, png_size, &rgba_data, &width, &height);
+  decode_error = png_decode_from_memory(png_data, png_size, &rgba_data, &width, &height);
   TEST_ASSERT_EQUAL(CPRES_OK, decode_error);
   TEST_ASSERT_NOT_NULL(rgba_data);
   TEST_ASSERT_GREATER_THAN(0, width);
@@ -524,7 +524,7 @@ void test_pngx_palette256_postprocess_indices_executes_without_internal_tests(vo
   TEST_ASSERT_NOT_NULL(out_png);
   TEST_ASSERT_GREATER_THAN_size_t(0, out_size);
 
-  decode_error = cpres_png_decode_from_memory(out_png, out_size, &decoded, &decoded_width, &decoded_height);
+  decode_error = png_decode_from_memory(out_png, out_size, &decoded, &decoded_width, &decoded_height);
   cpres_free(out_png);
   TEST_ASSERT_EQUAL_INT_MESSAGE(CPRES_OK, decode_error, "failed to decode quantized png");
   TEST_ASSERT_EQUAL_UINT32(width, (uint32_t)decoded_width);
