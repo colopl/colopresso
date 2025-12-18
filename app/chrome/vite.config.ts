@@ -32,6 +32,11 @@ const colopressoModulePublicPath = './colopresso.js';
 export default defineConfig({
   root: sharedRoot,
   plugins: [react()],
+  resolve: {
+    alias: {
+      'colopresso-module': colopressoModuleSourcePath,
+    },
+  },
   server: {
     fs: {
       allow: Array.from(new Set([sharedRoot, chromeRoot, outDir, path.dirname(colopressoModuleSourcePath)])),

@@ -101,6 +101,10 @@ const ElectronAppInner: React.FC = () => {
   const [initializing, setInitializing] = useState(true);
   const [isSelectingOutputDirectory, setIsSelectingOutputDirectory] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [deferredDownloadVersion, setDeferredDownloadVersion] = useState<string | null>(null);
+  const [deferredUpdateVersion, setDeferredUpdateVersion] = useState<string | null>(null);
+  const [isUpdateDownloading, setIsUpdateDownloading] = useState(false);
+  const [isUpdateRestarting, setIsUpdateRestarting] = useState(false);
   const moduleRef = useRef<ModuleWithHelpers | null>(null);
   const modulePromiseRef = useRef<Promise<ModuleWithHelpers> | null>(null);
   const statusTimerRef = useRef<number | null>(null);
@@ -216,6 +220,8 @@ const ElectronAppInner: React.FC = () => {
       updatePhase = 'downloading';
       maxPercentSeen = 0;
       lastTransferred = undefined;
+      setDeferredDownloadVersion(null);
+      setIsUpdateDownloading(true);
       applyStatusRef.current({ type: 'info', messageKey: 'updater.toast.downloading', durationMs: 0, params: { progress: progressText, version: typed.version } });
     });
 
@@ -246,12 +252,27 @@ const ElectronAppInner: React.FC = () => {
 
     const offComplete = api.onUpdateDownloadComplete?.((payload) => {
       const typed = (payload ?? {}) as { version?: string };
+      setIsUpdateDownloading(false);
       applyStatusRef.current({ type: 'success', messageKey: 'updater.toast.downloaded', durationMs: 2000, params: { version: typed.version } });
+    });
+
+    const offDownloadDeferred = api.onUpdateDownloadDeferred?.((payload) => {
+      const typed = (payload ?? {}) as { version?: string };
+      const version = typeof typed.version === 'string' ? typed.version.trim() : '';
+      setDeferredDownloadVersion(version.length > 0 ? version : '');
+    });
+
+    const offDeferred = api.onUpdateInstallDeferred?.((payload) => {
+      const typed = (payload ?? {}) as { version?: string };
+      const version = typeof typed.version === 'string' ? typed.version.trim() : '';
+      setDeferredDownloadVersion(null);
+      setDeferredUpdateVersion(version.length > 0 ? version : '');
     });
 
     const offError = api.onUpdateDownloadError?.((payload) => {
       const typed = (payload ?? {}) as { message?: unknown };
       const message = typeof typed.message === 'string' && typed.message.trim().length > 0 ? typed.message : t('common.unknownError');
+      setIsUpdateDownloading(false);
       applyStatusRef.current({ type: 'error', messageKey: 'updater.toast.downloadFailed', durationMs: 0, params: { message } });
     });
 
@@ -259,9 +280,80 @@ const ElectronAppInner: React.FC = () => {
       offStart?.();
       offProgress?.();
       offComplete?.();
+      offDownloadDeferred?.();
+      offDeferred?.();
       offError?.();
     };
   }, [t]);
+
+  const handleDownloadUpdateNow = useCallback(async () => {
+    const api = window.electronAPI;
+    if (!api?.downloadUpdateNow) {
+      applyStatus({ type: 'error', messageKey: 'common.unknownError', durationMs: 4000 });
+      return;
+    }
+
+    if (isUpdateDownloading || isUpdateRestarting) {
+      return;
+    }
+
+    setIsUpdateDownloading(true);
+    setDeferredDownloadVersion(null);
+
+    try {
+      const result = await api.downloadUpdateNow();
+      if (!result?.success) {
+        const message = typeof result?.error === 'string' && result.error.trim().length > 0 ? result.error : t('common.unknownError');
+        applyStatus({ type: 'error', messageKey: 'updater.toast.downloadFailed', durationMs: 0, params: { message } });
+        setIsUpdateDownloading(false);
+      }
+    } catch (error) {
+      const message = (error as Error | undefined)?.message ?? t('common.unknownError');
+      applyStatus({ type: 'error', messageKey: 'updater.toast.downloadFailed', durationMs: 0, params: { message } });
+      setIsUpdateDownloading(false);
+    }
+  }, [applyStatus, isUpdateDownloading, isUpdateRestarting, t]);
+
+  const handleInstallUpdateNow = useCallback(async () => {
+    const api = window.electronAPI;
+    if (!api?.installUpdateNow) {
+      applyStatus({ type: 'error', messageKey: 'common.unknownError', durationMs: 4000 });
+      return;
+    }
+
+    if (isUpdateRestarting) {
+      return;
+    }
+
+    const versionLabel = deferredUpdateVersion && deferredUpdateVersion.trim().length > 0 ? deferredUpdateVersion : '';
+    if (api.confirmInstallUpdate) {
+      const confirmed = await api.confirmInstallUpdate({ version: versionLabel });
+      if (!confirmed?.confirmed) {
+        return;
+      }
+    } else {
+      const confirmation = `${t('updater.dialog.readyToInstall.title')}\n\n${t('updater.dialog.readyToInstall.message', { version: versionLabel })}\n\n${t('updater.dialog.readyToInstall.detail')}`;
+      if (typeof window !== 'undefined' && !window.confirm(confirmation)) {
+        return;
+      }
+    }
+
+    setIsUpdateRestarting(true);
+    applyStatus({ type: 'info', messageKey: 'updater.toast.restarting', durationMs: 0 });
+
+    try {
+      const result = await api.installUpdateNow();
+      if (!result?.success) {
+        const message = typeof result?.error === 'string' && result.error.trim().length > 0 ? result.error : t('common.unknownError');
+        applyStatus({ type: 'error', messageKey: 'updater.toast.downloadFailed', durationMs: 0, params: { message } });
+        setIsUpdateRestarting(false);
+      }
+    } catch (error) {
+      const message = (error as Error | undefined)?.message ?? t('common.unknownError');
+      applyStatus({ type: 'error', messageKey: 'updater.toast.downloadFailed', durationMs: 0, params: { message } });
+      setIsUpdateRestarting(false);
+    }
+  }, [applyStatus, deferredUpdateVersion, isUpdateRestarting, t]);
 
   const resolveConversionError = useCallback(
     (error: unknown, format: FormatDefinition, originalSize?: number) => {
@@ -1331,6 +1423,27 @@ const ElectronAppInner: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {(deferredUpdateVersion !== null || deferredDownloadVersion !== null) && (
+        <div className={styles.dropZoneUpdateCta}>
+          <button
+            type="button"
+            className={styles.dropZoneUpdateCtaButton}
+            onClick={() => {
+              if (deferredUpdateVersion !== null) {
+                void handleInstallUpdateNow();
+                return;
+              }
+              void handleDownloadUpdateNow();
+            }}
+            disabled={isUpdateRestarting || isUpdateDownloading}
+            aria-label={t(deferredUpdateVersion !== null ? 'updater.cta.restartToUpdate' : 'updater.cta.downloadUpdate')}
+            title={t(deferredUpdateVersion !== null ? 'updater.cta.restartToUpdate' : 'updater.cta.downloadUpdate')}
+          >
+            {t(deferredUpdateVersion !== null ? 'updater.cta.restartToUpdate' : 'updater.cta.downloadUpdate')}
+          </button>
+        </div>
+      )}
 
       <div
         className={dropZoneClassName}

@@ -5,7 +5,7 @@ ARG ENABLE_CLANG=1
 ARG ENABLE_EMSDK=1
 ARG EMSDK_VERSION=0
 
-FROM --platform=${PLATFORM} debian:${DEBIAN_VERSION} AS base
+FROM --platform=${PLATFORM} debian:${DEBIAN_VERSION} AS builder
 
 # Timezone
 ENV TZ="Asia/Tokyo"
@@ -123,7 +123,7 @@ RUN curl -fsSL "https://get.pnpm.io/install.sh" | /bin/bash - && \
 WORKDIR "/project"
 
 # Development container
-FROM --platform=${PLATFORM} base AS devcontainer
+FROM --platform=${PLATFORM} builder AS devcontainer
 
 ENV DEBIAN_FRONTEND=""
 
@@ -140,7 +140,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       "vim" "bsdmainutils" "strace" "pngtools" "ripgrep" "exiftool" && \
     echo 'export PATH="${HOME}/.local/share/pnpm:${PATH}"' >> "/etc/bash.bashrc" && \
     pip3 install --resume-retries=5 --no-cache-dir "numpy" "opencv-python" "Pillow" "scikit-image" "flake8" "black" && \
-    update-alternatives --install "/usr/bin/python" python "$(which "python3")" 100 && \
+    update-alternatives --install "/usr/bin/python" python "$(command -v "python3")" 100 && \
     . "/etc/profile.d/cargo.sh" && \
     rustup component add "rustfmt" && \
     rustup toolchain install "nightly" && \

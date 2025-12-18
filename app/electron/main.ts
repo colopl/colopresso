@@ -26,6 +26,8 @@ let mainWindow: BrowserWindow | null = null;
 let autoUpdateInitialized = false;
 let updateCheckTimer: ReturnType<typeof setInterval> | null = null;
 let quittingForUpdate = false;
+let pendingUpdateEvent: UpdateDownloadedEvent | null = null;
+let pendingAvailableUpdateInfo: UpdateInfo | null = null;
 
 function sendUpdateIpc(channel: string, payload?: unknown): void {
   if (!mainWindow || mainWindow.isDestroyed()) {
@@ -70,6 +72,10 @@ interface ElectronSaveDialogResult {
   filePath?: string;
   canceled?: boolean;
   error?: string;
+}
+
+interface ElectronConfirmInstallUpdateResult {
+  confirmed: boolean;
 }
 
 interface ResolvedUpdateConfig {
@@ -265,7 +271,10 @@ async function promptForInstall(event: UpdateDownloadedEvent): Promise<void> {
   if (response === 0) {
     quittingForUpdate = true;
     autoUpdater.quitAndInstall(false, true);
+    return;
   }
+
+  sendUpdateIpc('update-install-deferred', { version: event.version });
 }
 
 function setupAutoUpdate(): void {
@@ -309,14 +318,17 @@ function setupAutoUpdate(): void {
 
   autoUpdater.on('update-available', async (info) => {
     try {
+      pendingAvailableUpdateInfo = info;
       selectWindowsUpdateFileForCurrentArch(info);
       const shouldDownload = await promptForUpdateDownload(info, { ...config, channel: effectiveChannel });
       if (!shouldDownload) {
         if (mainWindow) {
           mainWindow.setProgressBar(-1);
         }
+        sendUpdateIpc('update-download-deferred', { version: info.version, releaseName: info.releaseName });
         return;
       }
+      pendingAvailableUpdateInfo = null;
       sendUpdateIpc('update-download-start', { version: info.version, releaseName: info.releaseName });
       await autoUpdater.downloadUpdate();
     } catch (error) {
@@ -336,9 +348,11 @@ function setupAutoUpdate(): void {
     if (mainWindow) {
       mainWindow.setProgressBar(-1);
     }
+    pendingAvailableUpdateInfo = null;
   });
 
   autoUpdater.on('update-downloaded', (event) => {
+    pendingUpdateEvent = event;
     sendUpdateIpc('update-download-complete', { version: event.version });
     void promptForInstall(event);
   });
@@ -609,6 +623,56 @@ function registerIpcHandlers(): void {
   ipcMain.handle('save-json-dialog', handleSaveJsonDialog);
   ipcMain.handle('get-update-channel', () => getUpdateChannel());
   ipcMain.handle('get-architecture', () => process.arch);
+  ipcMain.handle('install-update-now', () => {
+    if (!pendingUpdateEvent) {
+      return { success: false, error: 'No update is ready to install' };
+    }
+
+    quittingForUpdate = true;
+    autoUpdater.quitAndInstall(false, true);
+    return { success: true };
+  });
+
+  ipcMain.handle('confirm-install-update', async (_event: IpcMainInvokeEvent, payload: unknown): Promise<ElectronConfirmInstallUpdateResult> => {
+    const typed = (payload ?? {}) as { version?: unknown };
+    const version = typeof typed.version === 'string' ? typed.version : '';
+
+    const { response } = await showMessageBoxWithOptionalParent({
+      type: 'question',
+      buttons: [translate('updater.dialog.readyToInstallCta.buttons.cancel'), translate('updater.dialog.readyToInstallCta.buttons.restart')],
+      defaultId: 1,
+      cancelId: 0,
+      title: translate('updater.dialog.readyToInstall.title'),
+      message: translate('updater.dialog.readyToInstall.message', { version }),
+      detail: translate('updater.dialog.readyToInstall.detail'),
+    });
+
+    return { confirmed: response === 1 };
+  });
+
+  ipcMain.handle('download-update-now', async () => {
+    if (!autoUpdateInitialized || !app.isPackaged || process.platform === 'linux') {
+      return { success: false, error: 'Auto update is not available' };
+    }
+
+    if (!pendingAvailableUpdateInfo) {
+      return { success: false, error: 'No update is available to download' };
+    }
+
+    try {
+      selectWindowsUpdateFileForCurrentArch(pendingAvailableUpdateInfo);
+      sendUpdateIpc('update-download-start', { version: pendingAvailableUpdateInfo.version, releaseName: pendingAvailableUpdateInfo.releaseName });
+      const result = await autoUpdater.downloadUpdate();
+      pendingAvailableUpdateInfo = null;
+      return { success: true, result };
+    } catch (error) {
+      if (mainWindow) {
+        mainWindow.setProgressBar(-1);
+      }
+      sendUpdateIpc('update-download-error', { message: extractErrorMessage(error) });
+      return { success: false, error: extractErrorMessage(error) };
+    }
+  });
 }
 
 app.whenReady().then(() => {

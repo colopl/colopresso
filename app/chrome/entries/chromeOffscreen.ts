@@ -13,7 +13,7 @@ import { initializeModule, getVersionInfo, ModuleWithHelpers } from '../../share
 import { getDefaultFormat, getFormat, normalizeFormatOptions } from '../../shared/formats';
 import { FormatDefinition, FormatOptions } from '../../shared/types';
 // @ts-ignore
-import ColopressoModuleFactory from '../../../build/chrome/colopresso.js';
+import ColopressoModuleFactory from 'colopresso-module';
 
 let moduleInstance: ModuleWithHelpers | null = null;
 let modulePromise: Promise<ModuleWithHelpers> | null = null;

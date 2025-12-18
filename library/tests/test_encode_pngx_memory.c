@@ -36,7 +36,7 @@ void test_pngx_memory_lossy_dither_variations(void) {
   uint8_t *pngx_out = NULL;
   cpres_error_t error = CPRES_OK;
 
-  png_data = get_cached_example_png(&png_size);
+  png_data = get_cached_tiny_example_png(&png_size);
   TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for PNGX dither variations");
 
   g_config.pngx_lossy_enable = true;
@@ -55,7 +55,7 @@ void test_pngx_memory_lossy_max_colors_variations(void) {
   uint8_t *pngx_out = NULL;
   cpres_error_t error = CPRES_OK;
 
-  png_data = get_cached_example_png(&png_size);
+  png_data = get_cached_tiny_example_png(&png_size);
   TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for PNGX max colors variations");
 
   g_config.pngx_lossy_enable = true;
@@ -74,7 +74,7 @@ void test_pngx_memory_lossy_mode(void) {
   uint8_t *pngx_data = NULL;
   cpres_error_t error = CPRES_OK;
 
-  png_data = get_cached_example_png(&png_size);
+  png_data = get_cached_tiny_example_png(&png_size);
   TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for PNGX lossy memory test");
 
   g_config.pngx_lossy_enable = true;
@@ -98,7 +98,7 @@ void test_pngx_memory_lossy_quality_swap(void) {
   uint8_t *pngx_out = NULL;
   cpres_error_t error = CPRES_OK;
 
-  png_data = get_cached_example_png(&png_size);
+  png_data = get_cached_tiny_example_png(&png_size);
   TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for PNGX quality swap test");
 
   g_config.pngx_lossy_enable = true;
@@ -120,7 +120,7 @@ void test_pngx_memory_lossy_quality_variations(void) {
   uint8_t *pngx_out = NULL;
   cpres_error_t error = CPRES_OK;
 
-  png_data = get_cached_example_png(&png_size);
+  png_data = get_cached_tiny_example_png(&png_size);
   TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for PNGX lossy quality variations");
 
   g_config.pngx_lossy_enable = true;
@@ -140,7 +140,7 @@ void test_pngx_memory_lossy_speed_variations(void) {
   uint8_t *pngx_out = NULL;
   cpres_error_t error = CPRES_OK;
 
-  png_data = get_cached_example_png(&png_size);
+  png_data = get_cached_tiny_example_png(&png_size);
   TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for PNGX speed variations");
 
   g_config.pngx_lossy_enable = true;
@@ -159,7 +159,7 @@ void test_pngx_memory_optimization_level_variations(void) {
   uint8_t *pngx_out = NULL;
   cpres_error_t error = CPRES_OK;
 
-  png_data = get_cached_example_png(&png_size);
+  png_data = get_cached_tiny_example_png(&png_size);
   TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for PNGX optimization level variations");
 
   g_config.pngx_level = 0;
@@ -235,7 +235,7 @@ void test_pngx_memory_with_threads_setting(void) {
   uint8_t *pngx_out = NULL;
   cpres_error_t error = CPRES_OK;
 
-  png_data = get_cached_example_png(&png_size);
+  png_data = get_cached_tiny_example_png(&png_size);
   TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for PNGX threads test");
 
   g_config.pngx_threads = 2;
@@ -255,7 +255,7 @@ void test_pngx_memory_with_valid_png(void) {
   size_t png_size = 0, pngx_size = 0;
   cpres_error_t error = CPRES_OK;
 
-  png_data = get_cached_example_png(&png_size);
+  png_data = get_cached_tiny_example_png(&png_size);
   TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for PNGX memory test");
 
   cpres_set_log_callback(test_default_log_callback);

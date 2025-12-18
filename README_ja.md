@@ -134,9 +134,39 @@ $ git clone --recursive "https://github.com/colopl/colopresso.git"
 2. `cmake --build "build" --parallel`
 3. `ctest --test-dir "build" --output-on-failure --parallel`
 
+#### 補足 (速度と詳細度のトレードオフ)
+
+Valgrind のテストはエンコーダのエンドツーエンド系テストを含むため、CI 環境では非常に時間がかかる場合があります。
+カバー範囲を落とさずに実行時間を短縮できるよう、Valgrind 実行時の挙動は次の CMake オプションで調整できます。
+
+- `COLOPRESSO_VALGRIND_TRACK_ORIGINS` (デフォルト: `OFF`)
+    - `ON` にすると Valgrind に `--track-origins=yes` を付与します。
+    - **非常に遅くなります** が、未初期化値の発生源追跡に有効です（`Memcheck:Value*` / `Memcheck:Cond` の原因調査向け）。
+
+- `COLOPRESSO_VALGRIND_RAYON_NUM_THREADS` (デフォルト: `1`)
+    - Valgrind テスト実行時に `RAYON_NUM_THREADS` を設定します。
+    - Rust / Rayon を含む処理での過剰並列を抑え、ランタイムと揺らぎ（非決定性）を減らします。
+
+- `COLOPRESSO_VALGRIND_LEAK_CHECK` (デフォルト: `full`)
+    - Valgrind の `--leak-check` を指定します（`no|summary|full`）。
+
+- `COLOPRESSO_VALGRIND_SHOW_LEAK_KINDS` (デフォルト: `all`)
+    - Valgrind の `--show-leak-kinds` を指定します（例: `definite,indirect,possible,reachable` または `all`）。
+
+例:
+
+- CI 向け (高速寄り) の Valgrind 実行:
+    - `rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_VALGRIND=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_VALGRIND_TRACK_ORIGINS=OFF -DCOLOPRESSO_VALGRIND_RAYON_NUM_THREADS=1`
+
+- 詳細メモリデバッグ（未初期化の発生源追跡）:
+    - `rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_VALGRIND=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_VALGRIND_TRACK_ORIGINS=ON -DCOLOPRESSO_VALGRIND_RAYON_NUM_THREADS=1`
+
+- 特定の Valgrind テストだけ実行:
+    - `ctest --test-dir "build" --output-on-failure -R '^test_encode_pngx_memory_valgrind$'`
+
 ### Sanitizer チェック
 
-1. `rm -rf "build" && cmake -B "build" -DCMAKE_C_COMPILER="$(which "clang")" -DCMAKE_CXX_COMPILER="$(which "clang++")" -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_(ASAN|MSAN|UBSAN)=ON -DCOLOPRESSO_USE_TESTS=ON`
+1. `rm -rf "build" && cmake -B "build" -DCMAKE_C_COMPILER="$(command -v "clang")" -DCMAKE_CXX_COMPILER="$(command -v "clang++")" -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_(ASAN|MSAN|UBSAN)=ON -DCOLOPRESSO_USE_TESTS=ON`
 2. `cmake --build "build" --parallel`
 3. `ctest --test-dir "build" --output-on-failure --parallel`
 

@@ -26,7 +26,7 @@ jobs:
         id: get_emsdk_version
         working-directory: "third_party/emsdk"
         run: |
-          git fetch --unshallow
+          git fetch --tags
           echo "emsdk_version=$(git describe --tags --abbrev=0)" >> "${GITHUB_OUTPUT}"
       - name: Dummy versioning
         run: |
@@ -36,7 +36,7 @@ jobs:
           sed -i "s|0.0.0|999.999.998|" "package.json"
       - name: Tar dummy versioned code
         run: |
-          tar -czf "../dummy-versioned-code.tar.gz" -C .. "$(basename "$PWD")"
+          tar -czf "../dummy-versioned-code.tar.gz" -C .. "$(basename "${PWD}")"
           mv "../dummy-versioned-code.tar.gz" "./dummy-versioned-code.tar.gz"
       - name: Upload versioned code
         uses: actions/upload-artifact@v6
@@ -46,7 +46,6 @@ jobs:
           retention-days: 1
   LinuxAndChromeExtension:
     needs: Prepare
-    timeout-minutes: 360
     strategy:
       matrix:
         include:
@@ -72,11 +71,11 @@ jobs:
           docker build \
             --file "Dockerfile" \
             --build-arg PLATFORM="${{ matrix.platform }}" \
-            --build-arg ENABLE_VALGRIND="1" \
+            --build-arg ENABLE_VALGRIND="${{ (github.ref == 'refs/heads/main' && github.event_name == 'push') && '1' || '0' }}" \
             --build-arg ENABLE_CLANG="1" \
             --build-arg ENABLE_EMSDK="1" \
             --build-arg EMSDK_VERSION="${{ needs.Prepare.outputs.emsdk_version }}" \
-            --target "base" \
+            --target "builder" \
             --tag "ci" \
             .
       - name: Build and test on container
@@ -101,7 +100,7 @@ jobs:
               rustup toolchain install nightly
               rustup component add rust-src --toolchain nightly
 
-              if test "${{ github.ref }}" = "refs/heads/main"; then
+              if type "valgrind" &> /dev/null; then
                 rm -rf "build"
                 cmake -B "build" \
                   -DCMAKE_BUILD_TYPE="Debug" \
@@ -116,8 +115,8 @@ jobs:
               for OPTS in ASAN MSAN UBSAN; do
                 rm -rf "build"
                 cmake -B "build" \
-                  -DCMAKE_C_COMPILER="$(which "clang")" \
-                  -DCMAKE_CXX_COMPILER="$(which "clang++")" \
+                  -DCMAKE_C_COMPILER="$(command -v "clang")" \
+                  -DCMAKE_CXX_COMPILER="$(command -v "clang++")" \
                   -DCMAKE_BUILD_TYPE="Debug" \
                   -DCOLOPRESSO_USE_TESTS=ON \
                   -DCOLOPRESSO_USE_UTILS=ON \
@@ -223,8 +222,8 @@ jobs:
           ./emsdk install "${{ needs.Prepare.outputs.emsdk_version }}"
           ./emsdk activate "${{ needs.Prepare.outputs.emsdk_version }}"
           . "./emsdk_env.sh"
-          env | grep -E '^(EMSDK|EM_|BINARYEN)' | while IFS='=' read -r key value; do
-            echo "${key}=${value}" >> "${GITHUB_ENV}"
+          env | grep -E '^(EMSDK|EM_|BINARYEN)' | while IFS='=' read -r KEY VALUE; do
+            echo "${KEY}=${VALUE}" >> "${GITHUB_ENV}"
           done
           echo "${EMSDK}" >> "${GITHUB_PATH}"
           echo "${EMSDK}/upstream/emscripten" >> "${GITHUB_PATH}"
@@ -292,7 +291,7 @@ jobs:
             -DCMAKE_BUILD_TYPE="Release" \
             -DCOLOPRESSO_USE_CLI=ON \
             -DCOLOPRESSO_USE_TESTS=ON \
-            ${{ matrix.arch.name == 'intel' && '-DAOM_TARGET_CPU=generic' || '' }}
+            ${{ matrix.arch.name == 'intel' && '-DAOM_TARGET_CPU="generic"' || '' }}
       - name: Build
         run: cmake --build "build" --config "Release" --parallel
       - name: Test
@@ -335,16 +334,16 @@ jobs:
             /bin/sh -c '
               set -e
               cmake -B build \
-                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_BUILD_TYPE="Release" \
                 -DCMAKE_EXE_LINKER_FLAGS="-static" \
                 -DCOLOPRESSO_USE_CLI=ON \
                 -DCOLOPRESSO_USE_TESTS=ON
-              cmake --build build --config Release --target colopresso_cli --parallel=$(($(nproc)-1))
+              cmake --build "build" --config "Release" --target "colopresso_cli" --parallel="$(($(nproc)-1))"
               strip build/cli/colopresso
               build/cli/colopresso --version
-              build/cli/colopresso --verbose --format=webp assets/example.png /tmp/example.webp
-              build/cli/colopresso --verbose --format=avif assets/example.png /tmp/example.avif
-              build/cli/colopresso --verbose --format=pngx assets/example.png /tmp/example.png
+              build/cli/colopresso --verbose --format=webp assets/example.png "/tmp/example.webp"
+              build/cli/colopresso --verbose --format=avif assets/example.png "/tmp/example.avif"
+              build/cli/colopresso --verbose --format=pngx assets/example.png "/tmp/example.png"
             '
       - name: Test binary in minimal container
         run: |
@@ -355,18 +354,17 @@ jobs:
             alpine:latest \
             /bin/sh -c '
               set +e
-              /colopresso --verbose --format=pngx /assets/increase.png /tmp/increase.png
-              EXIT_CODE=$?
-              if test ${EXIT_CODE} -ne 2; then
+              /colopresso --verbose --format=pngx "/assets/increase.png" "/tmp/increase.png"
+              if test ${?} -ne 2; then
                 echo "Error: Expected exit code 2, got ${EXIT_CODE}"
                 exit 1
               fi
 
               set -e
               /colopresso --version
-              /colopresso --verbose --format=webp /assets/example.png /tmp/example.webp
-              /colopresso --verbose --format=avif /assets/example.png /tmp/example.avif
-              /colopresso --verbose --format=pngx /assets/example.png /tmp/example.png
+              /colopresso --verbose --format=webp "/assets/example.png" "/tmp/example.webp"
+              /colopresso --verbose --format=avif "/assets/example.png" "/tmp/example.avif"
+              /colopresso --verbose --format=pngx "/assets/example.png" "/tmp/example.png"
             '
           docker run \
             --rm \
@@ -375,16 +373,15 @@ jobs:
             busybox:musl \
             /bin/sh -c '
               set +e
-              /colopresso --verbose --format=pngx /assets/increase.png /tmp/increase.png
-              EXIT_CODE=$?
-              if test ${EXIT_CODE} -ne 2; then
+              /colopresso --verbose --format=pngx "/assets/increase.png" "/tmp/increase.png"
+              if test ${?} -ne 2; then
                 echo "Error: Expected exit code 2, got ${EXIT_CODE}"
                 exit 1
               fi
 
               set -e
               /colopresso --version
-              /colopresso --verbose --format=webp /assets/example.png /tmp/example.webp
-              /colopresso --verbose --format=avif /assets/example.png /tmp/example.avif
-              /colopresso --verbose --format=pngx /assets/example.png /tmp/example.png
+              /colopresso --verbose --format=webp "/assets/example.png" "/tmp/example.webp"
+              /colopresso --verbose --format=avif "/assets/example.png" "/tmp/example.avif"
+              /colopresso --verbose --format=pngx "/assets/example.png" "/tmp/example.png"
             '

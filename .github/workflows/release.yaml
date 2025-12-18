@@ -105,7 +105,7 @@ jobs:
         id: get_emsdk_version
         working-directory: "third_party/emsdk"
         run: |
-          git fetch --unshallow
+          git fetch --tags
           echo "emsdk_version=$(git describe --tags --abbrev=0)" >> "${GITHUB_OUTPUT}"
       - name: Versioning
         run: |
@@ -374,8 +374,8 @@ jobs:
             unset APPLE_API_ISSUER
           fi
 
-            emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--mac"
-            cmake --build "build" --config "Release" --parallel
+          emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--mac"
+          cmake --build "build" --config "Release" --parallel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HAS_CERT: ${{ steps.macos_signing.outputs.HAS_CERT }}
@@ -423,7 +423,7 @@ jobs:
             --build-arg ENABLE_CLANG=0 \
             --build-arg ENABLE_EMSDK=1 \
             --build-arg EMSDK_VERSION="${{ needs.Prepare.outputs.emsdk_version }}" \
-            --target "base" \
+            --target "builder" \
             .
       - name: Build Chrome Extension
         run: |

@@ -46,7 +46,9 @@ typedef struct {
 } test_log_capture_t;
 
 static uint8_t *g_test_cached_example_png_data = NULL;
+static uint8_t *g_test_cached_tiny_example_png_data = NULL;
 static size_t g_test_cached_example_png_size = 0;
+static size_t g_test_cached_tiny_example_png_size = 0;
 static test_log_capture_t *g_test_log_capture_target = NULL;
 
 static void common_log_capture_callback(cpres_log_level_t level, const char *message) {
@@ -235,6 +237,65 @@ static inline const uint8_t *test_get_tiny_png(size_t *out_size) {
   return tiny_png;
 }
 
+static inline const uint8_t *get_cached_tiny_example_png(size_t *out_size) {
+  FILE *fp = NULL;
+  char path[512];
+  long fsz = 0;
+
+  if (out_size) {
+    *out_size = 0;
+  }
+
+  if (!g_test_cached_tiny_example_png_data) {
+    if (snprintf(path, sizeof(path), "%s/128x128.png", COLOPRESSO_TEST_ASSETS_DIR) < 0) {
+      return NULL;
+    }
+
+    fp = fopen(path, "rb");
+    if (!fp) {
+      return NULL;
+    }
+
+    if (fseek(fp, 0, SEEK_END) != 0) {
+      fclose(fp);
+      return NULL;
+    }
+
+    fsz = ftell(fp);
+    if (fsz < 0) {
+      fclose(fp);
+      return NULL;
+    }
+
+    if (fseek(fp, 0, SEEK_SET) != 0) {
+      fclose(fp);
+      return NULL;
+    }
+
+    g_test_cached_tiny_example_png_data = (uint8_t *)malloc((size_t)fsz);
+    if (!g_test_cached_tiny_example_png_data) {
+      fclose(fp);
+      return NULL;
+    }
+
+    if (fread(g_test_cached_tiny_example_png_data, 1, (size_t)fsz, fp) != (size_t)fsz) {
+      fclose(fp);
+      free(g_test_cached_tiny_example_png_data);
+      g_test_cached_tiny_example_png_data = NULL;
+      return NULL;
+    }
+
+    fclose(fp);
+    g_test_cached_tiny_example_png_size = (size_t)fsz;
+  }
+
+  if (out_size) {
+    *out_size = g_test_cached_tiny_example_png_size;
+  }
+
+  return g_test_cached_tiny_example_png_data;
+}
+
 static inline const uint8_t *get_cached_example_png(size_t *out_size) {
   FILE *fp = NULL;
   char path[512];
@@ -299,6 +360,12 @@ static inline void release_cached_example_png(void) {
     free(g_test_cached_example_png_data);
     g_test_cached_example_png_data = NULL;
     g_test_cached_example_png_size = 0;
+  }
+
+  if (g_test_cached_tiny_example_png_data) {
+    free(g_test_cached_tiny_example_png_data);
+    g_test_cached_tiny_example_png_data = NULL;
+    g_test_cached_tiny_example_png_size = 0;
   }
 }
 
