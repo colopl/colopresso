@@ -1,7 +1,7 @@
 ARG PLATFORM=${BUILDPLATFORM:-linux/amd64}
 ARG ALPINE_VERSION=3.23
 
-FROM --platform=${PLATFORM} alpine:${ALPINE_VERSION} AS base
+FROM --platform=${PLATFORM} alpine:${ALPINE_VERSION} AS builder
 
 # Timezone
 ENV TZ="Asia/Tokyo"

@@ -136,9 +136,39 @@ Open the cloned `libcolopresso` directory with Visual Studio Code and attach to 
 2. `cmake --build "build" --parallel`
 3. `ctest --test-dir "build" --output-on-failure --parallel`
 
+#### Notes (speed vs detail)
+
+The Valgrind test suite includes several encoder end-to-end tests and can be extremely slow on CI.
+To keep coverage while reducing runtime, the Valgrind runner is configurable via these CMake options:
+
+- `COLOPRESSO_VALGRIND_TRACK_ORIGINS` (default: `OFF`)
+    - When `ON`, adds Valgrind `--track-origins=yes`.
+    - This is **very slow**, but it helps attribute where uninitialized values come from (useful when chasing `Memcheck:Value*` / `Memcheck:Cond` reports).
+
+- `COLOPRESSO_VALGRIND_RAYON_NUM_THREADS` (default: `1`)
+    - Sets `RAYON_NUM_THREADS` for Valgrind tests.
+    - Limits oversubscription and reduces non-determinism and runtime when Rust/Rayon is involved.
+
+- `COLOPRESSO_VALGRIND_LEAK_CHECK` (default: `full`)
+    - Controls Valgrind `--leak-check` (`no|summary|full`).
+
+- `COLOPRESSO_VALGRIND_SHOW_LEAK_KINDS` (default: `all`)
+    - Controls Valgrind `--show-leak-kinds` (e.g. `definite,indirect,possible,reachable` or `all`).
+
+Examples:
+
+- Fast CI-like Valgrind run:
+    - `rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_VALGRIND=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_VALGRIND_TRACK_ORIGINS=OFF -DCOLOPRESSO_VALGRIND_RAYON_NUM_THREADS=1`
+
+- Deep investigation (uninitialized origin tracking):
+    - `rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_VALGRIND=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_VALGRIND_TRACK_ORIGINS=ON -DCOLOPRESSO_VALGRIND_RAYON_NUM_THREADS=1`
+
+- Run only a specific Valgrind test:
+    - `ctest --test-dir "build" --output-on-failure -R '^test_encode_pngx_memory_valgrind$'`
+
 ### Sanitizer Check
 
-1. `rm -rf "build" && cmake -B "build" -DCMAKE_C_COMPILER="$(which "clang")" -DCMAKE_CXX_COMPILER="$(which "clang++")" -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_(ASAN|MSAN|UBSAN)=ON -DCOLOPRESSO_USE_TESTS=ON`
+1. `rm -rf "build" && cmake -B "build" -DCMAKE_C_COMPILER="$(command -v "clang")" -DCMAKE_CXX_COMPILER="$(command -v "clang++")" -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_(ASAN|MSAN|UBSAN)=ON -DCOLOPRESSO_USE_TESTS=ON`
 2. `cmake --build "build" --parallel`
 3. `ctest --test-dir "build" --output-on-failure --parallel`
 

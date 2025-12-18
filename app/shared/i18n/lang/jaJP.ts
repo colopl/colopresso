@@ -294,13 +294,17 @@ const bundle: TranslationBundle = {
       },
     },
     updater: {
+      cta: {
+        restartToUpdate: '♻️クリックして更新してアプリを再起動',
+        downloadUpdate: '♻️クリックして更新をダウンロード',
+      },
       dialog: {
         updateAvailable: {
           title: '新しいバージョンが見つかりました',
           message: 'バージョン {version} が利用可能です。アップデートをダウンロードしますか？',
           buttons: {
             download: 'ダウンロード',
-            later: '後で',
+            later: 'あとで',
           },
           detail: {
             currentVersion: '現在のバージョン: {version}',
@@ -318,6 +322,12 @@ const bundle: TranslationBundle = {
             later: 'あとで',
           },
         },
+        readyToInstallCta: {
+          buttons: {
+            cancel: 'キャンセル',
+            restart: '再起動',
+          },
+        },
         downloadFailed: {
           title: 'アップデートに失敗しました',
           message: 'アップデートのダウンロードに失敗しました',
@@ -328,6 +338,7 @@ const bundle: TranslationBundle = {
         extracting: 'アップデートを展開中です... {progress}',
         progressUnknown: '計測中...',
         downloaded: 'アップデートのダウンロードが完了しました。',
+        restarting: 'アップデートを適用するため再起動します...',
         downloadFailed: 'アップデートのインストールに失敗しました: {message}',
       },
     },

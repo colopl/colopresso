@@ -360,8 +360,13 @@ endif()
 
 if(COLOPRESSO_ELECTRON_APP)
   colopresso_configure_gui_target("electron" "Electron app")
+  file(RELATIVE_PATH COLOPRESSO_ELECTRON_OUT_DIR_REL "${CMAKE_SOURCE_DIR}" "${COLOPRESSO_ELECTRON_OUT_DIR}")
 
   set(ELECTRON_BUILDER_ARGS exec electron-builder --publish never)
+  list(APPEND ELECTRON_BUILDER_ARGS
+    "-c.extraMetadata.main=${COLOPRESSO_ELECTRON_OUT_DIR_REL}/main.js"
+    "-c.files=${COLOPRESSO_ELECTRON_OUT_DIR_REL}/**/*"
+  )
   if(COLOPRESSO_ELECTRON_TARGETS)
     message(STATUS "Electron packaging targets: ${COLOPRESSO_ELECTRON_TARGETS}")
     string(REPLACE "," ";" COLOPRESSO_ELECTRON_TARGETS_EACH "${COLOPRESSO_ELECTRON_TARGETS}")

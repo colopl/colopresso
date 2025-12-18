@@ -47,6 +47,20 @@ interface ElectronSelectFolderResult {
   error?: string;
 }
 
+interface ElectronInstallUpdateResult {
+  success: boolean;
+  error?: string;
+}
+
+interface ElectronDownloadUpdateResult {
+  success: boolean;
+  error?: string;
+}
+
+interface ElectronConfirmInstallUpdateResult {
+  confirmed: boolean;
+}
+
 interface ElectronAPI {
   getPathForFile?: (file: File) => string | undefined;
   saveJsonDialog?: (defaultFileName: string) => Promise<ElectronSaveDialogResult>;
@@ -63,6 +77,11 @@ interface ElectronAPI {
   onUpdateDownloadProgress?: (handler: (payload: Record<string, unknown>) => void) => () => void;
   onUpdateDownloadComplete?: (handler: (payload: Record<string, unknown>) => void) => () => void;
   onUpdateDownloadError?: (handler: (payload: Record<string, unknown>) => void) => () => void;
+  onUpdateDownloadDeferred?: (handler: (payload: Record<string, unknown>) => void) => () => void;
+  onUpdateInstallDeferred?: (handler: (payload: Record<string, unknown>) => void) => () => void;
+  downloadUpdateNow?: () => Promise<ElectronDownloadUpdateResult>;
+  confirmInstallUpdate?: (payload: { version?: string }) => Promise<ElectronConfirmInstallUpdateResult>;
+  installUpdateNow?: () => Promise<ElectronInstallUpdateResult>;
   getUpdateChannel?: () => Promise<string | undefined>;
   getArchitecture?: () => Promise<string | undefined>;
 }

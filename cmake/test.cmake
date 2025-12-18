@@ -61,16 +61,29 @@ function(colopresso_register_test SOURCE)
 
   if(COLOPRESSO_ENABLE_VALGRIND)
     set(_valgrind_supp "${CMAKE_SOURCE_DIR}/suppressions/valgrind.supp")
+
+    set(_valgrind_args
+      "--tool=memcheck"
+      "--error-exitcode=1"
+      "--suppressions=${_valgrind_supp}"
+      "--leak-check=${COLOPRESSO_VALGRIND_LEAK_CHECK}"
+      "--show-leak-kinds=${COLOPRESSO_VALGRIND_SHOW_LEAK_KINDS}"
+      "--run-libc-freeres=no"
+    )
+
+    if(COLOPRESSO_VALGRIND_TRACK_ORIGINS)
+      list(APPEND _valgrind_args "--track-origins=yes")
+    endif()
+
     add_test(
       NAME ${_test_name}_valgrind
       COMMAND ${VALGRIND}
-        "--tool=memcheck"
-        "--leak-check=full"
-        "--show-leak-kinds=all"
-        "--track-origins=yes"
-        "--error-exitcode=1"
-        "--suppressions=${_valgrind_supp}"
+        ${_valgrind_args}
       $<TARGET_FILE:${_test_name}>)
+
+    set_tests_properties(${_test_name}_valgrind PROPERTIES
+      ENVIRONMENT "RAYON_NUM_THREADS=${COLOPRESSO_VALGRIND_RAYON_NUM_THREADS}"
+    )
   endif()
 endfunction()
 

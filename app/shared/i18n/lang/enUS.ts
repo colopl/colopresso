@@ -295,6 +295,10 @@ const bundle: TranslationBundle = {
       },
     },
     updater: {
+      cta: {
+        restartToUpdate: '♻️Click to update and restart App',
+        downloadUpdate: '♻️Click to download the update',
+      },
       dialog: {
         updateAvailable: {
           title: 'New version available',
@@ -319,6 +323,12 @@ const bundle: TranslationBundle = {
             later: 'Later',
           },
         },
+        readyToInstallCta: {
+          buttons: {
+            cancel: 'Cancel',
+            restart: 'Restart',
+          },
+        },
         downloadFailed: {
           title: 'Update failed',
           message: 'Failed to download the update',
@@ -329,6 +339,7 @@ const bundle: TranslationBundle = {
         extracting: 'Extracting update... {progress}',
         progressUnknown: 'calculating...',
         downloaded: 'Update downloaded. Ready to install.',
+        restarting: 'Restarting to install the update...',
         downloadFailed: 'Failed to install update: {message}',
       },
     },

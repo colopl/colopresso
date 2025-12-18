@@ -367,6 +367,10 @@
       }
     }
 
+    .hidden {
+      display: none !important;
+    }
+
   </style>
 </head>
 <body>
@@ -579,7 +583,20 @@
       app: () => i18n[state.lang].options.app.map((label) => ({ value: label, label }))
     };
 
+    const updateUseStepVisibility = () => {
+      const useStep = $('use-step');
+      if (!useStep) return;
+
+      if (state.os === 'Windows') {
+        useStep.classList.remove('hidden');
+        return;
+      }
+
+      useStep.classList.add('hidden');
+    };
+
     const renderOptions = () => {
+      updateUseStepVisibility();
       ['os', 'use', 'arch', 'app'].forEach((key) => {
         const container = optionContainers[key];
         const entries = optionSpecs[key]();

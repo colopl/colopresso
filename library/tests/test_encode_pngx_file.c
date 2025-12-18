@@ -36,7 +36,7 @@ void test_pngx_file_lossy_mode(void) {
   char input_path[512], output_path[512];
   cpres_error_t error = CPRES_OK;
 
-  if (snprintf(input_path, sizeof(input_path), "%s/example.png", COLOPRESSO_TEST_ASSETS_DIR) < 0) {
+  if (snprintf(input_path, sizeof(input_path), "%s/128x128.png", COLOPRESSO_TEST_ASSETS_DIR) < 0) {
     TEST_FAIL_MESSAGE("failed to format PNG input path");
   }
   if (snprintf(output_path, sizeof(output_path), "example_pngx_lossy.png") < 0) {
@@ -95,7 +95,7 @@ void test_pngx_file_with_valid_png(void) {
   char input_path[512], output_path[512];
   cpres_error_t error = CPRES_OK;
 
-  if (snprintf(input_path, sizeof(input_path), "%s/example.png", COLOPRESSO_TEST_ASSETS_DIR) < 0) {
+  if (snprintf(input_path, sizeof(input_path), "%s/128x128.png", COLOPRESSO_TEST_ASSETS_DIR) < 0) {
     TEST_FAIL_MESSAGE("failed to format PNG input path");
   }
   if (snprintf(output_path, sizeof(output_path), "example_pngx.png") < 0) {

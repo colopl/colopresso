@@ -50,6 +50,19 @@ const api: ElectronAPI = {
     ipcRenderer.on('update-download-error', listener);
     return () => ipcRenderer.removeListener('update-download-error', listener);
   },
+  onUpdateDownloadDeferred: (handler) => {
+    const listener = (_event: unknown, payload: unknown) => handler(payload as unknown as Record<string, unknown>);
+    ipcRenderer.on('update-download-deferred', listener);
+    return () => ipcRenderer.removeListener('update-download-deferred', listener);
+  },
+  onUpdateInstallDeferred: (handler) => {
+    const listener = (_event: unknown, payload: unknown) => handler(payload as unknown as Record<string, unknown>);
+    ipcRenderer.on('update-install-deferred', listener);
+    return () => ipcRenderer.removeListener('update-install-deferred', listener);
+  },
+  downloadUpdateNow: () => ipcRenderer.invoke('download-update-now'),
+  confirmInstallUpdate: (payload) => ipcRenderer.invoke('confirm-install-update', payload),
+  installUpdateNow: () => ipcRenderer.invoke('install-update-now'),
   getUpdateChannel: () => ipcRenderer.invoke('get-update-channel'),
   getArchitecture: () => ipcRenderer.invoke('get-architecture'),
 };
