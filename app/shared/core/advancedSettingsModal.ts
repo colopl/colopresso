@@ -582,6 +582,7 @@ const ADVANCED_SETTINGS_STYLES = `
 export interface AdvancedSettingsDeps {
   getDefaultConfigForFormat: (format: FormatDefinition) => FormatOptions;
   saveCurrentConfigForFormat: (format: FormatDefinition, config: FormatOptions) => Promise<void> | void;
+  isThreadsEnabled?: boolean;
 }
 
 export interface AdvancedSettingsController {
@@ -597,11 +598,13 @@ const lastProfileSelection = new Map<string, string>();
 
 let activeManager: AdvancedSettingsManager | null = null;
 let stylesInjected = false;
+let threadsEnabledFlag = true;
 
 function ensureStylesInjected(): void {
   if (stylesInjected) {
     return;
   }
+
   const styleElement = document.createElement('style');
   styleElement.type = 'text/css';
   styleElement.textContent = ADVANCED_SETTINGS_STYLES;
@@ -618,6 +621,8 @@ export async function setupFormatAwareAdvancedSettings(
   if (!deps.getDefaultConfigForFormat || !deps.saveCurrentConfigForFormat) {
     throw new Error('setupFormatAwareAdvancedSettings: missing required deps');
   }
+
+  threadsEnabledFlag = deps.isThreadsEnabled ?? true;
 
   ensureStylesInjected();
 
@@ -657,10 +662,12 @@ class AdvancedSettingsManager {
       this.languageDisposer();
       this.languageDisposer = null;
     }
+
     if (this.configAppliedListener) {
       window.removeEventListener('colopresso:configApplied', this.configAppliedListener);
       this.configAppliedListener = null;
     }
+
     const modal = document.getElementById('advancedModal');
     if (modal) {
       modal.remove();
@@ -682,6 +689,7 @@ class AdvancedSettingsManager {
     if (this.languageDisposer) {
       return;
     }
+
     this.languageDisposer = addLanguageChangeListener(() => {
       const modal = document.getElementById('advancedModal');
       if (modal) {
@@ -694,6 +702,7 @@ class AdvancedSettingsManager {
     if (this.configAppliedListener) {
       return;
     }
+
     this.configAppliedListener = (event: Event) => {
       const customEvent = event as CustomEvent<{ config: FormatOptions; format: FormatDefinition }>;
       const detail = customEvent.detail;
@@ -713,6 +722,7 @@ class AdvancedSettingsManager {
     if (!document.getElementById('advancedModal')) {
       await this.ensureModal(this.format);
     }
+
     this.populateAndDisplay(this.format);
   }
 
@@ -720,6 +730,7 @@ class AdvancedSettingsManager {
     if (document.getElementById('advancedModal')) {
       return;
     }
+
     const config = this.currentConfig ?? {};
     const html = buildModalHTML(format, config);
     document.body.insertAdjacentHTML('beforeend', html);
@@ -731,6 +742,7 @@ class AdvancedSettingsManager {
     if (!modal) {
       return;
     }
+
     const config = this.currentConfig ?? {};
     lastProfileSelection.set(format.id, '__current');
     applyConfigToModalFields(format, config);
@@ -740,13 +752,13 @@ class AdvancedSettingsManager {
 
   private async wireModalInternals(format: FormatDefinition): Promise<void> {
     const modal = document.getElementById('advancedModal');
-    if (!modal) {
-      return;
-    }
-
     const btnClose = document.getElementById('advancedModalClose');
     const btnApply = document.getElementById('advancedApplyBtn');
     const btnReset = document.getElementById('advancedResetBtn');
+
+    if (!modal) {
+      return;
+    }
 
     const handleClose = () => closeModal(modal);
     if (btnClose) {
@@ -778,6 +790,7 @@ class AdvancedSettingsManager {
         updatePngxLossyMaxColorsState();
       });
     }
+
     updatePngxLossyMaxColorsState();
 
     if (btnReset) {
@@ -819,6 +832,7 @@ class AdvancedSettingsManager {
   private async persistConfig(format: FormatDefinition, config: FormatOptions): Promise<void> {
     this.currentConfig = cloneConfig(config);
     lastProfileSelection.set(format.id, '__current');
+
     try {
       await this.deps.saveCurrentConfigForFormat(format, config);
     } catch (error) {
@@ -844,11 +858,13 @@ class AdvancedSettingsManager {
           applyConfigToModalFields(format, snapshot);
           return;
         }
+
         const profiles = await loadProfiles(format);
         const profile = profiles[selectElement.value];
         if (!profile) {
           return;
         }
+
         if (profile._formatId && profile._formatId !== format.id) {
           const profileFormat = getFormat(profile._formatId);
           const profileLabel = profileFormat ? t(profileFormat.labelKey) : profile._formatId;
@@ -867,6 +883,7 @@ class AdvancedSettingsManager {
         if (!name) {
           return;
         }
+
         const config = readConfigFromModal(format);
         const errors = validateConfig(format, config);
         showValidationErrors(errors);
@@ -874,19 +891,25 @@ class AdvancedSettingsManager {
           alert(t('settingsModal.alerts.fixBeforeSave'));
           return;
         }
+
         const profiles = await loadProfiles(format);
-        const duplicate = findDuplicateProfile(config, profiles);
+        const excludedIds = getExcludedFieldIds(format.id);
+        const configToSave = stripExcludedFields(config, excludedIds) as FormatOptions;
+        const duplicate = findDuplicateProfile(configToSave, profiles);
         if (duplicate) {
           alert(t('settingsModal.alerts.duplicateProfile', { name: duplicate }));
           return;
         }
-        profiles[name] = { ...config, _formatId: format.id };
+
+        profiles[name] = { ...configToSave, _formatId: format.id };
         await saveProfiles(format, profiles);
         lastProfileSelection.set(format.id, name);
         await refreshProfileSelect(format, config, name, true);
+
         if (selectElement) {
           selectElement.value = name;
         }
+
         alert(t('settingsModal.alerts.profileSaved', { name }));
       });
     }
@@ -896,6 +919,7 @@ class AdvancedSettingsManager {
         if (!selectElement || selectElement.value === '__current') {
           return;
         }
+
         if (!confirm(t('settingsModal.alerts.deleteConfirm', { name: selectElement.value }))) {
           return;
         }
@@ -915,6 +939,7 @@ class AdvancedSettingsManager {
       btnExport.addEventListener('click', async () => {
         const config = readConfigFromModal(format);
         const currentProfileName = selectElement && selectElement.value !== '__current' ? selectElement.value : 'current';
+
         try {
           await exportProfileFile(currentProfileName, { ...config, _formatId: format.id });
           alert(t('settingsModal.alerts.exportSuccess', { name: currentProfileName }));
@@ -937,6 +962,7 @@ class AdvancedSettingsManager {
         if (!file) {
           return;
         }
+
         try {
           const text = await file.text();
           const json = JSON.parse(text);
@@ -983,13 +1009,16 @@ class AdvancedSettingsManager {
             return;
           }
 
-          profiles[name] = { ...config, _formatId: format.id };
+          const excludedIds = getExcludedFieldIds(format.id);
+          const configToSave = stripExcludedFields(config, excludedIds) as FormatOptions;
+          profiles[name] = { ...configToSave, _formatId: format.id };
           await saveProfiles(format, profiles);
           lastProfileSelection.set(format.id, name);
           await refreshProfileSelect(format, null, name, true);
           if (selectElement) {
             selectElement.value = name;
           }
+
           applyConfigToModalFields(format, config);
           alert(t('settingsModal.alerts.importSuccess', { name }));
         } catch (error) {
@@ -1009,10 +1038,12 @@ class AdvancedSettingsManager {
         if (!fieldId) {
           return;
         }
+
         const container = document.querySelector<HTMLDivElement>(`.color-array-container[data-field-id="${fieldId}"]`);
         if (!container) {
           return;
         }
+
         const colors = JSON.parse(container.dataset.colors || '[]') as ColorValue[];
         colors.push({ r: 255, g: 255, b: 255, a: 255 });
         container.dataset.colors = JSON.stringify(colors);
@@ -1043,9 +1074,11 @@ function cloneConfig<T>(config: T): T {
 
 function fieldLabel(field: FormatField): string {
   const labelKey = (field as { labelKey?: string }).labelKey;
+
   if (labelKey) {
     return t(labelKey);
   }
+
   return field.id || '';
 }
 
@@ -1115,7 +1148,13 @@ function buildModalHTML(format: FormatDefinition, config: FormatOptions): string
   const sectionsHTML = (format.optionsSchema || [])
     .map((section) => {
       const sectionLabel = section.labelKey ? t(section.labelKey) : section.section;
-      const fieldsHTML = section.fields.map((field) => buildFieldHTML(field, (config as Record<string, unknown>)[field.id])).join('\n');
+      const visibleFields = section.fields.filter((field) => {
+        if (field.requiresThreads && !threadsEnabledFlag) {
+          return false;
+        }
+        return true;
+      });
+      const fieldsHTML = visibleFields.map((field) => buildFieldHTML(field, (config as Record<string, unknown>)[field.id])).join('\n');
       return `<div class="config-group" data-section="${section.section}"><h3>${sectionLabel}</h3>${fieldsHTML}</div>`;
     })
     .join('\n');
@@ -1151,15 +1190,18 @@ function buildModalHTML(format: FormatDefinition, config: FormatOptions): string
 
 function readConfigFromModal(format: FormatDefinition): FormatOptions {
   const result: Record<string, unknown> = {};
+
   (format.optionsSchema || []).forEach((section) =>
     section.fields.forEach((field) => {
       if (!field.id) {
         return;
       }
+
       const element = document.querySelector(`[data-field-id="${field.id}"]`) as HTMLElement | null;
       if (!element) {
         return;
       }
+
       switch (field.type) {
         case 'checkbox':
           result[field.id] = (element as HTMLInputElement).checked;
@@ -1189,17 +1231,19 @@ function readConfigFromModal(format: FormatDefinition): FormatOptions {
       }
     })
   );
+
   if (typeof result['pngx_lossy_dither_level'] === 'number' && Number.isFinite(result['pngx_lossy_dither_level'] as number)) {
     const value = result['pngx_lossy_dither_level'] as number;
     result['pngx_lossy_dither_level'] = Math.min(100, Math.max(0, Math.round(value)));
   }
+
   const lossyTypeValue = Number((result['pngx_lossy_type'] as string) ?? 0);
   const ditherAuto = Boolean(result['pngx_lossy_dither_auto']);
   if (lossyTypeValue === 1 && ditherAuto) {
     result['pngx_lossy_dither_level'] = -1;
   }
-  const normalized = format.normalizeOptions ? format.normalizeOptions(result) : result;
-  return normalized;
+
+  return format.normalizeOptions ? format.normalizeOptions(result) : result;
 }
 
 function applyConfigToModalFields(format: FormatDefinition, config: FormatOptions): void {
@@ -1208,10 +1252,12 @@ function applyConfigToModalFields(format: FormatDefinition, config: FormatOption
       if (!field.id) {
         return;
       }
+
       const element = document.querySelector(`[data-field-id="${field.id}"]`) as HTMLElement | null;
       if (!element) {
         return;
       }
+
       switch (field.type) {
         case 'checkbox':
           (element as HTMLInputElement).checked = Boolean((config as any)[field.id]);
@@ -1219,6 +1265,7 @@ function applyConfigToModalFields(format: FormatDefinition, config: FormatOption
         case 'number': {
           const input = element as HTMLInputElement;
           const value = (config as any)[field.id];
+
           input.value = value == null ? '' : String(value);
           break;
         }
@@ -1229,6 +1276,7 @@ function applyConfigToModalFields(format: FormatDefinition, config: FormatOption
           const min = (field as { min?: number }).min ?? 0;
           const max = (field as { max?: number }).max ?? 100;
           let clamped = Number.isFinite(numericValue) ? numericValue : min;
+
           if (clamped < min) {
             clamped = min;
           }
@@ -1236,8 +1284,10 @@ function applyConfigToModalFields(format: FormatDefinition, config: FormatOption
             clamped = max;
           }
           clamped = Math.round(clamped);
+
           input.value = String(clamped);
           syncRangeValueDisplay(input);
+
           break;
         }
         case 'select':
@@ -1257,6 +1307,7 @@ function applyConfigToModalFields(format: FormatDefinition, config: FormatOption
       }
     })
   );
+
   updatePngxLossyMaxColorsState();
   ensureRangeFieldHandlers();
 }
@@ -1269,11 +1320,9 @@ function updatePngxLossyMaxColorsState(userInitiated = false): void {
   if (!typeElement) {
     return;
   }
-
   const paletteSelected = typeElement.value === '0';
   const limitedSelected = typeElement.value === '1';
   const reducedSelected = typeElement.value === '2';
-
   const palette256Section = document.querySelector<HTMLDivElement>(".config-group[data-section='palette256']");
   if (palette256Section) {
     palette256Section.hidden = !paletteSelected;
@@ -1298,12 +1347,15 @@ function updatePngxLossyMaxColorsState(userInitiated = false): void {
     'pngx_palette256_tune_quality_min_floor',
     'pngx_palette256_tune_quality_max_target',
   ];
+
   palette256OnlyFields.forEach((id) => {
     const input = document.querySelector<HTMLInputElement>(`[data-field-id='${id}']`);
+
     if (!input) {
       return;
     }
     input.disabled = !paletteSelected;
+
     if (paletteSelected) {
       input.removeAttribute('aria-disabled');
     } else {
@@ -1314,6 +1366,7 @@ function updatePngxLossyMaxColorsState(userInitiated = false): void {
     if (!wrapper) {
       return;
     }
+
     wrapper.hidden = !paletteSelected;
     wrapper.style.display = paletteSelected ? '' : 'none';
     wrapper.classList.toggle('disabled', !paletteSelected);
@@ -1324,6 +1377,7 @@ function updatePngxLossyMaxColorsState(userInitiated = false): void {
   }
   if (maxColorsInput) {
     const maxColorsActive = paletteSelected || reducedSelected;
+
     maxColorsInput.disabled = !maxColorsActive;
     if (maxColorsActive) {
       maxColorsInput.removeAttribute('aria-disabled');
@@ -1341,6 +1395,7 @@ function updatePngxLossyMaxColorsState(userInitiated = false): void {
         maxColorsInput.value = '1';
         maxColorsInput.dispatchEvent(new Event('input', { bubbles: true }));
       }
+
       const currentValue = Number(maxColorsInput.value);
       if (!Number.isFinite(currentValue)) {
         maxColorsInput.value = String(min);
@@ -1356,6 +1411,7 @@ function updatePngxLossyMaxColorsState(userInitiated = false): void {
     if (wrapper) {
       wrapper.hidden = limitedSelected;
       wrapper.classList.toggle('disabled', !maxColorsActive);
+
       const noteElement = wrapper.querySelector<HTMLDivElement>('.field-note');
       if (noteElement) {
         let noteKey = 'settingsModal.notes.pngxMaxColorsBitdepth';
@@ -1366,6 +1422,7 @@ function updatePngxLossyMaxColorsState(userInitiated = false): void {
         }
         noteElement.textContent = t(noteKey);
       }
+
       const labelElement = wrapper.querySelector<HTMLLabelElement>('label');
       if (labelElement) {
         let labelKey = 'settingsModal.labels.pngxMaxColorsBase';
@@ -1383,6 +1440,7 @@ function updatePngxLossyMaxColorsState(userInitiated = false): void {
     { id: 'pngx_lossy_reduced_bits_rgb', noteKey: 'settingsModal.notes.pngxReducedBitsRgb' },
     { id: 'pngx_lossy_reduced_alpha_bits', noteKey: 'settingsModal.notes.pngxReducedAlphaBits' },
   ];
+
   reducedBitFields.forEach(({ id, noteKey }) => {
     const input = document.querySelector<HTMLInputElement>(`[data-field-id='${id}']`);
     if (!input) {
@@ -1409,15 +1467,18 @@ function updatePngxLossyMaxColorsState(userInitiated = false): void {
   const ditherAutoWrapper = document.querySelector<HTMLDivElement>(".config-item[data-wrapper='pngx_lossy_dither_auto']");
   const ditherInlineSlot = document.querySelector<HTMLDivElement>(".range-control[data-range-for='pngx_lossy_dither_level'] .range-inline-slot");
   const autoDitherActive = Boolean(ditherAutoInput?.checked) && limitedSelected;
+
   if (ditherInlineSlot) {
     ditherInlineSlot.hidden = !limitedSelected;
     ditherInlineSlot.style.display = limitedSelected ? '' : 'none';
   }
+
   if (ditherAutoWrapper) {
     ditherAutoWrapper.hidden = !limitedSelected;
     ditherAutoWrapper.style.display = limitedSelected ? '' : 'none';
     ditherAutoWrapper.classList.toggle('disabled', !limitedSelected);
   }
+
   if (ditherWrapper) {
     let noteElement = ditherWrapper.querySelector<HTMLDivElement>('.field-note');
     if (!noteElement) {
@@ -1563,21 +1624,26 @@ function areConfigsEqual(config1: FormatOptions, config2: FormatOptions): boolea
   if (!config1 || !config2) {
     return false;
   }
+
   const keys1 = Object.keys(config1)
     .filter((key) => key !== '_formatId')
     .sort();
   const keys2 = Object.keys(config2)
     .filter((key) => key !== '_formatId')
     .sort();
+
   if (keys1.length !== keys2.length) {
     return false;
   }
+
   if (keys1.some((key, index) => key !== keys2[index])) {
     return false;
   }
+
   return keys1.every((key) => {
     const value1 = (config1 as any)[key];
     const value2 = (config2 as any)[key];
+
     if (value1 == null && value2 == null) {
       return true;
     }
@@ -1590,6 +1656,7 @@ function areConfigsEqual(config1: FormatOptions, config2: FormatOptions): boolea
     if (typeof value1 === 'object') {
       return JSON.stringify(value1) === JSON.stringify(value2);
     }
+
     return value1 === value2;
   });
 }
@@ -1600,11 +1667,49 @@ function findDuplicateProfile(config: FormatOptions, profiles: ProfileDictionary
       return name;
     }
   }
+
   return null;
 }
 
+function getExcludedFieldIds(formatId: string): Set<string> {
+  const format = getFormat(formatId);
+  const excluded = new Set<string>();
+
+  if (!format) {
+    return new Set();
+  }
+
+  (format.optionsSchema || []).forEach((section) => {
+    section.fields.forEach((field) => {
+      if (field.excludeFromExport) {
+        excluded.add(field.id);
+      }
+    });
+  });
+
+  return excluded;
+}
+
+function stripExcludedFields(data: FormatOptions, excludedIds: Set<string>): FormatOptions {
+  const result: FormatOptions = {};
+
+  if (excludedIds.size === 0) {
+    return data;
+  }
+
+  Object.keys(data).forEach((key) => {
+    if (!excludedIds.has(key)) {
+      result[key] = data[key];
+    }
+  });
+
+  return result;
+}
+
 async function exportProfileFile(name: string, data: FormatOptions & { _formatId?: string }): Promise<void> {
-  const jsonContent = JSON.stringify({ version: SETTINGS_SCHEMA_VERSION, format: data._formatId, config: data }, null, 2);
+  const excludedIds = data._formatId ? getExcludedFieldIds(data._formatId) : new Set<string>();
+  const exportData = stripExcludedFields(data, excludedIds);
+  const jsonContent = JSON.stringify({ version: SETTINGS_SCHEMA_VERSION, format: data._formatId, config: exportData }, null, 2);
   const defaultFileName = `colopresso-${data._formatId}-profile-${name}.json`;
 
   const electron = window.electronAPI;
@@ -1732,9 +1837,11 @@ async function showNamePrompt(title: string, defaultValue = ''): Promise<string 
       </div>
     </div>`;
     document.body.appendChild(overlay);
+
     const input = overlay.querySelector<HTMLInputElement>('#namePromptInput');
     const okButton = overlay.querySelector<HTMLButtonElement>('#namePromptOk');
     const cancelButton = overlay.querySelector<HTMLButtonElement>('#namePromptCancel');
+
     input?.focus();
     input?.select();
 

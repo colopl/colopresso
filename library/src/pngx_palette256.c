@@ -18,6 +18,18 @@
 #include "internal/log.h"
 #include "internal/pngx_common.h"
 
+typedef struct {
+  pngx_rgba_image_t image;
+  pngx_quant_support_t support;
+  pngx_image_stats_t stats;
+  pngx_options_t tuned_opts;
+  float resolved_dither;
+  bool prefer_uniform;
+  bool initialized;
+} palette256_context_t;
+
+static palette256_context_t g_palette256_ctx = {0};
+
 static inline void alpha_bleed_rgb_from_opaque(uint8_t *rgba, uint32_t width, uint32_t height, const pngx_options_t *opts) {
   uint32_t *seed_rgb, x, y, best_rgb;
   uint16_t *dist, best, d, max_distance;
@@ -540,8 +552,8 @@ static inline png_bytep *build_row_pointers(const uint8_t *data, size_t row_stri
   return row_pointers;
 }
 
-static inline bool pngx_create_palette_png(const uint8_t *indices, size_t indices_len, const cpres_rgba_color_t *palette, size_t palette_len, uint32_t width, uint32_t height, uint8_t **out_data,
-                                           size_t *out_size) {
+extern bool pngx_create_palette_png(const uint8_t *indices, size_t indices_len, const cpres_rgba_color_t *palette, size_t palette_len, uint32_t width, uint32_t height, uint8_t **out_data,
+                                    size_t *out_size) {
   png_color palette_data[256];
   png_byte alpha_data[256];
   png_structp png_ptr;
@@ -799,4 +811,177 @@ bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pn
   quant_support_reset(&support);
 
   return success;
+}
+
+bool pngx_palette256_prepare(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_rgba, uint32_t *out_width, uint32_t *out_height, uint8_t **out_importance_map,
+                             size_t *out_importance_map_len, int32_t *out_speed, uint8_t *out_quality_min, uint8_t *out_quality_max, uint32_t *out_max_colors, float *out_dither_level,
+                             uint8_t **out_fixed_colors, size_t *out_fixed_colors_len) {
+  float estimated_dither, gradient_dither_floor;
+  PngxBridgeQuantParams params = {0};
+
+  if (!png_data || png_size == 0 || !opts || !out_rgba || !out_width || !out_height) {
+    return false;
+  }
+
+  if (g_palette256_ctx.initialized) {
+    rgba_image_reset(&g_palette256_ctx.image);
+    quant_support_reset(&g_palette256_ctx.support);
+    memset(&g_palette256_ctx, 0, sizeof(g_palette256_ctx));
+  }
+
+  if (!load_rgba_image(png_data, png_size, &g_palette256_ctx.image)) {
+    return false;
+  }
+
+  alpha_bleed_rgb_from_opaque(g_palette256_ctx.image.rgba, g_palette256_ctx.image.width, g_palette256_ctx.image.height, opts);
+
+  image_stats_reset(&g_palette256_ctx.stats);
+  if (!prepare_quant_support(&g_palette256_ctx.image, opts, &g_palette256_ctx.support, &g_palette256_ctx.stats)) {
+    rgba_image_reset(&g_palette256_ctx.image);
+    quant_support_reset(&g_palette256_ctx.support);
+    return false;
+  }
+
+  g_palette256_ctx.tuned_opts = *opts;
+  g_palette256_ctx.prefer_uniform = opts->palette256_gradient_profile_enable ? is_smooth_gradient_profile(&g_palette256_ctx.stats, &g_palette256_ctx.tuned_opts) : false;
+
+  if (g_palette256_ctx.prefer_uniform) {
+    g_palette256_ctx.tuned_opts.saliency_map_enable = false;
+    g_palette256_ctx.tuned_opts.chroma_anchor_enable = false;
+    g_palette256_ctx.tuned_opts.postprocess_smooth_enable = false;
+  } else {
+    build_fixed_palette(opts, &g_palette256_ctx.support, &g_palette256_ctx.tuned_opts);
+  }
+
+  g_palette256_ctx.resolved_dither = resolve_quant_dither(opts, &g_palette256_ctx.stats);
+
+  if (opts->lossy_dither_auto) {
+    estimated_dither = estimate_bitdepth_dither_level(g_palette256_ctx.image.rgba, g_palette256_ctx.image.width, g_palette256_ctx.image.height, 8);
+    if (estimated_dither > g_palette256_ctx.resolved_dither) {
+      g_palette256_ctx.resolved_dither = estimated_dither;
+    }
+  }
+
+  gradient_dither_floor = g_palette256_ctx.tuned_opts.palette256_gradient_profile_dither_floor;
+  if (gradient_dither_floor < 0.0f) {
+    gradient_dither_floor = PNGX_PALETTE256_GRADIENT_PROFILE_DITHER_FLOOR;
+  }
+
+  if (g_palette256_ctx.prefer_uniform && g_palette256_ctx.resolved_dither < gradient_dither_floor) {
+    g_palette256_ctx.resolved_dither = gradient_dither_floor;
+  }
+
+  g_palette256_ctx.tuned_opts.lossy_dither_level = g_palette256_ctx.resolved_dither;
+
+  fill_quant_params(&params, &g_palette256_ctx.tuned_opts, g_palette256_ctx.prefer_uniform ? NULL : g_palette256_ctx.support.importance_map,
+                    g_palette256_ctx.prefer_uniform ? 0 : g_palette256_ctx.support.importance_map_len);
+  params.dithering_level = g_palette256_ctx.resolved_dither;
+  tune_quant_params_for_image(&params, &g_palette256_ctx.tuned_opts, &g_palette256_ctx.stats);
+
+  *out_rgba = g_palette256_ctx.image.rgba;
+  *out_width = g_palette256_ctx.image.width;
+  *out_height = g_palette256_ctx.image.height;
+
+  if (out_importance_map && out_importance_map_len) {
+    if (!g_palette256_ctx.prefer_uniform && g_palette256_ctx.support.importance_map) {
+      *out_importance_map = g_palette256_ctx.support.importance_map;
+      *out_importance_map_len = g_palette256_ctx.support.importance_map_len;
+    } else {
+      *out_importance_map = NULL;
+      *out_importance_map_len = 0;
+    }
+  }
+
+  if (out_speed)
+    *out_speed = params.speed;
+  if (out_quality_min)
+    *out_quality_min = params.quality_min;
+  if (out_quality_max)
+    *out_quality_max = params.quality_max;
+  if (out_max_colors)
+    *out_max_colors = params.max_colors;
+  if (out_dither_level)
+    *out_dither_level = params.dithering_level;
+
+  if (out_fixed_colors && out_fixed_colors_len) {
+    if (params.fixed_colors && params.fixed_colors_len > 0) {
+      *out_fixed_colors = (uint8_t *)params.fixed_colors;
+      *out_fixed_colors_len = params.fixed_colors_len;
+    } else {
+      *out_fixed_colors = NULL;
+      *out_fixed_colors_len = 0;
+    }
+  }
+
+  g_palette256_ctx.initialized = true;
+  return true;
+}
+
+bool pngx_palette256_finalize(const uint8_t *indices, size_t indices_len, const cpres_rgba_color_t *palette, size_t palette_len, uint8_t **out_data, size_t *out_size) {
+  uint8_t *mutable_indices;
+  cpres_rgba_color_t *mutable_palette;
+  bool success;
+
+  if (!g_palette256_ctx.initialized) {
+    return false;
+  }
+
+  if (!indices || indices_len == 0 || !palette || palette_len == 0 || palette_len > 256 || !out_data || !out_size) {
+    rgba_image_reset(&g_palette256_ctx.image);
+    quant_support_reset(&g_palette256_ctx.support);
+    memset(&g_palette256_ctx, 0, sizeof(g_palette256_ctx));
+
+    return false;
+  }
+
+  if (indices_len != g_palette256_ctx.image.pixel_count) {
+    rgba_image_reset(&g_palette256_ctx.image);
+    quant_support_reset(&g_palette256_ctx.support);
+    memset(&g_palette256_ctx, 0, sizeof(g_palette256_ctx));
+
+    return false;
+  }
+
+  mutable_palette = (cpres_rgba_color_t *)malloc(sizeof(cpres_rgba_color_t) * palette_len);
+  if (!mutable_palette) {
+    rgba_image_reset(&g_palette256_ctx.image);
+    quant_support_reset(&g_palette256_ctx.support);
+    memset(&g_palette256_ctx, 0, sizeof(g_palette256_ctx));
+
+    return false;
+  }
+  memcpy(mutable_palette, palette, sizeof(cpres_rgba_color_t) * palette_len);
+  sanitize_transparent_palette(mutable_palette, palette_len);
+
+  mutable_indices = (uint8_t *)malloc(indices_len);
+  if (!mutable_indices) {
+    free(mutable_palette);
+    rgba_image_reset(&g_palette256_ctx.image);
+    quant_support_reset(&g_palette256_ctx.support);
+    memset(&g_palette256_ctx, 0, sizeof(g_palette256_ctx));
+    return false;
+  }
+
+  memcpy(mutable_indices, indices, indices_len);
+
+  postprocess_indices(mutable_indices, g_palette256_ctx.image.width, g_palette256_ctx.image.height, mutable_palette, palette_len, &g_palette256_ctx.support, &g_palette256_ctx.tuned_opts);
+
+  success = pngx_create_palette_png(mutable_indices, indices_len, mutable_palette, palette_len, g_palette256_ctx.image.width, g_palette256_ctx.image.height, out_data, out_size);
+
+  free(mutable_indices);
+  free(mutable_palette);
+
+  rgba_image_reset(&g_palette256_ctx.image);
+  quant_support_reset(&g_palette256_ctx.support);
+  memset(&g_palette256_ctx, 0, sizeof(g_palette256_ctx));
+
+  return success;
+}
+
+void pngx_palette256_cleanup(void) {
+  if (g_palette256_ctx.initialized) {
+    rgba_image_reset(&g_palette256_ctx.image);
+    quant_support_reset(&g_palette256_ctx.support);
+    memset(&g_palette256_ctx, 0, sizeof(g_palette256_ctx));
+  }
 }

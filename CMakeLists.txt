@@ -44,6 +44,9 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT EMSCRIPTEN AND NOT MSVC)
   include(cmake/debug.cmake)
 endif()
 
+include(cmake/threads.cmake)
+colopresso_apply_global_threads_compile_options()
+
 include(cmake/dependencies.cmake)
 
 add_library(colopresso STATIC ${COLOPRESSO_SOURCES})
@@ -54,6 +57,8 @@ if(COLOPRESSO_ENABLE_COVERAGE)
 endif()
 
 include(cmake/pngx_bridge.cmake)
+
+colopresso_apply_threads_link_options()
 
 set(_colopresso_public_libs
   png_static

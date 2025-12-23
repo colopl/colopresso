@@ -19,6 +19,7 @@
 
 #include "internal/log.h"
 #include "internal/pngx_common.h"
+#include "internal/threads.h"
 
 typedef struct {
   uint32_t color;
@@ -27,20 +28,20 @@ typedef struct {
   uint8_t detail_bits_rgb;
   uint8_t detail_bits_alpha;
   bool locked;
-} pngx_color_entry_t;
+} color_entry_t;
 
 typedef struct {
-  pngx_color_entry_t *entries;
+  color_entry_t *entries;
   size_t count;
   size_t unlocked_count;
-} pngx_color_histogram_t;
+} color_histogram_t;
 
 typedef struct {
   uint32_t color;
   uint16_t weight;
   uint8_t rgb_bits;
   uint8_t alpha_bits;
-} pngx_histogram_sample_t;
+} histogram_sample_t;
 
 typedef struct {
   size_t start;
@@ -54,47 +55,60 @@ typedef struct {
   uint8_t max_b;
   uint8_t max_a;
   uint64_t total_weight;
-} pngx_color_box_t;
+} color_box_t;
 
 typedef struct {
   uint32_t color;
   uint32_t mapped_color;
-} pngx_color_map_entry_t;
+} color_map_entry_t;
 
 typedef struct {
   uint32_t color;
   uint32_t count;
-} pngx_color_freq_t;
+} color_freq_t;
 
 typedef struct {
   size_t index;
   uint32_t count;
   uint32_t color;
-} pngx_freq_rank_t;
+} freq_rank_t;
+
+typedef struct {
+  uint8_t *rgba;
+  size_t pixel_count;
+  const uint8_t *importance_map;
+  size_t importance_map_len;
+  uint8_t bits_rgb;
+  uint8_t bits_alpha;
+  uint8_t boost_bits_rgb;
+  uint8_t boost_bits_alpha;
+  uint8_t *bit_hint_map;
+  size_t bit_hint_len;
+} reduce_bitdepth_parallel_ctx_t;
 
 static int compare_entries_r(const void *lhs, const void *rhs) {
-  const pngx_color_entry_t *a = (const pngx_color_entry_t *)lhs, *b = (const pngx_color_entry_t *)rhs;
+  const color_entry_t *a = (const color_entry_t *)lhs, *b = (const color_entry_t *)rhs;
   uint8_t av = (uint8_t)(a->color & 0xff), bv = (uint8_t)(b->color & 0xff);
 
   return (av < bv) ? -1 : ((av > bv) ? 1 : 0);
 }
 
 static int compare_entries_g(const void *lhs, const void *rhs) {
-  const pngx_color_entry_t *a = (const pngx_color_entry_t *)lhs, *b = (const pngx_color_entry_t *)rhs;
+  const color_entry_t *a = (const color_entry_t *)lhs, *b = (const color_entry_t *)rhs;
   uint8_t av = (uint8_t)((a->color >> 8) & 0xff), bv = (uint8_t)((b->color >> 8) & 0xff);
 
   return (av < bv) ? -1 : ((av > bv) ? 1 : 0);
 }
 
 static int compare_entries_b(const void *lhs, const void *rhs) {
-  const pngx_color_entry_t *a = (const pngx_color_entry_t *)lhs, *b = (const pngx_color_entry_t *)rhs;
+  const color_entry_t *a = (const color_entry_t *)lhs, *b = (const color_entry_t *)rhs;
   uint8_t av = (uint8_t)((a->color >> 16) & 0xff), bv = (uint8_t)((b->color >> 16) & 0xff);
 
   return (av < bv) ? -1 : ((av > bv) ? 1 : 0);
 }
 
 static int compare_entries_a(const void *lhs, const void *rhs) {
-  const pngx_color_entry_t *a = (const pngx_color_entry_t *)lhs, *b = (const pngx_color_entry_t *)rhs;
+  const color_entry_t *a = (const color_entry_t *)lhs, *b = (const color_entry_t *)rhs;
   uint8_t av = (uint8_t)((a->color >> 24) & 0xff), bv = (uint8_t)((b->color >> 24) & 0xff);
 
   return (av < bv) ? -1 : ((av > bv) ? 1 : 0);
@@ -134,7 +148,7 @@ static inline uint32_t compute_grid_capacity(uint8_t bits_rgb, uint8_t bits_alph
 
 static inline uint32_t pack_rgba_u32(uint8_t r, uint8_t g, uint8_t b, uint8_t a) { return ((uint32_t)a << 24) | ((uint32_t)b << 16) | ((uint32_t)g << 8) | (uint32_t)r; }
 
-static uint32_t box_representative_color(const pngx_color_entry_t *entries, const pngx_color_box_t *box) {
+static uint32_t box_representative_color(const color_entry_t *entries, const color_box_t *box) {
   uint64_t sum_r = 0, sum_g = 0, sum_b = 0, sum_a = 0, total = 0, weight;
   uint32_t c;
   size_t i;
@@ -201,7 +215,7 @@ static inline float importance_dither_scale(uint8_t importance_value) {
   return scale < 0.0f ? 0.0f : (scale > 1.0f ? 1.0f : scale);
 }
 
-static inline void color_histogram_reset(pngx_color_histogram_t *hist) {
+static inline void color_histogram_reset(color_histogram_t *hist) {
   if (!hist) {
     return;
   }
@@ -257,12 +271,12 @@ static inline uint16_t histogram_importance_weight(const pngx_quant_support_t *s
 }
 
 static inline int compare_histogram_sample(const void *lhs, const void *rhs) {
-  const pngx_histogram_sample_t *a = (const pngx_histogram_sample_t *)lhs, *b = (const pngx_histogram_sample_t *)rhs;
+  const histogram_sample_t *a = (const histogram_sample_t *)lhs, *b = (const histogram_sample_t *)rhs;
 
   return a->color < b->color ? -1 : (a->color > b->color ? 1 : 0);
 }
 
-static inline void color_box_refresh(const pngx_color_entry_t *entries, pngx_color_box_t *box) {
+static inline void color_box_refresh(const color_entry_t *entries, color_box_t *box) {
   uint32_t c;
   uint8_t r, g, b, a;
   size_t i;
@@ -328,16 +342,16 @@ static inline int compare_u32(const void *lhs, const void *rhs) {
   return 0;
 }
 
-static inline bool color_box_splittable(const pngx_color_box_t *box) { return box && box->end > box->start + 1; }
+static inline bool color_box_splittable(const color_box_t *box) { return box && box->end > box->start + 1; }
 
-static inline uint8_t color_box_max_span(const pngx_color_box_t *box) {
+static inline uint8_t color_box_max_span(const color_box_t *box) {
   uint8_t span_r = box->max_r - box->min_r, span_g = box->max_g - box->min_g, span_b = box->max_b - box->min_b, span_a = box->max_a - box->min_a, span = span_r;
 
   return span_g > span ? span_g : (span_b > span ? span_b : (span_a > span ? span_a : span));
 }
 
-static inline float color_box_detail_bias(const pngx_color_entry_t *entries, const pngx_color_box_t *box, uint8_t base_bits_rgb, uint8_t base_bits_alpha) {
-  const pngx_color_entry_t *entry;
+static inline float color_box_detail_bias(const color_entry_t *entries, const color_box_t *box, uint8_t base_bits_rgb, uint8_t base_bits_alpha) {
+  const color_entry_t *entry;
   uint64_t weight = 0, w, accum_x2 = 0;
   uint32_t delta_rgb, delta_alpha, score_x2;
   size_t idx;
@@ -366,7 +380,7 @@ static inline float color_box_detail_bias(const pngx_color_entry_t *entries, con
   return (float)accum_x2 / (float)(weight * 2);
 }
 
-static inline int select_box_to_split(const pngx_color_box_t *boxes, size_t box_count, const pngx_color_entry_t *entries, uint8_t base_bits_rgb, uint8_t base_bits_alpha) {
+static inline int select_box_to_split(const color_box_t *boxes, size_t box_count, const color_entry_t *entries, uint8_t base_bits_rgb, uint8_t base_bits_alpha) {
   size_t i;
   int best_index = -1;
   float best_priority = -1.0f, detail_bias, span_score, weight_score, priority;
@@ -394,7 +408,7 @@ static inline int select_box_to_split(const pngx_color_box_t *boxes, size_t box_
   return best_index;
 }
 
-static inline size_t box_find_split_index(const pngx_color_entry_t *entries, const pngx_color_box_t *box) {
+static inline size_t box_find_split_index(const color_entry_t *entries, const color_box_t *box) {
   uint64_t half, accum = 0;
   size_t idx;
 
@@ -417,31 +431,31 @@ static inline size_t box_find_split_index(const pngx_color_entry_t *entries, con
   return box->start + ((box->end - box->start) / 2);
 }
 
-static inline void sort_entries_by_axis(pngx_color_entry_t *entries, size_t count, int axis) {
+static inline void sort_entries_by_axis(color_entry_t *entries, size_t count, int axis) {
   if (!entries || count == 0) {
     return;
   }
 
   switch (axis) {
   case 0:
-    qsort(entries, count, sizeof(pngx_color_entry_t), compare_entries_r);
+    qsort(entries, count, sizeof(color_entry_t), compare_entries_r);
     break;
   case 1:
-    qsort(entries, count, sizeof(pngx_color_entry_t), compare_entries_g);
+    qsort(entries, count, sizeof(color_entry_t), compare_entries_g);
     break;
   case 2:
-    qsort(entries, count, sizeof(pngx_color_entry_t), compare_entries_b);
+    qsort(entries, count, sizeof(color_entry_t), compare_entries_b);
     break;
   case 3:
-    qsort(entries, count, sizeof(pngx_color_entry_t), compare_entries_a);
+    qsort(entries, count, sizeof(color_entry_t), compare_entries_a);
     break;
   default:
-    qsort(entries, count, sizeof(pngx_color_entry_t), compare_entries_r);
+    qsort(entries, count, sizeof(color_entry_t), compare_entries_r);
     break;
   }
 }
 
-static inline bool split_color_box(pngx_color_entry_t *entries, pngx_color_box_t *box, pngx_color_box_t *new_box) {
+static inline bool split_color_box(color_entry_t *entries, color_box_t *box, color_box_t *new_box) {
   size_t split_index;
   int axis;
 
@@ -481,18 +495,18 @@ static inline bool split_color_box(pngx_color_entry_t *entries, pngx_color_box_t
 }
 
 static inline int compare_color_map_by_color(const void *lhs, const void *rhs) {
-  const pngx_color_map_entry_t *a = (const pngx_color_map_entry_t *)lhs, *b = (const pngx_color_map_entry_t *)rhs;
+  const color_map_entry_t *a = (const color_map_entry_t *)lhs, *b = (const color_map_entry_t *)rhs;
 
   return a->color < b->color ? -1 : (a->color > b->color ? 1 : 0);
 }
 
 static inline int compare_color_map_by_mapped(const void *lhs, const void *rhs) {
-  const pngx_color_map_entry_t *a = (const pngx_color_map_entry_t *)lhs, *b = (const pngx_color_map_entry_t *)rhs;
+  const color_map_entry_t *a = (const color_map_entry_t *)lhs, *b = (const color_map_entry_t *)rhs;
 
   return a->mapped_color < b->mapped_color ? -1 : (a->mapped_color > b->mapped_color ? 1 : 0);
 }
 
-static inline const pngx_color_map_entry_t *find_color_mapping(const pngx_color_map_entry_t *map, size_t count, uint32_t color) {
+static inline const color_map_entry_t *find_color_mapping(const color_map_entry_t *map, size_t count, uint32_t color) {
   size_t left = 0, right = (count > 0) ? count - 1 : 0, mid;
 
   if (!map || count == 0) {
@@ -519,7 +533,7 @@ static inline const pngx_color_map_entry_t *find_color_mapping(const pngx_color_
   return NULL;
 }
 
-static inline void refine_reduced_palette(pngx_color_entry_t *entries, size_t unlocked_count, const uint32_t *seed_palette, const uint8_t *palette_bits_rgb, const uint8_t *palette_bits_alpha,
+static inline void refine_reduced_palette(color_entry_t *entries, size_t unlocked_count, const uint32_t *seed_palette, const uint8_t *palette_bits_rgb, const uint8_t *palette_bits_alpha,
                                           size_t palette_count) {
   const size_t max_iter = 3;
   uint64_t *sum_r, *sum_g, *sum_b, *sum_a, *sum_w, w;
@@ -638,10 +652,10 @@ static inline void refine_reduced_palette(pngx_color_entry_t *entries, size_t un
   free(palette);
 }
 
-static inline bool build_color_histogram(const pngx_rgba_image_t *image, const pngx_options_t *opts, const pngx_quant_support_t *support, pngx_color_histogram_t *hist) {
+static inline bool build_color_histogram(const pngx_rgba_image_t *image, const pngx_options_t *opts, const pngx_quant_support_t *support, color_histogram_t *hist) {
   const cpres_rgba_color_t *protected_colors = (opts && opts->protected_colors_count > 0) ? opts->protected_colors : NULL;
-  pngx_histogram_sample_t *samples = NULL;
-  pngx_color_entry_t tmp;
+  histogram_sample_t *samples = NULL;
+  color_entry_t tmp;
   uint64_t weight_sum;
   uint32_t protected_table[256], color;
   uint8_t bits_rgb = 8, bits_alpha = 8, r, g, b, a, sample_bits_rgb, sample_bits_alpha, hint, hint_rgb, hint_alpha, max_bits_rgb, max_bits_alpha;
@@ -682,7 +696,7 @@ static inline bool build_color_histogram(const pngx_rgba_image_t *image, const p
 
   pixel_count = image->pixel_count;
 
-  samples = (pngx_histogram_sample_t *)malloc(pixel_count * sizeof(pngx_histogram_sample_t));
+  samples = (histogram_sample_t *)malloc(pixel_count * sizeof(histogram_sample_t));
   if (!samples) {
     return false;
   }
@@ -726,7 +740,7 @@ static inline bool build_color_histogram(const pngx_rgba_image_t *image, const p
     samples[i].alpha_bits = sample_bits_alpha;
   }
 
-  qsort(samples, pixel_count, sizeof(pngx_histogram_sample_t), compare_histogram_sample);
+  qsort(samples, pixel_count, sizeof(histogram_sample_t), compare_histogram_sample);
 
   unique_count = 0;
 
@@ -742,7 +756,7 @@ static inline bool build_color_histogram(const pngx_rgba_image_t *image, const p
     i += run;
   }
 
-  hist->entries = (pngx_color_entry_t *)malloc(unique_count * sizeof(pngx_color_entry_t));
+  hist->entries = (color_entry_t *)malloc(unique_count * sizeof(color_entry_t));
   if (!hist->entries) {
     free(samples);
     return false;
@@ -804,10 +818,10 @@ static inline bool build_color_histogram(const pngx_rgba_image_t *image, const p
   return true;
 }
 
-static inline bool apply_reduced_rgba32_quantization(pngx_color_histogram_t *hist, pngx_rgba_image_t *image, uint32_t target_colors, uint8_t bits_rgb, uint8_t bits_alpha, uint32_t *applied_colors) {
-  const pngx_color_map_entry_t *mapping;
-  pngx_color_box_t *boxes = NULL, new_box;
-  pngx_color_map_entry_t *map = NULL;
+static inline bool apply_reduced_rgba32_quantization(color_histogram_t *hist, pngx_rgba_image_t *image, uint32_t target_colors, uint8_t bits_rgb, uint8_t bits_alpha, uint32_t *applied_colors) {
+  const color_map_entry_t *mapping;
+  color_box_t *boxes = NULL, new_box;
+  color_map_entry_t *map = NULL;
   uint32_t *palette_seed = NULL, actual_colors = 0, mapped, original, split_index;
   uint8_t *palette_bits_rgb = NULL, *palette_bits_alpha = NULL, r, g, b, a, *px;
   size_t box_count = 0, map_count, i, idx;
@@ -836,7 +850,7 @@ static inline bool apply_reduced_rgba32_quantization(pngx_color_histogram_t *his
     target_colors = 1;
   }
 
-  boxes = (pngx_color_box_t *)calloc(target_colors, sizeof(pngx_color_box_t));
+  boxes = (color_box_t *)calloc(target_colors, sizeof(color_box_t));
   if (!boxes) {
     return false;
   }
@@ -917,7 +931,7 @@ static inline bool apply_reduced_rgba32_quantization(pngx_color_histogram_t *his
     return true;
   }
 
-  map = (pngx_color_map_entry_t *)malloc(map_count * sizeof(pngx_color_map_entry_t));
+  map = (color_map_entry_t *)malloc(map_count * sizeof(color_map_entry_t));
   if (!map) {
     free(palette_seed);
     free(palette_bits_rgb);
@@ -1019,8 +1033,8 @@ static inline size_t count_unique_rgba(const uint8_t *rgba, size_t pixel_count) 
   return unique;
 }
 
-static inline bool build_color_frequency(const uint8_t *rgba, size_t pixel_count, pngx_color_freq_t **out_freq, size_t *out_count) {
-  pngx_color_freq_t *freq, *shrunk;
+static inline bool build_color_frequency(const uint8_t *rgba, size_t pixel_count, color_freq_t **out_freq, size_t *out_count) {
+  color_freq_t *freq, *shrunk;
   uint32_t *packed;
   size_t i, unique;
 
@@ -1032,7 +1046,7 @@ static inline bool build_color_frequency(const uint8_t *rgba, size_t pixel_count
     return false;
   }
 
-  freq = (pngx_color_freq_t *)malloc(sizeof(pngx_color_freq_t) * pixel_count);
+  freq = (color_freq_t *)malloc(sizeof(color_freq_t) * pixel_count);
   if (!freq) {
     free(packed);
     return false;
@@ -1058,7 +1072,7 @@ static inline bool build_color_frequency(const uint8_t *rgba, size_t pixel_count
     return true;
   }
 
-  shrunk = (pngx_color_freq_t *)realloc(freq, sizeof(pngx_color_freq_t) * unique);
+  shrunk = (color_freq_t *)realloc(freq, sizeof(color_freq_t) * unique);
   if (!shrunk) {
     free(freq);
     return false;
@@ -1071,7 +1085,7 @@ static inline bool build_color_frequency(const uint8_t *rgba, size_t pixel_count
   return true;
 }
 
-static inline bool find_freq_index(const pngx_color_freq_t *freq, size_t freq_count, uint32_t color, size_t *index_out) {
+static inline bool find_freq_index(const color_freq_t *freq, size_t freq_count, uint32_t color, size_t *index_out) {
   size_t left = 0, right = freq_count, mid;
 
   if (!freq || freq_count == 0) {
@@ -1099,14 +1113,14 @@ static inline bool find_freq_index(const pngx_color_freq_t *freq, size_t freq_co
 }
 
 static inline int compare_freq_rank_desc(const void *lhs, const void *rhs) {
-  const pngx_freq_rank_t *a = (const pngx_freq_rank_t *)lhs, *b = (const pngx_freq_rank_t *)rhs;
+  const freq_rank_t *a = (const freq_rank_t *)lhs, *b = (const freq_rank_t *)rhs;
 
   return a->count != b->count ? (b->count - a->count) : (a->color != b->color ? (a->color - b->color) : 0);
 }
 
-static inline bool enforce_manual_reduced_limit(pngx_rgba_image_t *image, uint32_t manual_limit, uint8_t bits_rgb, uint8_t bits_alpha, uint32_t *applied_colors) {
-  pngx_color_freq_t *freq = NULL;
-  pngx_freq_rank_t *rank = NULL;
+static inline bool enforce_manual_reduced_limit(uint32_t thread_count, pngx_rgba_image_t *image, uint32_t manual_limit, uint8_t bits_rgb, uint8_t bits_alpha, uint32_t *applied_colors) {
+  color_freq_t *freq = NULL;
+  freq_rank_t *rank = NULL;
   uint32_t *mapped = NULL, source, best_color, best_dist, candidate_color, distance, original;
   size_t *keep_indices = NULL, freq_count = 0, keep_count, current_unique, unique_after, pixel_index, idx, best_keep, keep_idx, candidate_index, base, freq_index, i;
   bool success = false;
@@ -1125,7 +1139,7 @@ static inline bool enforce_manual_reduced_limit(pngx_rgba_image_t *image, uint32
     return true;
   }
 
-  snap_rgba_image_to_bits(image->rgba, image->pixel_count, bits_rgb, bits_alpha);
+  snap_rgba_image_to_bits(thread_count, image->rgba, image->pixel_count, bits_rgb, bits_alpha);
 
   if (!build_color_frequency(image->rgba, image->pixel_count, &freq, &freq_count)) {
     goto bailout;
@@ -1156,7 +1170,7 @@ static inline bool enforce_manual_reduced_limit(pngx_rgba_image_t *image, uint32
     keep_count = freq_count;
   }
 
-  rank = (pngx_freq_rank_t *)malloc(sizeof(pngx_freq_rank_t) * freq_count);
+  rank = (freq_rank_t *)malloc(sizeof(freq_rank_t) * freq_count);
   mapped = (uint32_t *)malloc(sizeof(uint32_t) * freq_count);
   keep_indices = (size_t *)malloc(sizeof(size_t) * keep_count);
   if (!rank || !mapped || !keep_indices) {
@@ -1170,7 +1184,7 @@ static inline bool enforce_manual_reduced_limit(pngx_rgba_image_t *image, uint32
     mapped[i] = freq[i].color;
   }
 
-  qsort(rank, freq_count, sizeof(pngx_freq_rank_t), compare_freq_rank_desc);
+  qsort(rank, freq_count, sizeof(freq_rank_t), compare_freq_rank_desc);
 
   for (i = 0; i < keep_count; ++i) {
     keep_indices[i] = rank[i].index;
@@ -1212,7 +1226,7 @@ static inline bool enforce_manual_reduced_limit(pngx_rgba_image_t *image, uint32
     unpack_rgba_u32(mapped[freq_index], &image->rgba[base + 0], &image->rgba[base + 1], &image->rgba[base + 2], &image->rgba[base + 3]);
   }
 
-  snap_rgba_image_to_bits(image->rgba, image->pixel_count, bits_rgb, bits_alpha);
+  snap_rgba_image_to_bits(thread_count, image->rgba, image->pixel_count, bits_rgb, bits_alpha);
 
   unique_after = count_unique_rgba(image->rgba, image->pixel_count);
   if (applied_colors) {
@@ -1264,41 +1278,62 @@ static inline uint8_t resolve_pixel_bits(uint8_t importance, uint8_t base_bits, 
   return resolved;
 }
 
-static inline void reduce_rgba_custom_bitdepth_simple(uint8_t *rgba, size_t pixel_count, uint8_t bits_rgb, uint8_t bits_alpha, const uint8_t *importance_map, size_t importance_map_len,
-                                                      uint8_t boost_bits_rgb, uint8_t boost_bits_alpha, uint8_t *bit_hint_map, size_t bit_hint_len) {
+static void reduce_bitdepth_parallel_worker(void *context, uint32_t start, uint32_t end) {
+  reduce_bitdepth_parallel_ctx_t *ctx = (reduce_bitdepth_parallel_ctx_t *)context;
   uint8_t importance, pixel_bits_rgb, pixel_bits_alpha;
   size_t i, base;
+
+  if (!ctx || !ctx->rgba) {
+    return;
+  }
+
+  for (i = (size_t)start; i < (size_t)end && i < ctx->pixel_count; ++i) {
+    base = i * PNGX_RGBA_CHANNELS;
+    importance = (ctx->importance_map && i < ctx->importance_map_len) ? ctx->importance_map[i] : 0;
+    pixel_bits_rgb = resolve_pixel_bits(importance, ctx->bits_rgb, ctx->boost_bits_rgb);
+    pixel_bits_alpha = resolve_pixel_bits(importance, ctx->bits_alpha, ctx->boost_bits_alpha);
+
+    if (ctx->bit_hint_map && i < ctx->bit_hint_len) {
+      ctx->bit_hint_map[i] = (uint8_t)((pixel_bits_rgb << 4) | (pixel_bits_alpha & 0x0fu));
+    }
+
+    if (ctx->rgba[base + 3] > PNGX_REDUCED_ALPHA_NEAR_TRANSPARENT) {
+      if (pixel_bits_rgb < PNGX_FULL_CHANNEL_BITS) {
+        ctx->rgba[base + 0] = quantize_bits(ctx->rgba[base + 0], pixel_bits_rgb);
+        ctx->rgba[base + 1] = quantize_bits(ctx->rgba[base + 1], pixel_bits_rgb);
+        ctx->rgba[base + 2] = quantize_bits(ctx->rgba[base + 2], pixel_bits_rgb);
+      }
+    }
+    if (pixel_bits_alpha < PNGX_FULL_CHANNEL_BITS) {
+      ctx->rgba[base + 3] = quantize_bits(ctx->rgba[base + 3], pixel_bits_alpha);
+    }
+  }
+}
+
+static inline void reduce_rgba_custom_bitdepth_simple(uint32_t thread_count, uint8_t *rgba, size_t pixel_count, uint8_t bits_rgb, uint8_t bits_alpha, const uint8_t *importance_map,
+                                                      size_t importance_map_len, uint8_t boost_bits_rgb, uint8_t boost_bits_alpha, uint8_t *bit_hint_map, size_t bit_hint_len) {
+  reduce_bitdepth_parallel_ctx_t ctx;
 
   if (!rgba || pixel_count == 0) {
     return;
   }
 
-  bits_rgb = clamp_reduced_bits(bits_rgb);
-  bits_alpha = clamp_reduced_bits(bits_alpha);
-  boost_bits_rgb = clamp_reduced_bits(boost_bits_rgb);
-  boost_bits_alpha = clamp_reduced_bits(boost_bits_alpha);
+  ctx.rgba = rgba;
+  ctx.pixel_count = pixel_count;
+  ctx.importance_map = importance_map;
+  ctx.importance_map_len = importance_map_len;
+  ctx.bits_rgb = clamp_reduced_bits(bits_rgb);
+  ctx.bits_alpha = clamp_reduced_bits(bits_alpha);
+  ctx.boost_bits_rgb = clamp_reduced_bits(boost_bits_rgb);
+  ctx.boost_bits_alpha = clamp_reduced_bits(boost_bits_alpha);
+  ctx.bit_hint_map = bit_hint_map;
+  ctx.bit_hint_len = bit_hint_len;
 
-  for (i = 0; i < pixel_count; ++i) {
-    base = i * PNGX_RGBA_CHANNELS;
-    importance = (importance_map && i < importance_map_len) ? importance_map[i] : 0;
-    pixel_bits_rgb = resolve_pixel_bits(importance, bits_rgb, boost_bits_rgb);
-    pixel_bits_alpha = resolve_pixel_bits(importance, bits_alpha, boost_bits_alpha);
-
-    if (bit_hint_map && i < bit_hint_len) {
-      bit_hint_map[i] = (uint8_t)((pixel_bits_rgb << 4) | (pixel_bits_alpha & 0x0fu));
-    }
-
-    if (rgba[base + 3] > PNGX_REDUCED_ALPHA_NEAR_TRANSPARENT) {
-      if (pixel_bits_rgb < PNGX_FULL_CHANNEL_BITS) {
-        rgba[base + 0] = quantize_bits(rgba[base + 0], pixel_bits_rgb);
-        rgba[base + 1] = quantize_bits(rgba[base + 1], pixel_bits_rgb);
-        rgba[base + 2] = quantize_bits(rgba[base + 2], pixel_bits_rgb);
-      }
-    }
-    if (pixel_bits_alpha < PNGX_FULL_CHANNEL_BITS) {
-      rgba[base + 3] = quantize_bits(rgba[base + 3], pixel_bits_alpha);
-    }
-  }
+#if COLOPRESSO_ENABLE_THREADS
+  colopresso_parallel_for(thread_count, (uint32_t)pixel_count, reduce_bitdepth_parallel_worker, &ctx);
+#else
+  reduce_bitdepth_parallel_worker(&ctx, 0, (uint32_t)pixel_count);
+#endif
 }
 
 static inline void process_custom_bitdepth_pixel(uint8_t *rgba, png_uint_32 width, png_uint_32 height, uint32_t x, uint32_t y, uint8_t base_bits_rgb, uint8_t base_bits_alpha, uint8_t boost_bits_rgb,
@@ -1437,8 +1472,8 @@ static inline bool reduce_rgba_custom_bitdepth_dither(uint8_t *rgba, png_uint_32
   return true;
 }
 
-static inline bool reduce_rgba_custom_bitdepth(uint8_t *rgba, png_uint_32 width, png_uint_32 height, uint8_t bits_rgb, uint8_t bits_alpha, float dither_level, const uint8_t *importance_map,
-                                               size_t importance_map_len, pngx_quant_support_t *support) {
+static inline bool reduce_rgba_custom_bitdepth(uint32_t thread_count, uint8_t *rgba, png_uint_32 width, png_uint_32 height, uint8_t bits_rgb, uint8_t bits_alpha, float dither_level,
+                                               const uint8_t *importance_map, size_t importance_map_len, pngx_quant_support_t *support) {
   uint8_t boost_bits_rgb, boost_bits_alpha, *bit_hint_map = NULL;
   size_t bit_hint_len = 0, pixel_count, hint_len;
   bool need_rgb, need_alpha;
@@ -1483,7 +1518,7 @@ static inline bool reduce_rgba_custom_bitdepth(uint8_t *rgba, png_uint_32 width,
     }
   } else {
     hint_len = importance_map ? pixel_count : 0;
-    reduce_rgba_custom_bitdepth_simple(rgba, pixel_count, bits_rgb, bits_alpha, importance_map, hint_len, boost_bits_rgb, boost_bits_alpha, bit_hint_map, bit_hint_len);
+    reduce_rgba_custom_bitdepth_simple(thread_count, rgba, pixel_count, bits_rgb, bits_alpha, importance_map, hint_len, boost_bits_rgb, boost_bits_alpha, bit_hint_map, bit_hint_len);
   }
 
   return true;
@@ -1620,7 +1655,7 @@ static inline bool apply_reduced_rgba32_prepass(pngx_rgba_image_t *image, const 
     }
   }
 
-  return reduce_rgba_custom_bitdepth(image->rgba, image->width, image->height, bits_rgb, bits_alpha, dither, importance, importance_len, support);
+  return reduce_rgba_custom_bitdepth(opts->thread_count, image->rgba, image->width, image->height, bits_rgb, bits_alpha, dither, importance, importance_len, support);
 }
 
 static inline void head_heap_sift_up(uint64_t *heap, size_t index) {
@@ -1669,7 +1704,7 @@ static inline void head_heap_sift_down(uint64_t *heap, size_t size, size_t index
   }
 }
 
-static inline float histogram_head_dominance(const pngx_color_histogram_t *hist, size_t head_limit) {
+static inline float histogram_head_dominance(const color_histogram_t *hist, size_t head_limit) {
   uint64_t heap[PNGX_REDUCED_HEAD_DOMINANCE_LIMIT], weight, total_weight = 0, head_sum = 0;
   size_t heap_size = 0, capacity, i;
 
@@ -1711,8 +1746,8 @@ static inline float histogram_head_dominance(const pngx_color_histogram_t *hist,
   return (float)head_sum / (float)total_weight;
 }
 
-static inline float histogram_low_weight_ratio(const pngx_color_histogram_t *hist, uint32_t weight_threshold) {
-  const pngx_color_entry_t *entry;
+static inline float histogram_low_weight_ratio(const color_histogram_t *hist, uint32_t weight_threshold) {
+  const color_entry_t *entry;
   uint64_t total_weight = 0, low_weight = 0, weight;
   size_t i;
 
@@ -1736,8 +1771,8 @@ static inline float histogram_low_weight_ratio(const pngx_color_histogram_t *his
   return (float)low_weight / (float)total_weight;
 }
 
-static inline float histogram_detail_pressure(const pngx_color_histogram_t *hist, uint8_t base_bits_rgb, uint8_t base_bits_alpha) {
-  const pngx_color_entry_t *entry;
+static inline float histogram_detail_pressure(const color_histogram_t *hist, uint8_t base_bits_rgb, uint8_t base_bits_alpha) {
+  const color_entry_t *entry;
   uint64_t total_weight = 0, detail_weight = 0, weight;
   size_t i;
 
@@ -1803,7 +1838,7 @@ static inline uint32_t resolve_reduced_passthrough_threshold(uint32_t grid_cap, 
   return threshold;
 }
 
-static inline uint32_t compute_auto_trim_limit(const pngx_color_histogram_t *hist, size_t pixel_count, uint32_t actual_colors, uint8_t bits_rgb, uint8_t bits_alpha, const pngx_image_stats_t *stats) {
+static inline uint32_t compute_auto_trim_limit(const color_histogram_t *hist, size_t pixel_count, uint32_t actual_colors, uint8_t bits_rgb, uint8_t bits_alpha, const pngx_image_stats_t *stats) {
   uint32_t low_weight_threshold, limit;
   double density;
   float low_weight_ratio, detail_pressure, head_dominance, flatness, alpha_simple, density_f, trim = 0.0f, head_term, tail_term;
@@ -1867,7 +1902,7 @@ static inline uint32_t compute_auto_trim_limit(const pngx_color_histogram_t *his
   return limit;
 }
 
-static inline uint32_t resolve_reduced_rgba32_target(const pngx_color_histogram_t *hist, size_t pixel_count, int32_t hint, uint8_t bits_rgb, uint8_t bits_alpha, const pngx_image_stats_t *stats) {
+static inline uint32_t resolve_reduced_rgba32_target(const color_histogram_t *hist, size_t pixel_count, int32_t hint, uint8_t bits_rgb, uint8_t bits_alpha, const pngx_image_stats_t *stats) {
   uint64_t rgb_cap = 0, alpha_cap = 0;
   uint32_t target, grid_cap = COLOPRESSO_PNGX_REDUCED_COLORS_MAX, low_weight_threshold;
   size_t unique_colors = hist ? hist->count : 0, unlocked = hist ? hist->unlocked_count : 0;
@@ -2049,7 +2084,7 @@ static inline uint32_t resolve_reduced_rgba32_target(const pngx_color_histogram_
 
 bool pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint32_t *resolved_target, uint32_t *applied_colors, uint8_t **out_data, size_t *out_size) {
   pngx_rgba_image_t image;
-  pngx_color_histogram_t histogram;
+  color_histogram_t histogram;
   pngx_quant_support_t support = {0};
   pngx_image_stats_t stats;
   pngx_options_t tuned_opts;
@@ -2122,7 +2157,7 @@ bool pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t png_size, cons
 
   if (grid_passthrough) {
     wrote = false;
-    snap_rgba_image_to_bits(image.rgba, image.pixel_count, bits_rgb, bits_alpha);
+    snap_rgba_image_to_bits(opts->thread_count, image.rgba, image.pixel_count, bits_rgb, bits_alpha);
 
     if (resolved_target) {
       *resolved_target = (uint32_t)grid_unique;
@@ -2153,7 +2188,7 @@ bool pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t png_size, cons
   target = resolve_reduced_rgba32_target(&histogram, image.pixel_count, opts->lossy_reduced_colors, bits_rgb, bits_alpha, &stats);
   if (histogram.unlocked_count == 0 || target == 0) {
     actual = (uint32_t)histogram.count;
-    snap_rgba_image_to_bits(image.rgba, image.pixel_count, bits_rgb, bits_alpha);
+    snap_rgba_image_to_bits(opts->thread_count, image.rgba, image.pixel_count, bits_rgb, bits_alpha);
   } else {
     if (!apply_reduced_rgba32_quantization(&histogram, &image, target, bits_rgb, bits_alpha, &actual)) {
       color_histogram_reset(&histogram);
@@ -2167,7 +2202,7 @@ bool pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t png_size, cons
   if (!manual_target) {
     auto_trim_limit = compute_auto_trim_limit(&histogram, image.pixel_count, actual, bits_rgb, bits_alpha, &stats);
     if (auto_trim_limit > 0 && auto_trim_limit < actual) {
-      if (enforce_manual_reduced_limit(&image, auto_trim_limit, bits_rgb, bits_alpha, &actual)) {
+      if (enforce_manual_reduced_limit(opts->thread_count, &image, auto_trim_limit, bits_rgb, bits_alpha, &actual)) {
         auto_trim_applied = true;
         colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Reduced RGBA32 auto trim applied %u -> %u colors", target, auto_trim_limit);
       } else {
@@ -2180,7 +2215,7 @@ bool pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t png_size, cons
   }
 
   if (manual_target) {
-    if (!enforce_manual_reduced_limit(&image, manual_limit, bits_rgb, bits_alpha, &actual)) {
+    if (!enforce_manual_reduced_limit(opts->thread_count, &image, manual_limit, bits_rgb, bits_alpha, &actual)) {
       color_histogram_reset(&histogram);
       quant_support_reset(&support);
       rgba_image_reset(&image);

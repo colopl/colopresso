@@ -375,6 +375,7 @@ typedef struct {
   int16_t palette256_tune_speed_max;
   int16_t palette256_tune_quality_min_floor;
   int16_t palette256_tune_quality_max_target;
+  uint32_t thread_count;
 } pngx_options_t;
 
 typedef struct {
@@ -412,8 +413,7 @@ typedef struct {
 
 /* from pngx_bridge rust library */
 PngxBridgeResult pngx_bridge_optimize_lossless(const uint8_t *input_data, size_t input_size, uint8_t **output_data, size_t *output_size, const PngxBridgeLosslessOptions *options);
-PngxBridgeQuantStatus pngx_bridge_quantize(const cpres_rgba_color_t *pixels, size_t pixel_count, uint32_t width, uint32_t height, const PngxBridgeQuantParams *params,
-                                                  PngxBridgeQuantOutput *output);
+PngxBridgeQuantStatus pngx_bridge_quantize(const cpres_rgba_color_t *pixels, size_t pixel_count, uint32_t width, uint32_t height, const PngxBridgeQuantParams *params, PngxBridgeQuantOutput *output);
 void pngx_bridge_free(uint8_t *ptr);
 uint32_t pngx_bridge_oxipng_version(void);
 uint32_t pngx_bridge_libimagequant_version(void);
@@ -441,6 +441,13 @@ PNGX_DEFINE_CLAMP(uint8_t);
 PNGX_DEFINE_CLAMP(float);
 
 bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_data, size_t *out_size, int *quant_quality);
+bool pngx_palette256_prepare(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_rgba, uint32_t *out_width, uint32_t *out_height, uint8_t **out_importance_map,
+                             size_t *out_importance_map_len, int32_t *out_speed, uint8_t *out_quality_min, uint8_t *out_quality_max, uint32_t *out_max_colors, float *out_dither_level,
+                             uint8_t **out_fixed_colors, size_t *out_fixed_colors_len);
+bool pngx_palette256_finalize(const uint8_t *indices, size_t indices_len, const cpres_rgba_color_t *palette, size_t palette_len, uint8_t **out_data, size_t *out_size);
+void pngx_palette256_cleanup(void);
+bool pngx_create_palette_png(const uint8_t *indices, size_t indices_len, const cpres_rgba_color_t *palette, size_t palette_len, uint32_t width, uint32_t height, uint8_t **out_data, size_t *out_size);
+bool create_rgba_png(const uint8_t *rgba, size_t pixel_count, uint32_t width, uint32_t height, uint8_t **out_data, size_t *out_size);
 bool pngx_quantize_limited4444(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_data, size_t *out_size);
 bool pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint32_t *resolved_target, uint32_t *applied_colors, uint8_t **out_data, size_t *out_size);
 void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config);

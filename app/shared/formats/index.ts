@@ -16,10 +16,9 @@ import { webpFormat } from './webp';
 
 const definitions: FormatDefinition[] = [webpFormat, avifFormat, pngxFormat];
 const registry = new Map<string, FormatDefinition>(definitions.map((def) => [def.id, def]));
+const listeners = new Set<(format: FormatDefinition) => void>();
 
 let activeFormatId: string = definitions[0]?.id ?? 'webp';
-
-const listeners = new Set<(format: FormatDefinition) => void>();
 
 export function getFormats(): FormatDefinition[] {
   return definitions.slice();
@@ -30,6 +29,7 @@ export function getDefaultFormat(): FormatDefinition {
   if (!first) {
     throw new Error('No formats registered');
   }
+
   return first;
 }
 
@@ -42,6 +42,7 @@ export function getActiveFormat(): FormatDefinition {
   if (!format) {
     throw new Error('No active format registered');
   }
+
   return format;
 }
 
@@ -49,6 +50,7 @@ export function setActiveFormat(id: string): void {
   if (!registry.has(id)) {
     throw new Error(`Unknown format: ${id}`);
   }
+
   activeFormatId = id;
 }
 
@@ -57,6 +59,7 @@ export function activateFormat(id: string): void {
   if (current.id === id) {
     return;
   }
+
   setActiveFormat(id);
   const next = getActiveFormat();
   listeners.forEach((listener) => {
@@ -77,15 +80,16 @@ export function normalizeFormatOptions(format: FormatDefinition, options?: Forma
   if (format.normalizeOptions) {
     return format.normalizeOptions(options);
   }
+
   if (options) {
     return options;
   }
+
   return format.getDefaultOptions();
 }
 
 export async function convertWithFormat(params: { Module: unknown; inputBytes: Uint8Array; format: FormatDefinition; options?: FormatOptions }): Promise<Uint8Array> {
-  const normalizedOptions = normalizeFormatOptions(params.format, params.options);
-  return params.format.convert({ Module: params.Module as any, inputBytes: params.inputBytes, options: normalizedOptions });
+  return params.format.convert({ Module: params.Module as any, inputBytes: params.inputBytes, options: normalizeFormatOptions(params.format, params.options) });
 }
 
 export function getFormatDisplayName(format: FormatDefinition, translate: (key: string) => string): string {

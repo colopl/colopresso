@@ -237,9 +237,13 @@ extern cpres_error_t cpres_encode_pngx_memory(const uint8_t *png_data, size_t pn
   pngx_fill_pngx_options(&opts, config);
 
   threads = config ? config->pngx_threads : 0;
-  if (threads > 0) {
+#if !defined(PNGX_BRIDGE_WASM_SEPARATION)
+  if (threads >= 0) {
     pngx_bridge_init_threads(threads);
   }
+#else
+  (void)threads;
+#endif
 
   quant_is_rgba_lossy = (opts.lossy_type == PNGX_LOSSY_TYPE_LIMITED_RGBA4444 || opts.lossy_type == PNGX_LOSSY_TYPE_REDUCED_RGBA32);
 
@@ -361,9 +365,21 @@ extern uint32_t cpres_get_libpng_version(void) { return (uint32_t)png_access_ver
 
 extern uint32_t cpres_get_libavif_version(void) { return (uint32_t)AVIF_VERSION; }
 
-extern uint32_t cpres_get_pngx_oxipng_version(void) { return pngx_bridge_oxipng_version(); }
+extern uint32_t cpres_get_pngx_oxipng_version(void) {
+#if !defined(PNGX_BRIDGE_WASM_SEPARATION)
+  return pngx_bridge_oxipng_version();
+#else
+  return 0;
+#endif
+}
 
-extern uint32_t cpres_get_pngx_libimagequant_version(void) { return pngx_bridge_libimagequant_version(); }
+extern uint32_t cpres_get_pngx_libimagequant_version(void) {
+#if !defined(PNGX_BRIDGE_WASM_SEPARATION)
+  return pngx_bridge_libimagequant_version();
+#else
+  return 0;
+#endif
+}
 
 extern uint32_t cpres_get_buildtime(void) {
 #ifdef COLOPRESSO_BUILDTIME

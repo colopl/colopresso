@@ -9,7 +9,8 @@
  * Developed with AI (LLM) code assistance. See `NOTICE` for details.
  */
 
-import { initializeModule, getVersionInfo, ModuleWithHelpers } from '../../shared/core/converter';
+import { initializeModule, getVersionInfo, isThreadsEnabled, ModuleWithHelpers } from '../../shared/core/converter';
+import { initPngxBridge, isPngxBridgeInitialized, pngxOxipngVersion, pngxLibimagequantVersion } from '../../shared/core/pngxBridge';
 import { getDefaultFormat, getFormat, normalizeFormatOptions } from '../../shared/formats';
 import { FormatDefinition, FormatOptions } from '../../shared/types';
 // @ts-ignore
@@ -17,6 +18,7 @@ import ColopressoModuleFactory from 'colopresso-module';
 
 let moduleInstance: ModuleWithHelpers | null = null;
 let modulePromise: Promise<ModuleWithHelpers> | null = null;
+let pngxBridgeInitialized = false;
 
 async function ensureModule(): Promise<ModuleWithHelpers> {
   if (moduleInstance) {
@@ -25,11 +27,25 @@ async function ensureModule(): Promise<ModuleWithHelpers> {
   if (modulePromise) {
     return modulePromise;
   }
+  const moduleUrl = new URL('colopresso.js', self.location.href).href;
   modulePromise = initializeModule(ColopressoModuleFactory, {
     locateFile: (resource: string) => new URL(resource, self.location.href).href,
+    mainScriptUrlOrBlob: moduleUrl,
   })
-    .then((Module) => {
+    .then(async (Module) => {
       moduleInstance = Module;
+
+      try {
+        const pngxBridgeBaseUrl = new URL('./', self.location.href).href;
+        await initPngxBridge(pngxBridgeBaseUrl);
+        pngxBridgeInitialized = isPngxBridgeInitialized();
+        if (pngxBridgeInitialized) {
+        }
+      } catch (error) {
+        console.warn('[chromeOffscreen] pngx_bridge WASM init failed, PNGX format may have limited functionality:', error);
+        pngxBridgeInitialized = false;
+      }
+
       return Module;
     })
     .finally(() => {
@@ -124,7 +140,7 @@ async function ensureUint8Array(input: unknown, encoding?: string | null): Promi
 
     const reconstructed = buildUint8ArrayFromNumericObject(asRecord);
     if (reconstructed) {
-      console.warn('offscreen: reconstructed array-like payload into Uint8Array', {
+      console.warn('[chromeOffscreen]: reconstructed array-like payload into Uint8Array', {
         length: reconstructed.length,
       });
       return reconstructed;
@@ -139,8 +155,11 @@ async function convertFile(data: unknown, encoding: string | undefined, config: 
   const format = resolveFormat(formatId);
   const normalized = normalizeFormatOptions(format, config);
   const inputBytes = await ensureUint8Array(data, encoding ?? null);
+  const startTime = performance.now();
   const output = await format.convert({ Module, inputBytes, options: normalized });
-  return { output, format };
+  const endTime = performance.now();
+  const conversionTimeMs = Math.round(endTime - startTime);
+  return { output, format, conversionTimeMs };
 }
 
 chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse) => {
@@ -175,13 +194,14 @@ chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse) => {
             logDetails.length = length;
           }
         }
-        const { output, format } = await convertFile(inputData, fileData?.dataEncoding, message.config as FormatOptions | undefined, message.formatId);
+        const { output, format, conversionTimeMs } = await convertFile(inputData, fileData?.dataEncoding, message.config as FormatOptions | undefined, message.formatId);
         const payload = Array.from(output);
         sendResponse({
           success: true,
           outputData: payload,
           outputEncoding: 'uint8-array',
           formatId: format.id,
+          conversionTimeMs,
         });
       } catch (error) {
         const failure = error as Error & {
@@ -214,7 +234,8 @@ chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse) => {
       try {
         const Module = await ensureModule();
         const info = getVersionInfo(Module);
-        sendResponse({ success: true, ...info });
+        const threadsEnabled = isThreadsEnabled(Module);
+        sendResponse({ success: true, ...info, isThreadsEnabled: threadsEnabled });
       } catch (error) {
         sendResponse({ success: false, error: (error as Error).message ?? 'Failed to get version info' });
       }

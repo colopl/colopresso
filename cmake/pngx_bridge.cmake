@@ -13,6 +13,88 @@ set(PNGX_BRIDGE_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/pngx_bridge")
 option(PNGX_BRIDGE_ENABLE_RUST_ASAN "Enable AddressSanitizer instrumentation for the Rust pngx_bridge build (requires nightly) (maybe doesn't work)" OFF)
 option(PNGX_BRIDGE_ENABLE_RUST_MSAN "Enable MemorySanitizer instrumentation for the Rust pngx_bridge build (requires nightly + -Zbuild-std)" ON)
 
+macro(_pngx_bridge_create_wasm_stub)
+  set(PNGX_BRIDGE_USE_WASM_SEPARATION ON)
+  include(cmake/pngx_bridge_wasm.cmake)
+
+  set(PNGX_BRIDGE_STUB_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/pngx_bridge_stub.c")
+  file(WRITE "${PNGX_BRIDGE_STUB_SOURCE}"
+"/* pngx_bridge stub - actual implementation provided via separate WASM module */
+#include <stddef.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+typedef enum {
+  PNGX_BRIDGE_RESULT_SUCCESS = 0,
+  PNGX_BRIDGE_RESULT_GENERIC_ERROR = 1,
+  PNGX_BRIDGE_RESULT_INVALID_INPUT = 2,
+  PNGX_BRIDGE_RESULT_OPTIMIZATION_FAILED = 3,
+  PNGX_BRIDGE_RESULT_WASM_SEPARATION = 100
+} PngxBridgeResult;
+
+typedef enum {
+  PNGX_BRIDGE_QUANT_OK = 0,
+  PNGX_BRIDGE_QUANT_QUALITY_TOO_LOW = 1,
+  PNGX_BRIDGE_QUANT_ERROR = 2,
+  PNGX_BRIDGE_QUANT_WASM_SEPARATION = 100
+} PngxBridgeQuantStatus;
+
+typedef struct { uint8_t r, g, b, a; } cpres_rgba_color_t;
+typedef struct { int32_t optimization_level; bool strip_safe; bool optimize_alpha; } PngxBridgeLosslessOptions;
+typedef struct { int32_t speed; int32_t quality_min; int32_t quality_max; uint32_t max_colors; int32_t min_posterization; float dithering_level; bool remap; const uint8_t *importance_map; size_t importance_map_len; const cpres_rgba_color_t *fixed_colors; size_t fixed_colors_len; } PngxBridgeQuantParams;
+typedef struct { cpres_rgba_color_t *palette; size_t palette_len; uint8_t *indices; size_t indices_len; int32_t quality; } PngxBridgeQuantOutput;
+
+PngxBridgeResult pngx_bridge_optimize_lossless(const uint8_t *input_data, size_t input_size, uint8_t **output_data, size_t *output_size, const PngxBridgeLosslessOptions *options) {
+  (void)input_data; (void)input_size; (void)options;
+  if (output_data) *output_data = NULL;
+  if (output_size) *output_size = 0;
+  return PNGX_BRIDGE_RESULT_WASM_SEPARATION;
+}
+
+PngxBridgeQuantStatus pngx_bridge_quantize(const cpres_rgba_color_t *pixels, size_t pixel_count, uint32_t width, uint32_t height, const PngxBridgeQuantParams *params, PngxBridgeQuantOutput *output) {
+  (void)pixels; (void)pixel_count; (void)width; (void)height; (void)params;
+  if (output) { output->palette = NULL; output->palette_len = 0; output->indices = NULL; output->indices_len = 0; output->quality = -1; }
+  return PNGX_BRIDGE_QUANT_WASM_SEPARATION;
+}
+
+void pngx_bridge_free(uint8_t *ptr) { (void)ptr; }
+
+uint32_t pngx_bridge_oxipng_version(void) { return 0; }
+
+uint32_t pngx_bridge_libimagequant_version(void) { return 0; }
+
+bool pngx_bridge_init_threads(int num_threads) { (void)num_threads; return true; }
+")
+
+  add_library(pngx_bridge STATIC "${PNGX_BRIDGE_STUB_SOURCE}")
+  add_dependencies(pngx_bridge pngx_bridge_wasm_build)
+
+  file(MAKE_DIRECTORY "${PNGX_BRIDGE_BUILD_DIR}/generated")
+  file(WRITE "${PNGX_BRIDGE_BUILD_DIR}/generated/pngx_bridge.h"
+    "/* pngx_bridge stub header - implementation via WASM module */\n"
+    "#ifndef PNGX_BRIDGE_H\n"
+    "#define PNGX_BRIDGE_H\n"
+    "#define PNGX_BRIDGE_WASM_SEPARATION 1\n"
+    "#endif\n"
+  )
+
+  target_include_directories(pngx_bridge PUBLIC "${PNGX_BRIDGE_BUILD_DIR}/generated")
+endmacro()
+
+if(EMSCRIPTEN AND (COLOPRESSO_CHROME_EXTENSION OR COLOPRESSO_ELECTRON_APP))
+  message(STATUS "pngx_bridge: Using WASM separation for Emscripten GUI build (stable Rust)")
+  _pngx_bridge_create_wasm_stub()
+  return()
+endif()
+
+if(EMSCRIPTEN AND COLOPRESSO_NODE_BUILD AND NOT COLOPRESSO_ENABLE_THREADS)
+  message(STATUS "pngx_bridge: Using WASM separation for Emscripten Node.js build without threads (stable Rust)")
+  _pngx_bridge_create_wasm_stub()
+  return()
+endif()
+
+set(PNGX_BRIDGE_USE_WASM_SEPARATION OFF)
+
 if(PNGX_BRIDGE_ENABLE_RUST_ASAN AND COLOPRESSO_USE_ASAN)
   set(PNGX_BRIDGE_ENABLE_ASAN ON)
 else()
@@ -45,11 +127,26 @@ endif()
 
 set(PNGX_BRIDGE_RUST_TARGET ${_pngx_bridge_target})
 set(PNGX_BRIDGE_CARGO_FLAGS ${_pngx_bridge_cargo_args})
+set(PNGX_BRIDGE_ENABLE_RAYON OFF)
+if(NOT EMSCRIPTEN)
+  set(PNGX_BRIDGE_ENABLE_RAYON ON)
+  message(STATUS "pngx_bridge: Rayon multithreading enabled (native build)")
+else()
+  message(STATUS "pngx_bridge: Rayon multithreading disabled (Emscripten build, using C pthreads only)")
+endif()
 
 set(_pngx_bridge_rust_profile "release")
 set(_pngx_bridge_sanitizer_rustflags "")
 set(_pngx_bridge_sanitizer_cargo_flags "")
 set(_pngx_bridge_needs_nightly OFF)
+
+if(EMSCRIPTEN AND COLOPRESSO_ENABLE_THREADS)
+  set(_pngx_bridge_needs_nightly ON)
+  list(APPEND _pngx_bridge_sanitizer_cargo_flags
+    "-Zbuild-std=panic_abort,std"
+  )
+  message(STATUS "pngx_bridge: Using -Zbuild-std for Emscripten pthread support (Rust side is single-threaded, C side uses pthreads)")
+endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT EMSCRIPTEN AND NOT WIN32)
   # MSan builds are intentionally forced to the Rust release profile to keep build/test time practical (especially with -Zbuild-std).
@@ -105,6 +202,10 @@ endif()
 
 list(APPEND PNGX_BRIDGE_CARGO_FLAGS ${_pngx_bridge_cargo_profile_arg} ${_pngx_bridge_sanitizer_cargo_flags})
 
+if(PNGX_BRIDGE_ENABLE_RAYON)
+  list(APPEND PNGX_BRIDGE_CARGO_FLAGS "--features" "rayon")
+endif()
+
 if(_pngx_bridge_rust_profile STREQUAL "dev")
   set(_pngx_bridge_profile_dir "debug")
 else()
@@ -142,6 +243,10 @@ endif()
 
 if(PNGX_BRIDGE_ENABLE_MSAN)
   string(APPEND PNGX_BRIDGE_RUSTFLAGS " --cfg pngx_bridge_msan")
+endif()
+
+if(EMSCRIPTEN AND COLOPRESSO_ENABLE_THREADS)
+  string(APPEND PNGX_BRIDGE_RUSTFLAGS " -C target-feature=+atomics,+bulk-memory -C panic=abort")
 endif()
 
 set(PNGX_BRIDGE_SANITIZER_CFLAGS "")
@@ -272,5 +377,5 @@ add_dependencies(pngx_bridge pngx_bridge_build)
 message(STATUS "pngx_bridge: library path: ${PNGX_BRIDGE_LIB_PATH}")
 message(STATUS "pngx_bridge: RUSTFLAGS: ${PNGX_BRIDGE_RUSTFLAGS}")
 if(_pngx_bridge_needs_nightly)
-  message(STATUS "pngx_bridge: Sanitizer build enabled")
+  message(STATUS "pngx_bridge: Using nightly Rust toolchain")
 endif()

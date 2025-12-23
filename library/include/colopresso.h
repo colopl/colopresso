@@ -234,6 +234,10 @@ extern uint32_t cpres_get_pngx_libimagequant_version(void);
 
 extern uint32_t cpres_get_buildtime(void);
 
+extern bool cpres_is_threads_enabled(void);
+extern uint32_t cpres_get_default_thread_count(void);
+extern uint32_t cpres_get_max_thread_count(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -48,9 +48,11 @@ const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const setTheme = useCallback(
     async (nextTheme: Theme, options?: { persist?: boolean }) => {
       dispatch({ type: 'setTheme', theme: nextTheme });
+
       if (options?.persist === false) {
         return;
       }
+
       await saveTheme(nextTheme);
     },
     [dispatch]
@@ -68,5 +70,6 @@ export function useTheme(): ThemeContextValue {
   if (!context) {
     throw new Error('useTheme must be used within ThemeProvider');
   }
+
   return context;
 }

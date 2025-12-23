@@ -50,9 +50,24 @@ extern struct tm *gmtime_r(const time_t *timer, struct tm *buf);
 #define stat _stat64
 #define strtok_r strtok_s
 
+typedef HANDLE colopresso_thread_t;
+
+typedef struct {
+  void *(*start_routine)(void *);
+  void *arg;
+} cpres_pthread_wrapper_ctx_t;
+
+extern int colopresso_thread_create(colopresso_thread_t *thread, const void *attr, void *(*start_routine)(void *), void *arg);
+extern int colopresso_thread_join(colopresso_thread_t thread, void **retval);
+
+#define pthread_t colopresso_thread_t
+#define pthread_create colopresso_thread_create
+#define pthread_join colopresso_thread_join
+
 #else
 
 #include <getopt.h>
+#include <pthread.h>
 #include <sys/stat.h>
 #include <unistd.h>
 

@@ -19,6 +19,7 @@ import { ColoZip } from '../../shared/core/zip';
 import { readFileAsArrayBuffer, downloadBlob } from '../../shared/core/files';
 import { formatBytes } from '../../shared/core/formatting';
 import BuildInfoPanel from '../../shared/components/BuildInfoPanel';
+import { AppHeader, DropZone, FileList, ProgressBar, SettingsPanel, StatusMessage as StatusMessageComponent, SettingItemConfig } from '../../shared/components';
 import { getFormats, activateFormat, getFormat, getDefaultFormat, normalizeFormatOptions } from '../../shared/formats';
 import { saveSelectedFormatId, loadSelectedFormatId, loadFormatConfig, saveFormatConfig, resetAllStoredData } from '../../shared/core/configStore';
 import { AdvancedSettingsController, setupFormatAwareAdvancedSettings } from '../../shared/core/advancedSettingsModal';
@@ -155,7 +156,7 @@ function sendChromeMessage<TResponse = unknown>(message: unknown): Promise<TResp
   });
 }
 
-async function fetchBuildInfo(): Promise<BuildInfoPayload | null> {
+async function fetchBuildInfo(): Promise<{ buildInfo: BuildInfoPayload | null; isThreadsEnabled: boolean }> {
   try {
     const response = await sendChromeMessage<
       | {
@@ -167,6 +168,7 @@ async function fetchBuildInfo(): Promise<BuildInfoPayload | null> {
           pngxOxipngVersion?: number;
           pngxLibimagequantVersion?: number;
           buildtime?: number;
+          isThreadsEnabled?: boolean;
         }
       | { success: false }
     >({
@@ -175,18 +177,21 @@ async function fetchBuildInfo(): Promise<BuildInfoPayload | null> {
     });
     if (response && response.success) {
       return {
-        version: response.version,
-        libwebpVersion: response.libwebpVersion,
-        libpngVersion: response.libpngVersion,
-        libavifVersion: response.libavifVersion,
-        pngxOxipngVersion: response.pngxOxipngVersion,
-        pngxLibimagequantVersion: response.pngxLibimagequantVersion,
-        buildtime: response.buildtime,
+        buildInfo: {
+          version: response.version,
+          libwebpVersion: response.libwebpVersion,
+          libpngVersion: response.libpngVersion,
+          libavifVersion: response.libavifVersion,
+          pngxOxipngVersion: response.pngxOxipngVersion,
+          pngxLibimagequantVersion: response.pngxLibimagequantVersion,
+          buildtime: response.buildtime,
+        },
+        isThreadsEnabled: response.isThreadsEnabled ?? true,
       };
     }
-    return null;
+    return { buildInfo: null, isThreadsEnabled: true };
   } catch (_error) {
-    return null;
+    return { buildInfo: null, isThreadsEnabled: true };
   }
 }
 
@@ -200,6 +205,9 @@ const ChromeAppInner: React.FC = () => {
   const advancedSettingsControllerRef = useRef<AdvancedSettingsController | null>(null);
   const latestAdvancedFormatRef = useRef<string | null>(null);
   const latestAdvancedConfigRef = useRef<FormatOptions | null>(null);
+  const threadsEnabledRef = useRef<boolean>(true);
+  const cancelRequestedRef = useRef<boolean>(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [formats] = useState<FormatDefinition[]>(() => {
     const order = ['webp', 'avif', 'pngx'];
@@ -366,7 +374,7 @@ const ChromeAppInner: React.FC = () => {
       setFormatConfigs((prev) => ({ ...prev, [format.id]: config }));
       try {
         await saveFormatConfig(format, config);
-      } catch (_) {
+      } catch {
         /* NOP */
       }
     },
@@ -390,6 +398,7 @@ const ChromeAppInner: React.FC = () => {
             saveCurrentConfigForFormat: async (target, nextConfig) => {
               await persistFormatConfig(target, nextConfig);
             },
+            isThreadsEnabled: threadsEnabledRef.current,
           }
         );
         advancedSettingsControllerRef.current = controller;
@@ -466,8 +475,9 @@ const ChromeAppInner: React.FC = () => {
           dispatch({ type: 'setSettings', settings: applyChromeSettingDefaults(storedSettings) });
         }
 
-        const buildInfo = await fetchBuildInfo();
+        const { buildInfo, isThreadsEnabled } = await fetchBuildInfo();
         if (!cancelled) {
+          threadsEnabledRef.current = isThreadsEnabled;
           dispatch({ type: 'setBuildInfo', buildInfo: buildInfo ? { status: 'ready', payload: buildInfo } : { status: 'error' } });
           applyStatusRef.current({ type: 'info', messageKey: 'common.dropPrompt', durationMs: 4000 });
           setInitializing(false);
@@ -487,6 +497,18 @@ const ChromeAppInner: React.FC = () => {
       cancelled = true;
     };
   }, [dispatch]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && state.isProcessing) {
+        cancelRequestedRef.current = true;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [state.isProcessing]);
 
   const handleThemeToggle = useCallback(async () => {
     const nextTheme: Theme = state.theme === 'dark' ? 'light' : 'dark';
@@ -531,12 +553,15 @@ const ChromeAppInner: React.FC = () => {
   }, []);
 
   const handleAdvancedSettingsClick = useCallback(async () => {
+    if (state.isProcessing) {
+      return;
+    }
     const configForModal = storedFormatConfig ?? currentFormat.getDefaultOptions();
     const controller = await initializeAdvancedSettings(currentFormat, configForModal);
     if (controller && typeof controller.open === 'function') {
       await controller.open();
     }
-  }, [currentFormat, initializeAdvancedSettings, storedFormatConfig]);
+  }, [currentFormat, initializeAdvancedSettings, state.isProcessing, storedFormatConfig]);
 
   const handleResetAllSettings = useCallback(async () => {
     if (!window.confirm(t('settingsMenu.resetConfirm'))) {
@@ -552,14 +577,23 @@ const ChromeAppInner: React.FC = () => {
   }, [dispatch, t]);
 
   const resetProcessingState = useCallback(() => {
+    cancelRequestedRef.current = false;
+    setIsCancelling(false);
     dispatch({ type: 'setProcessing', processing: true });
     dispatch({ type: 'setProgress', progress: { current: 0, total: 0, state: 'processing' } });
     dispatch({ type: 'setFileEntries', entries: [] });
   }, [dispatch]);
 
   const finalizeProcessingState = useCallback(() => {
+    cancelRequestedRef.current = false;
+    setIsCancelling(false);
     dispatch({ type: 'setProcessing', processing: false });
   }, [dispatch]);
+
+  const handleCancelProcessing = useCallback(() => {
+    cancelRequestedRef.current = true;
+    setIsCancelling(true);
+  }, []);
 
   const updateProgress = useCallback(
     (current: number, total: number, done = false) => {
@@ -651,6 +685,7 @@ const ChromeAppInner: React.FC = () => {
         errorCode?: string;
         errorDetails?: { inputSize?: number; outputSize?: number; formatLabel?: string };
         formatId?: string;
+        conversionTimeMs?: number;
       }>({
         type: 'PROCESS_FILE',
         target: 'offscreen',
@@ -685,7 +720,7 @@ const ChromeAppInner: React.FC = () => {
       } else {
         throw new Error('Received unsupported output data from offscreen worker');
       }
-      return { outputData, pngData, formatId: response.formatId ?? format.id } as const;
+      return { outputData, pngData, formatId: response.formatId ?? format.id, conversionTimeMs: response.conversionTimeMs } as const;
     },
     [state.activeFormatId, t]
   );
@@ -715,6 +750,14 @@ const ChromeAppInner: React.FC = () => {
       const options = normalizeFormatOptions(format, formatConfigs[format.id]);
 
       for (let index = 0; index < files.length; index += 1) {
+        if (cancelRequestedRef.current) {
+          dispatch({ type: 'setFileEntries', entries: [] });
+          dispatch({ type: 'setProgress', progress: { current: 0, total: 0, state: 'idle' } });
+          applyStatus({ type: 'info', messageKey: 'common.conversionCanceled', durationMs: 4000 });
+          finalizeProcessingState();
+          return;
+        }
+
         const candidate = files[index];
         const entry = entries[index];
         patchFileEntry(entry.id, { status: 'processing' });
@@ -722,7 +765,7 @@ const ChromeAppInner: React.FC = () => {
         let originalSize = 0;
 
         try {
-          const { outputData, pngData } = await convertFileWithOffscreen(candidate, options);
+          const { outputData, pngData, conversionTimeMs } = await convertFileWithOffscreen(candidate, options);
           originalSize = pngData.length;
           const sourceName = candidate.path || candidate.file.name;
           const baseName = sourceName.split(/[\\/]/).pop() ?? sourceName;
@@ -747,6 +790,7 @@ const ChromeAppInner: React.FC = () => {
             status: 'success',
             originalSize: pngData.length,
             convertedSize: outputData.length,
+            conversionTimeMs,
           });
         } catch (error) {
           const failure = error as Error & { code?: string };
@@ -917,114 +961,40 @@ const ChromeAppInner: React.FC = () => {
     [t]
   );
 
-  const renderStatusMessage = () => {
-    if (!state.status) {
-      return null;
-    }
-    const statusClass = state.status.type === 'success' ? styles.statusMessageSuccess : state.status.type === 'error' ? styles.statusMessageError : styles.statusMessageInfo;
-    return <div className={`${styles.statusMessage} ${statusClass}`}>{t(state.status.messageKey, state.status.params)}</div>;
-  };
+  const statusMessage = useMemo(() => {
+    if (!state.status) return null;
+    return t(state.status.messageKey, state.status.params);
+  }, [state.status, t]);
 
-  const renderFileList = () => {
-    if (state.fileEntries.length === 0) {
-      return null;
-    }
-    return (
-      <div className={styles.fileList}>
-        {state.fileEntries.map((entry) => {
-          const fileStatusClass =
-            entry.status === 'success'
-              ? styles.fileStatusSuccess
-              : entry.status === 'processing'
-                ? styles.fileStatusProcessing
-                : entry.status === 'error'
-                  ? styles.fileStatusError
-                  : styles.fileStatusPending;
-          const isError = entry.status === 'error';
-          const errorTooltip = isError ? getErrorMessageForEntry(entry) : undefined;
-          return (
-            <div className={styles.fileItem} key={entry.id}>
-              <div className={styles.fileItemHeader}>
-                <span className={styles.fileName} title={entry.name}>
-                  {entry.name}
-                </span>
-                {isError ? (
-                  <button
-                    type="button"
-                    className={`${styles.fileStatus} ${fileStatusClass} ${styles.fileStatusInteractive}`}
-                    onClick={() => {
-                      void handleCopyErrorMessage(entry);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        void handleCopyErrorMessage(entry);
-                      }
-                    }}
-                  >
-                    {formatStatusText(entry)}
-                    <div className={styles.fileStatusTooltip} role="tooltip">
-                      <div className={styles.fileStatusTooltipMessage}>{errorTooltip}</div>
-                      <div className={styles.fileStatusTooltipHint}>{t('errors.copyHint')}</div>
-                    </div>
-                  </button>
-                ) : (
-                  <span className={`${styles.fileStatus} ${fileStatusClass}`}>{formatStatusText(entry)}</span>
-                )}
-              </div>
-              {entry.originalSize !== undefined && entry.convertedSize !== undefined && (
-                <div className={styles.fileSizeInfo}>{`${formatBytes(entry.originalSize)} → ${formatBytes(entry.convertedSize)}`}</div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
+  const progressText = useMemo(() => {
+    if (state.progress.total === 0) return '';
+    return state.progress.state === 'done' ? t('utils.progressDone') : t('utils.progressProcessing', { current: state.progress.current, total: state.progress.total });
+  }, [state.progress.current, state.progress.total, state.progress.state, t]);
 
-  const renderProgress = () => {
-    if (state.progress.total === 0) {
-      return null;
-    }
-    const percent = state.progress.total === 0 ? 0 : Math.round((state.progress.current / state.progress.total) * 100);
-    const progressText = state.progress.state === 'done' ? t('utils.progressDone') : t('utils.progressProcessing', { current: state.progress.current, total: state.progress.total });
-    return (
-      <div className={styles.progressContainer}>
-        <div className={styles.progressBar}>
-          <div className={styles.progressFill} style={{ width: `${percent}%` }} />
-        </div>
-        <div className={styles.progressText}>{progressText}</div>
-      </div>
-    );
-  };
-
-  const renderSettingsPanel = () => {
-    return (
-      <div id="settingsMenu" className={styles.settingsMenu}>
-        <div className={styles.settingsItem}>
-          <label htmlFor="processFolderCheckbox">
-            <input id="processFolderCheckbox" type="checkbox" checked={Boolean(state.settings.processFolder)} onChange={(event) => handleSettingToggle('processFolder', event.target.checked)} />
-            <span>{t('chrome.settings.processFolderLabel')}</span>
-          </label>
-          <div className={styles.settingsDescription}>{t('chrome.settings.processFolderDescription')}</div>
-        </div>
-        <div className={styles.settingsItem}>
-          <label htmlFor="createZipCheckbox">
-            <input
-              id="createZipCheckbox"
-              type="checkbox"
-              checked={Boolean(state.settings.createZip) && !isFixedOutputActive}
-              disabled={isFixedOutputActive}
-              onChange={(event) => handleSettingToggle('createZip', event.target.checked)}
-            />
-            <span>{t('chrome.settings.createZipLabel')}</span>
-          </label>
-          <div className={styles.settingsDescription}>{t('chrome.settings.createZipDescription')}</div>
-          {isFixedOutputActive && <div className={styles.settingLockedNote}>{t('common.outputDirectory.lockedOptionNote')}</div>}
-        </div>
-      </div>
-    );
-  };
+  const settingsItems: SettingItemConfig[] = useMemo(
+    () => [
+      {
+        id: 'processFolderCheckbox',
+        type: 'checkbox',
+        labelKey: 'chrome.settings.processFolderLabel',
+        descriptionKey: 'chrome.settings.processFolderDescription',
+        value: Boolean(state.settings.processFolder),
+        onChange: (value) => handleSettingToggle('processFolder', value as boolean),
+      },
+      {
+        id: 'createZipCheckbox',
+        type: 'checkbox',
+        labelKey: 'chrome.settings.createZipLabel',
+        descriptionKey: 'chrome.settings.createZipDescription',
+        value: Boolean(state.settings.createZip) && !isFixedOutputActive,
+        disabled: isFixedOutputActive,
+        locked: isFixedOutputActive,
+        lockedNoteKey: 'common.outputDirectory.lockedOptionNote',
+        onChange: (value) => handleSettingToggle('createZip', value as boolean),
+      },
+    ],
+    [state.settings.processFolder, state.settings.createZip, isFixedOutputActive, handleSettingToggle]
+  );
 
   const renderResetButton = () => {
     return (
@@ -1038,7 +1008,7 @@ const ChromeAppInner: React.FC = () => {
 
   const renderBuildInfo = () => {
     const manifest = typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getManifest === 'function' ? chrome.runtime.getManifest() : { version: '0.0.0' };
-    const headerTitle = `${t('chrome.title')} v${manifest.version}`;
+    const headerTitle = `${t('chrome.title')} for Chrome v${manifest.version}`;
     return <BuildInfoPanel title={headerTitle} buildInfo={state.buildInfo} t={t} />;
   };
 
@@ -1047,53 +1017,30 @@ const ChromeAppInner: React.FC = () => {
   }
 
   const activeFormatId = currentFormat.id;
-  const dropZoneClassName = [styles.dropZone, state.isProcessing ? styles.dropZoneProcessing : '', isDragOver ? styles.dropZoneDragOver : ''].filter(Boolean).join(' ');
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <h1 className={styles.title}>{t('chrome.title')}</h1>
-        <div className={styles.headerActions}>
-          <div className={styles.formatTabs}>
-            {formats.map((format) => (
-              <button
-                key={format.id}
-                type="button"
-                className={[styles.formatTab, format.id === activeFormatId ? styles.formatTabActive : '', format.id === activeFormatId && format.id === 'pngx' ? styles.formatTabPngxActive : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                data-format-id={format.id}
-                onClick={() => handleFormatChange(format.id)}
-              >
-                {t(format.labelKey)}
-              </button>
-            ))}
-          </div>
-          <select className={styles.languageSelect} value={language} onChange={handleLanguageChange} aria-label={t('header.languageSelect.aria')}>
-            {availableLanguages.map((lang) => (
-              <option key={lang.code} value={lang.code} title={lang.label}>
-                {lang.flag}
-              </option>
-            ))}
-          </select>
-          <button type="button" className={styles.themeToggleButton} onClick={handleThemeToggle} title={t('header.themeToggle.title')}>
-            {state.theme === 'dark' ? '☀️' : '🌙'}
-          </button>
-          <button
-            type="button"
-            className={styles.settingsButton}
-            onClick={handleAdvancedSettingsClick}
-            aria-haspopup="dialog"
-            aria-label={t('settingsMenu.advancedSettings')}
-            title={t('settingsMenu.advancedSettings')}
-          >
-            ⚙️
-          </button>
-        </div>
-      </div>
+      <AppHeader
+        title={t('chrome.title')}
+        formats={formats}
+        activeFormatId={activeFormatId}
+        language={language}
+        availableLanguages={availableLanguages}
+        theme={state.theme}
+        isProcessing={state.isProcessing}
+        onFormatChange={handleFormatChange}
+        onLanguageChange={handleLanguageChange}
+        onThemeToggle={handleThemeToggle}
+        onAdvancedSettingsClick={handleAdvancedSettingsClick}
+        t={t}
+      />
 
-      <div
-        className={dropZoneClassName}
+      <DropZone
+        iconEmoji="🖼️"
+        text={t('chrome.dropzone.text')}
+        hint={t('chrome.dropzone.hint')}
+        isProcessing={state.isProcessing}
+        isDragOver={isDragOver}
         onDragOver={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -1113,24 +1060,22 @@ const ChromeAppInner: React.FC = () => {
           event.stopPropagation();
           setIsDragOver(false);
         }}
-        onDragEnd={() => {
-          setIsDragOver(false);
-        }}
+        onDragEnd={() => setIsDragOver(false)}
         onDrop={handleDrop}
         onClick={handleBrowseClick}
-      >
-        <div className={styles.dropZoneIcon}>🖼️</div>
-        <div className={styles.dropZoneText}>{t('chrome.dropzone.text')}</div>
-        <div className={styles.dropZoneHint}>{t('chrome.dropzone.hint')}</div>
-      </div>
+        onCancel={handleCancelProcessing}
+        cancelButtonLabel={t('common.cancelButton')}
+        isCancelling={isCancelling}
+        cancellingButtonLabel={t('common.cancellingButton')}
+      />
 
-      {renderSettingsPanel()}
+      <SettingsPanel items={settingsItems} isProcessing={state.isProcessing} t={t} />
 
       <input ref={fileInputRef} type="file" accept="image/png,.png" multiple hidden onChange={handleFileInputChange} />
 
-      {renderProgress()}
-      {renderFileList()}
-      {renderStatusMessage()}
+      <ProgressBar current={state.progress.current} total={state.progress.total} isVisible={state.progress.total > 0} progressText={progressText} />
+      <FileList entries={state.fileEntries} formatStatusText={formatStatusText} getErrorMessage={getErrorMessageForEntry} onCopyError={handleCopyErrorMessage} formatBytes={formatBytes} t={t} />
+      <StatusMessageComponent message={statusMessage} type={state.status?.type ?? 'info'} />
       {renderBuildInfo()}
       {renderResetButton()}
     </div>

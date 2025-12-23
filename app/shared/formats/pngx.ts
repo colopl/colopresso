@@ -9,7 +9,8 @@
  * Developed with AI (LLM) code assistance. See `NOTICE` for details.
  */
 
-import { convertPngToPngx } from '../core/converter';
+import { convertPngToPngx, pngxPalette256Prepare, pngxPalette256Finalize, pngxPalette256Cleanup, OutputLargerThanInputError } from '../core/converter';
+import { isPngxBridgeInitialized, pngxOptimizeLossless, pngxQuantize } from '../core/pngxBridge';
 import { FormatDefinition, FormatOptions, FormatSection } from '../types';
 import { buildDefaultOptions, normalizeOptionsWithSchema } from './helpers';
 
@@ -17,6 +18,7 @@ function clampNumber(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) {
     return min;
   }
+
   return Math.min(max, Math.max(min, value));
 }
 
@@ -24,10 +26,12 @@ function getNumeric(value: unknown): number | undefined {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
   }
+
   if (typeof value === 'string') {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
   }
+
   return undefined;
 }
 
@@ -39,6 +43,17 @@ const sections: FormatSection[] = [
       { id: 'pngx_level', type: 'number', min: 0, max: 6, defaultValue: 5, labelKey: 'formats.pngx.fields.level' },
       { id: 'pngx_strip_safe', type: 'checkbox', defaultValue: true, labelKey: 'formats.pngx.fields.strip_safe' },
       { id: 'pngx_optimize_alpha', type: 'checkbox', defaultValue: true, labelKey: 'formats.pngx.fields.optimize_alpha' },
+      {
+        id: 'pngx_threads',
+        type: 'number',
+        min: 0,
+        max: 64,
+        defaultValue: 0,
+        labelKey: 'formats.pngx.fields.threads',
+        noteKey: 'settingsModal.notes.pngxThreads',
+        requiresThreads: true,
+        excludeFromExport: true,
+      },
     ],
   },
   {
@@ -278,9 +293,9 @@ function normalizePngxOptions(raw?: FormatOptions): FormatOptions {
     normalizedRecord['pngx_lossy_max_colors'] = paletteValue;
   }
 
+  let sliderValue: number;
   const rawDitherValue = getNumeric(normalizedRecord['pngx_lossy_dither_level']);
   const rawDitherAuto = rawRecord ? rawRecord['pngx_lossy_dither_auto'] : undefined;
-  let sliderValue: number;
   if (rawDitherValue === undefined || Number.isNaN(rawDitherValue)) {
     sliderValue = 60;
   } else if (rawDitherValue < 0) {
@@ -295,6 +310,7 @@ function normalizePngxOptions(raw?: FormatOptions): FormatOptions {
   if (!ditherAuto && rawDitherValue !== undefined && rawDitherValue < 0) {
     ditherAuto = true;
   }
+
   if (lossyType !== 1) {
     ditherAuto = false;
   }
@@ -314,6 +330,88 @@ export const pngxFormat: FormatDefinition = {
   normalizeOptions: (raw?: FormatOptions) => normalizePngxOptions(raw),
   async convert({ Module, inputBytes, options }): Promise<Uint8Array> {
     const normalized = normalizePngxOptions(options);
+
+    if (isPngxBridgeInitialized()) {
+      const lossyEnabled = normalized.pngx_lossy_enable as boolean | undefined;
+      const lossyTypeRaw = normalized.pngx_lossy_type;
+      const lossyType = typeof lossyTypeRaw === 'number' ? lossyTypeRaw : typeof lossyTypeRaw === 'string' ? parseInt(lossyTypeRaw, 10) : 0;
+      const optimizationLevel = (normalized.pngx_level as number | undefined) ?? 5;
+      const stripSafe = (normalized.pngx_strip_safe as boolean | undefined) ?? true;
+      const optimizeAlpha = (normalized.pngx_optimize_alpha as boolean | undefined) ?? true;
+
+      if (lossyEnabled && (lossyType === 1 || lossyType === 2)) {
+        return convertPngToPngx(Module, inputBytes, normalized);
+      }
+
+      if (lossyEnabled && lossyType === 0) {
+        let prepareResult;
+
+        try {
+          prepareResult = pngxPalette256Prepare(Module, inputBytes, normalized);
+        } catch {
+          const losslessResult = pngxOptimizeLossless(inputBytes, { optimizationLevel, stripSafe, optimizeAlpha });
+          return losslessResult.length < inputBytes.length ? losslessResult : inputBytes;
+        }
+
+        let quantResult = pngxQuantize(prepareResult.rgba, prepareResult.width, prepareResult.height, {
+          speed: prepareResult.speed,
+          qualityMin: prepareResult.qualityMin,
+          qualityMax: prepareResult.qualityMax,
+          maxColors: prepareResult.maxColors,
+          ditheringLevel: prepareResult.ditherLevel,
+          remap: true,
+          importanceMap: prepareResult.importanceMap ?? undefined,
+          fixedColors: prepareResult.fixedColors ?? undefined,
+        });
+
+        if (quantResult.status === 1 && prepareResult.qualityMin > 0) {
+          quantResult = pngxQuantize(prepareResult.rgba, prepareResult.width, prepareResult.height, {
+            speed: prepareResult.speed,
+            qualityMin: 0,
+            qualityMax: prepareResult.qualityMax,
+            maxColors: prepareResult.maxColors,
+            ditheringLevel: prepareResult.ditherLevel,
+            remap: true,
+            importanceMap: prepareResult.importanceMap ?? undefined,
+            fixedColors: prepareResult.fixedColors ?? undefined,
+          });
+        }
+
+        if (quantResult.status !== 0) {
+          pngxPalette256Cleanup(Module);
+          const losslessResult = pngxOptimizeLossless(inputBytes, { optimizationLevel, stripSafe, optimizeAlpha });
+          return losslessResult.length < inputBytes.length ? losslessResult : inputBytes;
+        }
+
+        let quantizedPng;
+        try {
+          quantizedPng = pngxPalette256Finalize(Module, quantResult.indices, quantResult.palette);
+        } catch {
+          pngxPalette256Cleanup(Module);
+          const losslessResult = pngxOptimizeLossless(inputBytes, { optimizationLevel, stripSafe, optimizeAlpha });
+          return losslessResult.length < inputBytes.length ? losslessResult : inputBytes;
+        } finally {
+          pngxPalette256Cleanup(Module);
+        }
+
+        const optimized = pngxOptimizeLossless(quantizedPng, { optimizationLevel, stripSafe, optimizeAlpha });
+        const lossyCandidate = optimized.length < quantizedPng.length ? optimized : quantizedPng;
+        if (lossyCandidate.length < inputBytes.length) {
+          return lossyCandidate;
+        }
+
+        const losslessOriginal = pngxOptimizeLossless(inputBytes, { optimizationLevel, stripSafe, optimizeAlpha });
+        if (losslessOriginal.length < inputBytes.length) {
+          return losslessOriginal;
+        }
+
+        throw new OutputLargerThanInputError('PNG', inputBytes.length, lossyCandidate.length);
+      }
+
+      const result = pngxOptimizeLossless(inputBytes, { optimizationLevel, stripSafe, optimizeAlpha });
+      return result.length < inputBytes.length ? result : inputBytes;
+    }
+
     return convertPngToPngx(Module, inputBytes, normalized);
   },
 };

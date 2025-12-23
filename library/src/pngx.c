@@ -62,7 +62,7 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config) 
           lossy_speed = COLOPRESSO_PNGX_DEFAULT_LOSSY_SPEED, lossy_type = COLOPRESSO_PNGX_DEFAULT_LOSSY_TYPE, lossy_reduced_bits_rgb = COLOPRESSO_PNGX_DEFAULT_REDUCED_BITS_RGB,
           lossy_reduced_bits_alpha = COLOPRESSO_PNGX_DEFAULT_REDUCED_ALPHA_BITS, tmp, palette256_alpha_bleed_opaque_threshold = COLOPRESSO_PNGX_DEFAULT_PALETTE256_ALPHA_BLEED_OPAQUE_THRESHOLD,
           palette256_alpha_bleed_soft_limit = COLOPRESSO_PNGX_DEFAULT_PALETTE256_ALPHA_BLEED_SOFT_LIMIT;
-  int32_t lossy_reduced_colors = COLOPRESSO_PNGX_DEFAULT_REDUCED_COLORS, clamped;
+  int32_t lossy_reduced_colors = COLOPRESSO_PNGX_DEFAULT_REDUCED_COLORS, clamped, thread_count = 0;
   int16_t palette256_tune_speed_max = PNGX_PALETTE256_TUNE_SPEED_MAX, palette256_tune_quality_min_floor = PNGX_PALETTE256_TUNE_QUALITY_MIN_FLOOR,
           palette256_tune_quality_max_target = PNGX_PALETTE256_TUNE_QUALITY_MAX_TARGET;
   bool strip_safe = COLOPRESSO_PNGX_DEFAULT_STRIP_SAFE, optimize_alpha = COLOPRESSO_PNGX_DEFAULT_OPTIMIZE_ALPHA, lossy_enable = COLOPRESSO_PNGX_DEFAULT_LOSSY_ENABLE, lossy_dither_auto = false,
@@ -190,6 +190,9 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config) 
     if (config->pngx_palette256_tune_quality_max_target >= 0 && config->pngx_palette256_tune_quality_max_target <= 100) {
       palette256_tune_quality_max_target = (int16_t)config->pngx_palette256_tune_quality_max_target;
     }
+    if (config->pngx_threads >= 0) {
+      thread_count = (uint32_t)config->pngx_threads;
+    }
   } else {
     opts->protected_colors = NULL;
     opts->protected_colors_count = 0;
@@ -292,6 +295,7 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config) 
   opts->palette256_tune_speed_max = palette256_tune_speed_max;
   opts->palette256_tune_quality_min_floor = palette256_tune_quality_min_floor;
   opts->palette256_tune_quality_max_target = palette256_tune_quality_max_target;
+  opts->thread_count = thread_count;
 }
 
 bool pngx_run_lossless_optimization(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_data, size_t *out_size) {

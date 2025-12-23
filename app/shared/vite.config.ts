@@ -27,6 +27,7 @@ const buildTarget = process.env.COLOPRESSO_BUILD_TARGET ?? 'electron';
 const inputs: Record<string, string> = {};
 if (buildTarget === 'electron') {
   inputs['renderer'] = path.resolve(electronRoot, 'entries/electronRenderer.tsx');
+  inputs['conversionWorker'] = path.resolve(sharedRoot, 'core/conversionWorker.ts');
 } else if (buildTarget === 'chrome') {
   inputs['sidepanel'] = path.resolve(chromeRoot, 'entries/chromeSidepanel.tsx');
   inputs['offscreen'] = path.resolve(chromeRoot, 'entries/chromeOffscreen.ts');

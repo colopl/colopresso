@@ -24,6 +24,10 @@ if(COLOPRESSO_CHROME_EXTENSION OR COLOPRESSO_ELECTRON_APP)
 endif()
 
 if(_colopresso_gui_enabled)
+  add_compile_definitions(COLOPRESSO_ELECTRON_APP=1)
+endif()
+
+if(_colopresso_gui_enabled)
   set(COLOPRESSO_DISABLE_FILE_OPS ON CACHE BOOL "Disable file operations for Chrome Extension/Electron" FORCE)
   set(COLOPRESSO_WITH_FILE_OPS OFF CACHE BOOL "Enable file operation functions (fopen, fwrite, etc.)" FORCE)
   message(STATUS "File operations disabled for Chrome Extension/Electron build")
@@ -182,6 +186,10 @@ function(colopresso_configure_gui_target PLATFORM DISPLAY_NAME)
     add_dependencies(${TARGET_NAME} colopresso_gui_resources)
   endif()
 
+  if(TARGET pngx_bridge_wasm_build)
+    add_dependencies(${TARGET_NAME} pngx_bridge_wasm_build)
+  endif()
+
   set_target_properties(${TARGET_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}
     OUTPUT_NAME "colopresso"
@@ -202,6 +210,18 @@ function(colopresso_configure_gui_target PLATFORM DISPLAY_NAME)
     COMMAND ${CMAKE_COMMAND} -E remove_directory ${OUTPUT_DIR}/app
     COMMAND ${CMAKE_COMMAND} -E remove_directory ${OUTPUT_DIR}/entries
   )
+
+  if(TARGET pngx_bridge_wasm_build)
+    set(_pngx_bridge_wasm_out_dir "${CMAKE_BINARY_DIR}/pngx_bridge_wasm/pkg")
+    list(APPEND _post_build_commands
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${_pngx_bridge_wasm_out_dir}/pngx_bridge.js"
+        ${RESOURCE_DEST_DIR}/pngx_bridge.js
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${_pngx_bridge_wasm_out_dir}/pngx_bridge_bg.wasm"
+        ${RESOURCE_DEST_DIR}/pngx_bridge_bg.wasm
+    )
+  endif()
 
   set(_cleanup_files
     ${OUTPUT_DIR}/global.d.ts
@@ -288,11 +308,15 @@ set(WASM_EXPORTED_FUNCTIONS
   _emscripten_config_pngx_postprocess_smooth_enable
   _emscripten_config_pngx_postprocess_smooth_importance_cutoff
   _emscripten_config_pngx_protected_colors
+  _emscripten_config_pngx_threads
+  _emscripten_is_threads_enabled
   _emscripten_get_version
   _emscripten_get_libwebp_version
   _emscripten_get_libpng_version
   _emscripten_get_libavif_version
   _emscripten_get_buildtime
+  _emscripten_get_default_thread_count
+  _emscripten_get_max_thread_count
   _cpres_free
   _malloc
   _free
@@ -303,23 +327,22 @@ set(WASM_EXPORTED_FUNCTIONS_STR "['${WASM_EXPORTED_FUNCTIONS_JOIN}']")
 set(WASM_NODE_EXPORTED_FUNCTIONS_STR "['_main','${WASM_EXPORTED_FUNCTIONS_JOIN}']")
 set(WASM_RUNTIME_METHODS "['UTF8ToString','getValue','HEAPU8']")
 
-option(COLOPRESSO_EMSCRIPTEN_USE_EMMALLOC "Use emmalloc allocator" ON)
-set(COLOPRESSO_EMSCRIPTEN_INITIAL_MEMORY 536870912 CACHE STRING "Initial memory (512MB)")
-set(COLOPRESSO_EMSCRIPTEN_MAX_MEMORY 2147483648 CACHE STRING "Maximum memory (2GB)")
-set(COLOPRESSO_EMSCRIPTEN_STACK_SIZE 131072 CACHE STRING "Stack size (128KB)")
+set(COLOPRESSO_EMSCRIPTEN_STACK_SIZE 131072 CACHE STRING "Stack size (128KiB)")
+
+if(COLOPRESSO_ENABLE_THREADS)
+  set(COLOPRESSO_EMSCRIPTEN_INITIAL_MEMORY 2147483648 CACHE STRING "Initial memory size for Emscripten with threads (2GiB)")
+  set(_colopresso_allow_memory_growth 0)
+else()
+  set(COLOPRESSO_EMSCRIPTEN_INITIAL_MEMORY 536870912 CACHE STRING "Initial memory size for Emscripten without threads (512MiB)")
+  set(_colopresso_allow_memory_growth 1)
+endif()
+set(_colopresso_initial_memory "${COLOPRESSO_EMSCRIPTEN_INITIAL_MEMORY}")
 
 set(COMMON_LINK_OPTIONS
-  "-sALLOW_MEMORY_GROWTH=1"
-  "-sINITIAL_MEMORY=${COLOPRESSO_EMSCRIPTEN_INITIAL_MEMORY}"
-  "-sMAXIMUM_MEMORY=${COLOPRESSO_EMSCRIPTEN_MAX_MEMORY}"
+  "-sALLOW_MEMORY_GROWTH=${_colopresso_allow_memory_growth}"
+  "-sINITIAL_MEMORY=${_colopresso_initial_memory}"
   "-sSTACK_SIZE=${COLOPRESSO_EMSCRIPTEN_STACK_SIZE}"
 )
-
-if(COLOPRESSO_EMSCRIPTEN_USE_EMMALLOC)
-  list(APPEND COMMON_LINK_OPTIONS "-sMALLOC=emmalloc")
-else()
-  message(STATUS "Using default malloc (dlmalloc) for 16-byte alignment")
-endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   message(STATUS "Enabling Emscripten debug options")
@@ -331,13 +354,22 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 if(_colopresso_gui_enabled)
-  message(STATUS "Building for Electron / Chrome Extension")
+  if(COLOPRESSO_CHROME_EXTENSION)
+    message(STATUS "Building for Chrome Extension (threads disabled, no SharedArrayBuffer)")
+    set(_gui_environment "web")
+  elseif(COLOPRESSO_ENABLE_THREADS)
+    message(STATUS "Building for Electron with threads enabled")
+    set(_gui_environment "web,node,worker")
+  else()
+    message(STATUS "Building for Electron / Chrome Extension")
+    set(_gui_environment "web,node")
+  endif()
   add_link_options(
     ${COMMON_LINK_OPTIONS}
     "-sEXPORTED_FUNCTIONS=${WASM_EXPORTED_FUNCTIONS_STR}"
     "-sMODULARIZE=1"
     "-sEXPORT_ES6=1"
-    "-sENVIRONMENT=web,node"
+    "-sENVIRONMENT=${_gui_environment}"
     "-sEXPORT_NAME=ColopressoModule"
     "-sFILESYSTEM=0"
     "-sEXPORTED_RUNTIME_METHODS=${WASM_RUNTIME_METHODS}"

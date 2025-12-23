@@ -28,6 +28,7 @@ export function resolveMessage(tree: Record<string, unknown>, key: string): unkn
     const next = (current as Record<string, unknown>)[part];
     current = next;
   }
+
   return current;
 }
 
@@ -35,11 +36,13 @@ export function format(template: string, params?: TranslationParams): string {
   if (!params) {
     return template;
   }
+
   return template.replace(/\{(.*?)\}/g, (match, name) => {
     const value = params[name.trim()];
     if (value === undefined || value === null) {
       return match;
     }
+
     return String(value);
   });
 }
@@ -50,5 +53,6 @@ export function translateForLanguage(bundles: Record<LanguageCode, TranslationBu
   if (typeof raw === 'string') {
     return format(raw, params);
   }
+
   return key;
 }
