@@ -397,8 +397,8 @@ function createWindow(): void {
   const windowOptions = {
     width: 540,
     minWidth: 540,
-    height: 1000,
-    minHeight: 900,
+    height: 960,
+    minHeight: 925,
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
