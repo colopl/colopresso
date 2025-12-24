@@ -371,8 +371,8 @@ static void postprocess_indices_parallel_worker(void *context, uint32_t start, u
   }
 }
 
-static inline void postprocess_indices(uint32_t thread_count, uint8_t *indices, uint32_t width, uint32_t height, const cpres_rgba_color_t *palette, size_t palette_len, const pngx_quant_support_t *support,
-                                       const pngx_options_t *opts) {
+static inline void postprocess_indices(uint32_t thread_count, uint8_t *indices, uint32_t width, uint32_t height, const cpres_rgba_color_t *palette, size_t palette_len,
+                                       const pngx_quant_support_t *support, const pngx_options_t *opts) {
   uint8_t *reference;
   size_t pixel_count;
   float cutoff;
@@ -975,7 +975,8 @@ bool pngx_palette256_finalize(const uint8_t *indices, size_t indices_len, const 
 
   memcpy(mutable_indices, indices, indices_len);
 
-  postprocess_indices(g_palette256_ctx.tuned_opts.thread_count, mutable_indices, g_palette256_ctx.image.width, g_palette256_ctx.image.height, mutable_palette, palette_len, &g_palette256_ctx.support, &g_palette256_ctx.tuned_opts);
+  postprocess_indices(g_palette256_ctx.tuned_opts.thread_count, mutable_indices, g_palette256_ctx.image.width, g_palette256_ctx.image.height, mutable_palette, palette_len, &g_palette256_ctx.support,
+                      &g_palette256_ctx.tuned_opts);
 
   success = pngx_create_palette_png(mutable_indices, indices_len, mutable_palette, palette_len, g_palette256_ctx.image.width, g_palette256_ctx.image.height, out_data, out_size);
 

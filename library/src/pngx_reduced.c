@@ -853,7 +853,8 @@ static inline bool build_color_histogram(const pngx_rgba_image_t *image, const p
   return true;
 }
 
-static inline bool apply_reduced_rgba32_quantization(uint32_t thread_count, color_histogram_t *hist, pngx_rgba_image_t *image, uint32_t target_colors, uint8_t bits_rgb, uint8_t bits_alpha, uint32_t *applied_colors) {
+static inline bool apply_reduced_rgba32_quantization(uint32_t thread_count, color_histogram_t *hist, pngx_rgba_image_t *image, uint32_t target_colors, uint8_t bits_rgb, uint8_t bits_alpha,
+                                                     uint32_t *applied_colors) {
   color_box_t *boxes = NULL, new_box;
   color_map_entry_t *map = NULL;
   uint32_t *palette_seed = NULL, actual_colors = 0, mapped, split_index;
@@ -986,7 +987,6 @@ static inline bool apply_reduced_rgba32_quantization(uint32_t thread_count, colo
   remap_ctx.pixel_count = image->pixel_count;
   remap_ctx.map = map;
   remap_ctx.map_count = map_count;
-
 
 #if COLOPRESSO_ENABLE_THREADS
   colopresso_parallel_for(thread_count, (uint32_t)image->pixel_count, color_remap_parallel_worker, &remap_ctx);
