@@ -21,7 +21,7 @@ import { getFormats, activateFormat, getFormat, getDefaultFormat, normalizeForma
 import { loadFormatConfig, saveFormatConfig, saveSelectedFormatId, loadSelectedFormatId, resetAllStoredData } from '../../shared/core/configStore';
 import { AdvancedSettingsController, setupFormatAwareAdvancedSettings } from '../../shared/core/advancedSettingsModal';
 import Storage from '../../shared/core/storage';
-import { initializeModule, getVersionInfo, isThreadsEnabled, prewarmThreadPool, ModuleWithHelpers, getMaxThreads } from '../../shared/core/converter';
+import { initializeModule, isThreadsEnabled, prewarmThreadPool, ModuleWithHelpers, getMaxThreads } from '../../shared/core/converter';
 import { createConversionWorkerClient, ConversionWorkerClient } from '../../shared/core/conversionWorkerClient';
 import { readFileAsArrayBuffer } from '../../shared/core/files';
 import { FileEntry, FormatDefinition, FormatOptions, SettingsState, StatusMessage, BuildInfoPayload, SETTINGS_SCHEMA_VERSION, SETTINGS_SCHEMA_VERSION_STORAGE_KEY } from '../../shared/types';
