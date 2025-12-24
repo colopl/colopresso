@@ -742,7 +742,7 @@ export function pngxPalette256Prepare(Module: ColopressoModule, pngData: Uint8Ar
   }
 
   const configInstance = createConfig(mod, options);
-  if (!configInstance || !configInstance.configPtr) {
+  if (configInstance.configPtr === 0) {
     throw new Error('Failed to create config');
   }
 
