@@ -13,11 +13,7 @@ set(PNGX_BRIDGE_WASM_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/pngx_bridge_wasm/pkg")
 
 find_program(WASM_PACK_EXECUTABLE wasm-pack)
 if(NOT WASM_PACK_EXECUTABLE)
-  message(STATUS "wasm-pack not found, will attempt to install via cargo")
-  set(_pngx_bridge_wasm_install_wasm_pack TRUE)
-else()
-  set(_pngx_bridge_wasm_install_wasm_pack FALSE)
-  message(STATUS "pngx_bridge_wasm: Found wasm-pack at ${WASM_PACK_EXECUTABLE}")
+  message(FATAL_ERROR "wasm-pack not found.")
 endif()
 
 set(_pngx_bridge_wasm_cc "")
@@ -90,13 +86,6 @@ add_custom_command(
 )
 
 set(_pngx_bridge_wasm_build_commands)
-
-if(_pngx_bridge_wasm_install_wasm_pack)
-  list(APPEND _pngx_bridge_wasm_build_commands
-    COMMAND cargo install wasm-pack
-  )
-endif()
-
 set(_pngx_bridge_wasm_env)
 if(_pngx_bridge_wasm_cc)
   list(APPEND _pngx_bridge_wasm_env

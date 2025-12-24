@@ -167,7 +167,9 @@ jobs:
         uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
           toolchain: stable
-          targets: wasm32-unknown-emscripten
+          targets: wasm32-unknown-emscripten,wasm32-unknown-unknown
+      - name: Setup wasm-pack
+        run: cargo install "wasm-pack"
       - name: Setup emsdk
         shell: pwsh
         working-directory: "third_party/emsdk"
@@ -215,7 +217,9 @@ jobs:
         uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
           toolchain: stable
-          targets: wasm32-unknown-emscripten
+          targets: wasm32-unknown-emscripten,wasm32-unknown-unknown
+      - name: Setup wasm-pack
+        run: cargo install "wasm-pack"
       - name: Setup emsdk
         working-directory: "third_party/emsdk"
         run: |

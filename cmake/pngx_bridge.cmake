@@ -245,10 +245,6 @@ if(PNGX_BRIDGE_ENABLE_MSAN)
   string(APPEND PNGX_BRIDGE_RUSTFLAGS " --cfg pngx_bridge_msan")
 endif()
 
-if(EMSCRIPTEN AND COLOPRESSO_ENABLE_THREADS)
-  string(APPEND PNGX_BRIDGE_RUSTFLAGS " -C target-feature=+atomics,+bulk-memory -C panic=abort")
-endif()
-
 set(PNGX_BRIDGE_SANITIZER_CFLAGS "")
 if(PNGX_BRIDGE_ENABLE_MSAN)
   set(PNGX_BRIDGE_SANITIZER_CFLAGS "-fsanitize=memory -fno-omit-frame-pointer -g")

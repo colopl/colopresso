@@ -44,7 +44,8 @@ RUN --mount=type=cache,target=/opt/rust/cargo/registry,sharing=locked \
     curl --proto '=https' --tlsv1.2 -sSf "https://sh.rustup.rs" | sh -s -- -y --default-toolchain "stable" --profile "minimal" --no-modify-path && \
     echo 'export PATH="${CARGO_HOME}/bin:${PATH}"' > "/etc/profile.d/cargo.sh" && \
     . "/etc/profile.d/cargo.sh" && \
-    rustup target add "wasm32-unknown-emscripten"
+    rustup target add "wasm32-unknown-emscripten" && \
+    rustup target add "wasm32-unknown-unknown"
 
 ARG ENABLE_CLANG
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
