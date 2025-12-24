@@ -20,7 +20,7 @@ use rayon::ThreadPool;
 use std::collections::HashMap;
 #[cfg(not(all(target_arch = "wasm32", feature = "wasm-bindgen")))]
 use std::os::raw::c_int;
-#[cfg(feature = "rayon")]
+#[cfg(not(all(target_arch = "wasm32", feature = "wasm-bindgen")))]
 use std::panic::{catch_unwind, AssertUnwindSafe};
 #[cfg(not(all(target_arch = "wasm32", feature = "wasm-bindgen")))]
 use std::ptr;

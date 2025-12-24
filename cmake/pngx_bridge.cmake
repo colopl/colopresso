@@ -12,6 +12,7 @@ set(PNGX_BRIDGE_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/pngx_bridge")
 
 option(PNGX_BRIDGE_ENABLE_RUST_ASAN "Enable AddressSanitizer instrumentation for the Rust pngx_bridge build (requires nightly) (maybe doesn't work)" OFF)
 option(PNGX_BRIDGE_ENABLE_RUST_MSAN "Enable MemorySanitizer instrumentation for the Rust pngx_bridge build (requires nightly + -Zbuild-std)" ON)
+option(PNGX_BRIDGE_ENABLE_RUST_VALGRIND "Enable Valgrind instrumentation for the Rust pngx_bridge build (requires nightly + -Zbuild-std)" ON)
 
 macro(_pngx_bridge_create_wasm_stub)
   set(PNGX_BRIDGE_USE_WASM_SEPARATION ON)
@@ -81,74 +82,69 @@ bool pngx_bridge_init_threads(int num_threads) { (void)num_threads; return true;
   target_include_directories(pngx_bridge PUBLIC "${PNGX_BRIDGE_BUILD_DIR}/generated")
 endmacro()
 
-if(EMSCRIPTEN AND (COLOPRESSO_CHROME_EXTENSION OR COLOPRESSO_ELECTRON_APP))
-  message(STATUS "pngx_bridge: Using WASM separation for Emscripten GUI build (stable Rust)")
-  _pngx_bridge_create_wasm_stub()
-  return()
-endif()
-
-if(EMSCRIPTEN AND COLOPRESSO_NODE_BUILD AND NOT COLOPRESSO_ENABLE_THREADS)
-  message(STATUS "pngx_bridge: Using WASM separation for Emscripten Node.js build without threads (stable Rust)")
+if(COLOPRESSO_ELECTRON_APP OR COLOPRESSO_CHROME_EXTENSION)
   _pngx_bridge_create_wasm_stub()
   return()
 endif()
 
 set(PNGX_BRIDGE_USE_WASM_SEPARATION OFF)
 
-if(PNGX_BRIDGE_ENABLE_RUST_ASAN AND COLOPRESSO_USE_ASAN)
-  set(PNGX_BRIDGE_ENABLE_ASAN ON)
-else()
-  set(PNGX_BRIDGE_ENABLE_ASAN OFF)
-endif()
-
-if(PNGX_BRIDGE_ENABLE_RUST_MSAN AND COLOPRESSO_USE_MSAN)
-    set(PNGX_BRIDGE_ENABLE_MSAN ON)
-else()
-    set(PNGX_BRIDGE_ENABLE_MSAN OFF)
-endif()
-
-if(COLOPRESSO_USE_ASAN AND NOT PNGX_BRIDGE_ENABLE_ASAN)
-  message(STATUS "pngx_bridge: COLOPRESSO_USE_ASAN=ON but Rust ASan is disabled (set PNGX_BRIDGE_ENABLE_RUST_ASAN=ON to enable)")
-endif()
-if(COLOPRESSO_USE_MSAN AND NOT PNGX_BRIDGE_ENABLE_MSAN)
-  message(STATUS "pngx_bridge: COLOPRESSO_USE_MSAN=ON but Rust MSan is disabled (set PNGX_BRIDGE_ENABLE_RUST_MSAN=ON to enable)")
-endif()
-
 set(_pngx_bridge_artifact libpngx_bridge.a)
 set(_pngx_bridge_target native)
 set(_pngx_bridge_cargo_args)
 
 if(EMSCRIPTEN)
-  set(_pngx_bridge_target wasm32-unknown-emscripten)
-  set(_pngx_bridge_cargo_args --target ${_pngx_bridge_target})
-elseif(WIN32)
+  set(_pngx_bridge_target "wasm32-unknown-emscripten")
+  set(PNGX_BRIDGE_ENABLE_RAYON OFF)
+  message(STATUS "pngx_bridge: Building wasm32-unknown-emscripten staticlib (rayon disabled)")
+else()
+  set(PNGX_BRIDGE_ENABLE_RAYON ON)
+  message(STATUS "pngx_bridge: Rayon multithreading enabled (native build)")
+endif()
+
+if(WIN32 AND NOT EMSCRIPTEN)
   set(_pngx_bridge_artifact pngx_bridge.lib)
+endif()
+
+if(EMSCRIPTEN)
+  set(PNGX_BRIDGE_ENABLE_ASAN OFF)
+  set(PNGX_BRIDGE_ENABLE_MSAN OFF)
+else()
+  if(PNGX_BRIDGE_ENABLE_RUST_ASAN AND COLOPRESSO_USE_ASAN)
+    set(PNGX_BRIDGE_ENABLE_ASAN ON)
+  else()
+    set(PNGX_BRIDGE_ENABLE_ASAN OFF)
+  endif()
+
+  if(PNGX_BRIDGE_ENABLE_RUST_MSAN AND COLOPRESSO_USE_MSAN)
+      set(PNGX_BRIDGE_ENABLE_MSAN ON)
+  else()
+      set(PNGX_BRIDGE_ENABLE_MSAN OFF)
+  endif()
+
+  if (PNGX_BRIDGE_ENABLE_RUST_VALGRIND AND COLOPRESSO_USE_VALGRIND)
+      set(PNGX_BRIDGE_ENABLE_VALGRIND ON)
+  else()
+      set(PNGX_BRIDGE_ENABLE_VALGRIND OFF)
+  endif()
+
+  if(COLOPRESSO_USE_ASAN AND NOT PNGX_BRIDGE_ENABLE_ASAN)
+    message(STATUS "pngx_bridge: COLOPRESSO_USE_ASAN=ON but Rust ASan is disabled (set PNGX_BRIDGE_ENABLE_RUST_ASAN=ON to enable)")
+  endif()
+  if(COLOPRESSO_USE_MSAN AND NOT PNGX_BRIDGE_ENABLE_MSAN)
+    message(STATUS "pngx_bridge: COLOPRESSO_USE_MSAN=ON but Rust MSan is disabled (set PNGX_BRIDGE_ENABLE_RUST_MSAN=ON to enable)")
+  endif()
 endif()
 
 set(PNGX_BRIDGE_RUST_TARGET ${_pngx_bridge_target})
 set(PNGX_BRIDGE_CARGO_FLAGS ${_pngx_bridge_cargo_args})
-set(PNGX_BRIDGE_ENABLE_RAYON OFF)
-if(NOT EMSCRIPTEN)
-  set(PNGX_BRIDGE_ENABLE_RAYON ON)
-  message(STATUS "pngx_bridge: Rayon multithreading enabled (native build)")
-else()
-  message(STATUS "pngx_bridge: Rayon multithreading disabled (Emscripten build, using C pthreads only)")
-endif()
 
 set(_pngx_bridge_rust_profile "release")
 set(_pngx_bridge_sanitizer_rustflags "")
 set(_pngx_bridge_sanitizer_cargo_flags "")
 set(_pngx_bridge_needs_nightly OFF)
 
-if(EMSCRIPTEN AND COLOPRESSO_ENABLE_THREADS)
-  set(_pngx_bridge_needs_nightly ON)
-  list(APPEND _pngx_bridge_sanitizer_cargo_flags
-    "-Zbuild-std=panic_abort,std"
-  )
-  message(STATUS "pngx_bridge: Using -Zbuild-std for Emscripten pthread support (Rust side is single-threaded, C side uses pthreads)")
-endif()
-
-if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT EMSCRIPTEN AND NOT WIN32)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
   # MSan builds are intentionally forced to the Rust release profile to keep build/test time practical (especially with -Zbuild-std).
   if(PNGX_BRIDGE_ENABLE_MSAN)
     message(STATUS "pngx_bridge: MemorySanitizer detected, enabling for Rust build")
@@ -202,6 +198,10 @@ endif()
 
 list(APPEND PNGX_BRIDGE_CARGO_FLAGS ${_pngx_bridge_cargo_profile_arg} ${_pngx_bridge_sanitizer_cargo_flags})
 
+if(NOT PNGX_BRIDGE_RUST_TARGET STREQUAL "native")
+  list(APPEND PNGX_BRIDGE_CARGO_FLAGS "--target" "${PNGX_BRIDGE_RUST_TARGET}")
+endif()
+
 if(PNGX_BRIDGE_ENABLE_RAYON)
   list(APPEND PNGX_BRIDGE_CARGO_FLAGS "--features" "rayon")
 endif()
@@ -237,6 +237,14 @@ add_custom_command(
 )
 
 set(PNGX_BRIDGE_RUSTFLAGS "-A mismatched_lifetime_syntaxes")
+
+if(EMSCRIPTEN)
+  string(APPEND PNGX_BRIDGE_RUSTFLAGS " -Clink-arg=-Wl,--no-entry -Clink-arg=-sSTANDALONE_WASM=0 -Crelocation-model=pic")
+  if(NOT COLOPRESSO_ELECTRON_APP)
+    string(APPEND PNGX_BRIDGE_RUSTFLAGS " -Clink-arg=-sSIDE_MODULE=1")
+  endif()
+endif()
+
 if(_pngx_bridge_sanitizer_rustflags)
   string(APPEND PNGX_BRIDGE_RUSTFLAGS " ${_pngx_bridge_sanitizer_rustflags}")
 endif()
@@ -250,6 +258,8 @@ if(PNGX_BRIDGE_ENABLE_MSAN)
   set(PNGX_BRIDGE_SANITIZER_CFLAGS "-fsanitize=memory -fno-omit-frame-pointer -g")
 elseif(PNGX_BRIDGE_ENABLE_ASAN)
   set(PNGX_BRIDGE_SANITIZER_CFLAGS "-fsanitize=address -fno-omit-frame-pointer -g")
+elseif(EMSCRIPTEN)
+  set(PNGX_BRIDGE_SANITIZER_CFLAGS "-fPIC")
 endif()
 
 set(_pngx_bridge_cargo_env "RUSTFLAGS=${PNGX_BRIDGE_RUSTFLAGS}")
@@ -257,6 +267,24 @@ if(PNGX_BRIDGE_SANITIZER_CFLAGS)
   list(APPEND _pngx_bridge_cargo_env
     "CFLAGS=${PNGX_BRIDGE_SANITIZER_CFLAGS}"
     "CXXFLAGS=${PNGX_BRIDGE_SANITIZER_CFLAGS}")
+endif()
+
+if(PNGX_BRIDGE_ENABLE_MSAN OR COLOPRESSO_USE_VALGRIND)
+  list(APPEND _pngx_bridge_cargo_env
+    "ZSTD_SYS_USE_PKG_CONFIG=0")
+  message(STATUS "pngx_bridge: Forcing zstd-sys to build from source for memory testing instrumentation")
+endif()
+
+if(EMSCRIPTEN)
+  list(APPEND _pngx_bridge_cargo_env
+    "CC=emcc"
+    "CXX=em++"
+    "AR=emar"
+    "CC_wasm32_unknown_emscripten=emcc"
+    "CXX_wasm32_unknown_emscripten=em++"
+    "AR_wasm32_unknown_emscripten=emar"
+    "CFLAGS_wasm32_unknown_emscripten=-fPIC"
+    "CXXFLAGS_wasm32_unknown_emscripten=-fPIC")
 endif()
 
 if(PNGX_BRIDGE_ENABLE_ASAN AND _pngx_bridge_sanitizer_rustflags)
@@ -347,16 +375,23 @@ endif()
 
 list(JOIN PNGX_BRIDGE_CARGO_FLAGS " " _pngx_bridge_cargo_flags_str)
 
+set(_pngx_bridge_build_command
+  ${_pngx_bridge_cargo_command} build
+  --manifest-path "${PNGX_BRIDGE_BUILD_DIR}/Cargo.toml"
+  ${PNGX_BRIDGE_CARGO_FLAGS}
+)
+set(_pngx_bridge_build_comment "Building pngx_bridge (Rust target: ${PNGX_BRIDGE_RUST_TARGET}, flags: ${_pngx_bridge_cargo_flags_str})")
+
 add_custom_command(
   OUTPUT "${PNGX_BRIDGE_LIB_PATH}" "${PNGX_BRIDGE_BUILD_DIR}/generated/pngx_bridge.h"
   COMMAND ${CMAKE_COMMAND} -E echo "Building pngx_bridge (target: ${PNGX_BRIDGE_RUST_TARGET}, profile: ${_pngx_bridge_rust_profile})"
   COMMAND ${CMAKE_COMMAND} -E env ${_pngx_bridge_cargo_env}
-    ${_pngx_bridge_cargo_command} build --manifest-path "${PNGX_BRIDGE_BUILD_DIR}/Cargo.toml" ${PNGX_BRIDGE_CARGO_FLAGS}
+    ${_pngx_bridge_build_command}
   BYPRODUCTS "${PNGX_BRIDGE_BUILD_DIR}/generated/pngx_bridge.h"
   WORKING_DIRECTORY "${PNGX_BRIDGE_BUILD_DIR}"
   DEPENDS
     "${PNGX_BRIDGE_BUILD_DIR}/Cargo.toml"
-  COMMENT "Building pngx_bridge (Rust target: ${PNGX_BRIDGE_RUST_TARGET}, flags: ${_pngx_bridge_cargo_flags_str})"
+  COMMENT "${_pngx_bridge_build_comment}"
   VERBATIM
 )
 

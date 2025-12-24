@@ -159,9 +159,13 @@ Examples:
 
 - Fast CI-like Valgrind run:
     - `rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_VALGRIND=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_VALGRIND_TRACK_ORIGINS=OFF -DCOLOPRESSO_VALGRIND_RAYON_NUM_THREADS=1`
+    - `cmake --build "build" --parallel`
+    - `ctest --test-dir "build" --output-on-failure --parallel`
 
 - Deep investigation (uninitialized origin tracking):
     - `rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_VALGRIND=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_VALGRIND_TRACK_ORIGINS=ON -DCOLOPRESSO_VALGRIND_RAYON_NUM_THREADS=1`
+    - `cmake --build "build" --parallel`
+    - `ctest --test-dir "build" --output-on-failure --parallel`
 
 - Run only a specific Valgrind test:
     - `ctest --test-dir "build" --output-on-failure -R '^test_encode_pngx_memory_valgrind$'`
@@ -216,7 +220,7 @@ Examples:
 
 1. In `third_party/emsdk`, run `./emsdk install <tag>` / `./emsdk activate <tag>` and source `. ./emsdk_env.sh`
 2. `rm -rf "build" && emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--mac"`
-3. `cmake --build "build" --config Release --parallel`
+3. `cmake --build "build" --config "Release" --parallel`
 4. Artifacts are written to `dist_build/colopresso-<version>_{x64,arm64}.dmg`
 
 ### Windows
@@ -226,7 +230,7 @@ Examples:
 
 1. Run `third_party/emsdk\emsdk.ps1 install <tag>` / `activate <tag>` and apply `emsdk_env.ps1`
 1. `rm -rf "build" && emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--win"`
-1. `cmake --build "build" --config Release --parallel`
+1. `cmake --build "build" --config "Release" --parallel`
 1. Artifacts appear as `dist_build/colopresso-<version>_{ia32,x64,arm64}.exe`
 
 ## License

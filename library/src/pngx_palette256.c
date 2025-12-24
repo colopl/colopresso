@@ -483,6 +483,8 @@ static inline bool memory_buffer_reserve(png_memory_buffer_t *buffer, size_t add
   return true;
 }
 
+/* Excluded from coverage as this is only called in rare cases such as malloc failure. */
+/* LCOV_EXCL_START */
 static inline void memory_buffer_reset(png_memory_buffer_t *buffer) {
   if (!buffer) {
     return;
@@ -493,6 +495,7 @@ static inline void memory_buffer_reset(png_memory_buffer_t *buffer) {
   buffer->size = 0;
   buffer->capacity = 0;
 }
+/* LCOV_EXCL_STOP */
 
 static inline void memory_write(png_structp png_ptr, png_bytep data, png_size_t length) {
   png_memory_buffer_t *buffer = (png_memory_buffer_t *)png_get_io_ptr(png_ptr);
@@ -686,13 +689,12 @@ bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pn
   PngxBridgeQuantParams params = {0}, fallback_params = {0};
   PngxBridgeQuantOutput output = {0};
   PngxBridgeQuantStatus status;
-  pngx_options_t tuned_opts;
-  pngx_quant_support_t support = {0};
-  pngx_image_stats_t stats;
-  pngx_rgba_image_t image;
-  size_t pixel_count;
-  float resolved_dither, estimated_dither, gradient_dither_floor;
-  bool prefer_uniform, relaxed_quality, success;
+  uint8_t *rgba, *importance_map, *fixed_colors, quality_min, quality_max;
+  uint32_t width, height, max_colors;
+  int32_t speed;
+  size_t pixel_count, importance_map_len, fixed_colors_len;
+  float dither_level;
+  bool relaxed_quality, success;
 
   if (!png_data || png_size == 0 || !opts || !out_data || !out_size) {
     return false;
@@ -702,61 +704,29 @@ bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pn
     *quant_quality = -1;
   }
 
-  if (!load_rgba_image(png_data, png_size, &image)) {
+  if (!pngx_palette256_prepare(png_data, png_size, opts, &rgba, &width, &height, &importance_map, &importance_map_len, &speed, &quality_min, &quality_max, &max_colors, &dither_level, &fixed_colors,
+                               &fixed_colors_len)) {
     return false;
   }
 
-  alpha_bleed_rgb_from_opaque(image.rgba, image.width, image.height, opts);
+  pixel_count = (size_t)width * (size_t)height;
 
-  pixel_count = image.pixel_count;
-  image_stats_reset(&stats);
-  if (!prepare_quant_support(&image, opts, &support, &stats)) {
-    rgba_image_reset(&image);
-    quant_support_reset(&support);
-
-    return false;
-  }
-
-  tuned_opts = *opts;
-  prefer_uniform = opts->palette256_gradient_profile_enable ? is_smooth_gradient_profile(&stats, &tuned_opts) : false;
-  if (prefer_uniform) {
-    tuned_opts.saliency_map_enable = false;
-    tuned_opts.chroma_anchor_enable = false;
-    tuned_opts.postprocess_smooth_enable = false;
-  } else {
-    build_fixed_palette(opts, &support, &tuned_opts);
-  }
-
-  resolved_dither = resolve_quant_dither(opts, &stats);
-
-  if (opts->lossy_dither_auto) {
-    estimated_dither = estimate_bitdepth_dither_level(image.rgba, image.width, image.height, 8);
-    if (estimated_dither > resolved_dither) {
-      resolved_dither = estimated_dither;
-    }
-  }
-
-  gradient_dither_floor = tuned_opts.palette256_gradient_profile_dither_floor;
-  if (gradient_dither_floor < 0.0f) {
-    gradient_dither_floor = PNGX_PALETTE256_GRADIENT_PROFILE_DITHER_FLOOR;
-  }
-
-  if (prefer_uniform && resolved_dither < gradient_dither_floor) {
-    resolved_dither = gradient_dither_floor;
-  }
-
-  tuned_opts.lossy_dither_level = resolved_dither;
-
-  fill_quant_params(&params, &tuned_opts, prefer_uniform ? NULL : support.importance_map, prefer_uniform ? 0 : support.importance_map_len);
-
-  params.dithering_level = resolved_dither;
-
-  tune_quant_params_for_image(&params, &tuned_opts, &stats);
+  params.speed = speed;
+  params.quality_min = quality_min;
+  params.quality_max = quality_max;
+  params.max_colors = max_colors;
+  params.min_posterization = -1;
+  params.dithering_level = dither_level;
+  params.importance_map = importance_map;
+  params.importance_map_len = importance_map_len;
+  params.fixed_colors = (const cpres_rgba_color_t *)fixed_colors;
+  params.fixed_colors_len = fixed_colors_len;
+  params.remap = true;
 
   output.quality = -1;
   relaxed_quality = false;
 
-  status = pngx_bridge_quantize((const cpres_rgba_color_t *)image.rgba, pixel_count, image.width, image.height, &params, &output);
+  status = pngx_bridge_quantize((const cpres_rgba_color_t *)rgba, pixel_count, width, height, &params, &output);
   pngx_set_last_error((int)status);
 
   if (status == PNGX_BRIDGE_QUANT_STATUS_QUALITY_TOO_LOW && params.quality_min > 0) {
@@ -773,7 +743,7 @@ bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pn
     output.indices_len = 0;
     output.quality = -1;
 
-    status = pngx_bridge_quantize((const cpres_rgba_color_t *)image.rgba, pixel_count, image.width, image.height, &fallback_params, &output);
+    status = pngx_bridge_quantize((const cpres_rgba_color_t *)rgba, pixel_count, width, height, &fallback_params, &output);
     pngx_set_last_error((int)status);
     if (status == PNGX_BRIDGE_QUANT_STATUS_OK) {
       relaxed_quality = true;
@@ -782,8 +752,7 @@ bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pn
 
   if (status != PNGX_BRIDGE_QUANT_STATUS_OK) {
     free_quant_output(&output);
-    rgba_image_reset(&image);
-    quant_support_reset(&support);
+    pngx_palette256_cleanup();
     if (status == PNGX_BRIDGE_QUANT_STATUS_QUALITY_TOO_LOW) {
       colopresso_log(CPRES_LOG_LEVEL_WARNING, "PNGX: Quantization quality too low");
     }
@@ -801,14 +770,12 @@ bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pn
 
   success = false;
   if (output.indices && output.indices_len == pixel_count && output.palette && output.palette_len > 0 && output.palette_len <= 256) {
-    sanitize_transparent_palette(output.palette, output.palette_len);
-    postprocess_indices(output.indices, image.width, image.height, output.palette, output.palette_len, &support, &tuned_opts);
-    success = pngx_create_palette_png(output.indices, output.indices_len, output.palette, output.palette_len, image.width, image.height, out_data, out_size);
+    success = pngx_palette256_finalize(output.indices, output.indices_len, output.palette, output.palette_len, out_data, out_size);
+  } else {
+    pngx_palette256_cleanup();
   }
 
   free_quant_output(&output);
-  rgba_image_reset(&image);
-  quant_support_reset(&support);
 
   return success;
 }

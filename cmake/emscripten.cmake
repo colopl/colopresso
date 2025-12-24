@@ -10,13 +10,7 @@
 message(STATUS "Configuring for Emscripten")
 
 set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ON CACHE INTERNAL "" FORCE)
-
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
-
-option(COLOPRESSO_CHROME_EXTENSION "Build for Chrome Extension" OFF)
-option(COLOPRESSO_ELECTRON_APP "Build for Electron" OFF)
-option(COLOPRESSO_NODE_BUILD "Build for Node.js" ON)
-set(COLOPRESSO_ELECTRON_TARGETS "" CACHE STRING "Comma-separated electron-builder targets (e.g. --mac,--win)")
 
 set(_colopresso_gui_enabled OFF)
 if(COLOPRESSO_CHROME_EXTENSION OR COLOPRESSO_ELECTRON_APP)

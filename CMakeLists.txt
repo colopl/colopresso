@@ -25,6 +25,16 @@ option(COLOPRESSO_USE_TESTS "Build tests" OFF)
 option(COLOPRESSO_USE_UTILS "Build utility programs" OFF)
 option(COLOPRESSO_USE_CLI "Build unified CLI application" OFF)
 option(COLOPRESSO_WITH_FILE_OPS "Enable file operation functions (fopen, fwrite, etc.)" ON)
+option(COLOPRESSO_ENABLE_THREADS "Enable threads support" ON)
+
+if(EMSCRIPTEN)
+  option(COLOPRESSO_CHROME_EXTENSION "Build for Chrome Extension" OFF)
+  option(COLOPRESSO_ELECTRON_APP "Build for Electron" OFF)
+  option(COLOPRESSO_NODE_BUILD "Build for Node.js" ON)
+  set(COLOPRESSO_ELECTRON_TARGETS "" CACHE STRING "Comma-separated electron-builder targets (e.g. --mac,--win)")
+  set(AOM_TARGET_CPU "generic" CACHE STRING "Target CPU for libaom" FORCE)
+  set(ENABLE_NASM OFF CACHE BOOL "Disable NASM for libaom" FORCE)
+endif()
 
 file(GLOB_RECURSE COLOPRESSO_SOURCES "library/src/*.c")
 
@@ -34,11 +44,6 @@ if(NOT COLOPRESSO_WITH_FILE_OPS)
 endif()
 
 include(cmake/buildtime.cmake)
-
-if(EMSCRIPTEN)
-  set(AOM_TARGET_CPU generic CACHE STRING "Target CPU for libaom when building with Emscripten" FORCE)
-  set(ENABLE_NASM 0 CACHE BOOL "Disable NASM for libaom when building with Emscripten" FORCE)
-endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT EMSCRIPTEN AND NOT MSVC)
   include(cmake/debug.cmake)
@@ -57,6 +62,10 @@ if(COLOPRESSO_ENABLE_COVERAGE)
 endif()
 
 include(cmake/pngx_bridge.cmake)
+
+if(EMSCRIPTEN)
+  include(cmake/emscripten.cmake)
+endif()
 
 colopresso_apply_threads_link_options()
 
@@ -79,10 +88,6 @@ elseif(WIN32)
 endif()
 if(_colopresso_platform_libs)
   target_link_libraries(colopresso PUBLIC ${_colopresso_platform_libs})
-endif()
-
-if(EMSCRIPTEN)
-  include(cmake/emscripten.cmake)
 endif()
 
 function(colopresso_sync_file_ops)

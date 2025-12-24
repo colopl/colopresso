@@ -7,9 +7,10 @@
 # Author: Go Kudo <g-kudo@colopl.co.jp>
 # Developed with AI (LLM) code assistance. See `NOTICE` for details.
 
-option(COLOPRESSO_ENABLE_THREADS "Enable threads for multi-threaded image processing" ON)
-
-if(COLOPRESSO_CHROME_EXTENSION AND COLOPRESSO_ENABLE_THREADS)
+if(EMSCRIPTEN AND NOT COLOPRESSO_ELECTRON_APP AND COLOPRESSO_ENABLE_THREADS)
+  message(STATUS "pthreads disabled for Emscripten build (non-Electron)")
+  set(COLOPRESSO_ENABLE_THREADS OFF CACHE BOOL "Pthreads disabled for Emscripten" FORCE)
+elseif(COLOPRESSO_CHROME_EXTENSION AND COLOPRESSO_ENABLE_THREADS)
   message(STATUS "pthreads disabled for Chrome Extension (SharedArrayBuffer unavailable)")
   set(COLOPRESSO_ENABLE_THREADS OFF CACHE BOOL "Pthreads disabled for Chrome Extension" FORCE)
 endif()
@@ -25,7 +26,6 @@ endfunction()
 function(colopresso_apply_threads_link_options)
   if(COLOPRESSO_ENABLE_THREADS)
     message(STATUS "threads support enabled")
-
     target_compile_definitions(colopresso PUBLIC COLOPRESSO_ENABLE_THREADS=1)
 
     if(EMSCRIPTEN)

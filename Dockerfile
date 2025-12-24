@@ -45,7 +45,8 @@ RUN --mount=type=cache,target=/opt/rust/cargo/registry,sharing=locked \
     echo 'export PATH="${CARGO_HOME}/bin:${PATH}"' > "/etc/profile.d/cargo.sh" && \
     . "/etc/profile.d/cargo.sh" && \
     rustup target add "wasm32-unknown-emscripten" && \
-    rustup target add "wasm32-unknown-unknown"
+    rustup target add "wasm32-unknown-unknown" && \
+    cargo install "wasm-pack"
 
 ARG ENABLE_CLANG
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
