@@ -10,7 +10,7 @@
  */
 
 import { initializeModule, getVersionInfo, isThreadsEnabled, ModuleWithHelpers } from '../../shared/core/converter';
-import { initPngxBridge, isPngxBridgeInitialized, pngxOxipngVersion, pngxLibimagequantVersion } from '../../shared/core/pngxBridge';
+import { initPngxBridge, isPngxBridgeInitialized } from '../../shared/core/pngxBridge';
 import { getDefaultFormat, getFormat, normalizeFormatOptions } from '../../shared/formats';
 import { FormatDefinition, FormatOptions } from '../../shared/types';
 // @ts-ignore
