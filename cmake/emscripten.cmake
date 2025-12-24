@@ -338,6 +338,18 @@ set(COMMON_LINK_OPTIONS
   "-sSTACK_SIZE=${COLOPRESSO_EMSCRIPTEN_STACK_SIZE}"
 )
 
+if(COLOPRESSO_ENABLE_WASM_SIMD)
+  list(APPEND COMMON_LINK_OPTIONS
+    "-msimd128"
+    "-msse"
+    "-msse2"
+    "-msse3"
+    "-mssse3"
+    "-msse4.1"
+  )
+  message(STATUS "WASM SIMD128 link options enabled")
+endif()
+
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   message(STATUS "Enabling Emscripten debug options")
   add_link_options(

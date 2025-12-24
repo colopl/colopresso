@@ -19,6 +19,7 @@
 
 #include "internal/log.h"
 #include "internal/pngx_common.h"
+#include "internal/simd.h"
 #include "internal/threads.h"
 
 typedef struct {
@@ -85,6 +86,19 @@ typedef struct {
   uint8_t *bit_hint_map;
   size_t bit_hint_len;
 } reduce_bitdepth_parallel_ctx_t;
+
+typedef struct {
+  uint8_t *rgba;
+  size_t pixel_count;
+  const color_map_entry_t *map;
+  size_t map_count;
+} color_remap_parallel_ctx_t;
+
+typedef struct {
+  const uint8_t *rgba;
+  uint32_t *packed;
+  size_t pixel_count;
+} pack_rgba_parallel_ctx_t;
 
 static int compare_entries_r(const void *lhs, const void *rhs) {
   const color_entry_t *a = (const color_entry_t *)lhs, *b = (const color_entry_t *)rhs;
@@ -180,13 +194,6 @@ static uint32_t box_representative_color(const color_entry_t *entries, const col
 }
 
 static inline uint8_t color_component(uint32_t color, uint8_t channel) { return (uint8_t)((color >> (channel * 8)) & 0xff); }
-
-static inline uint32_t color_distance_sq_u32(uint32_t lhs, uint32_t rhs) {
-  int32_t dr = (int32_t)color_component(lhs, 0) - (int32_t)color_component(rhs, 0), dg = (int32_t)color_component(lhs, 1) - (int32_t)color_component(rhs, 1),
-          db = (int32_t)color_component(lhs, 2) - (int32_t)color_component(rhs, 2), da = (int32_t)color_component(lhs, 3) - (int32_t)color_component(rhs, 3);
-
-  return (uint32_t)(dr * dr + dg * dg + db * db + da * da);
-}
 
 static inline void unpack_rgba_u32(uint32_t color, uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a) {
   if (r) {
@@ -533,6 +540,34 @@ static inline const color_map_entry_t *find_color_mapping(const color_map_entry_
   return NULL;
 }
 
+static void color_remap_parallel_worker(void *context, uint32_t start, uint32_t end) {
+  color_remap_parallel_ctx_t *ctx = (color_remap_parallel_ctx_t *)context;
+  const color_map_entry_t *mapping;
+  uint8_t *px;
+  uint32_t original;
+  size_t i, base;
+
+  if (!ctx || !ctx->rgba || !ctx->map || ctx->map_count == 0) {
+    return;
+  }
+
+  for (i = (size_t)start; i < (size_t)end && i < ctx->pixel_count; ++i) {
+    base = i * PNGX_RGBA_CHANNELS;
+    px = &ctx->rgba[base];
+    if (px[3] <= PNGX_REDUCED_ALPHA_NEAR_TRANSPARENT) {
+      continue;
+    }
+    original = pack_rgba_u32(px[0], px[1], px[2], px[3]);
+    mapping = find_color_mapping(ctx->map, ctx->map_count, original);
+
+    if (!mapping) {
+      continue;
+    }
+
+    unpack_rgba_u32(mapping->mapped_color, &px[0], &px[1], &px[2], &px[3]);
+  }
+}
+
 static inline void refine_reduced_palette(color_entry_t *entries, size_t unlocked_count, const uint32_t *seed_palette, const uint8_t *palette_bits_rgb, const uint8_t *palette_bits_alpha,
                                           size_t palette_count) {
   const size_t max_iter = 3;
@@ -587,7 +622,7 @@ static inline void refine_reduced_palette(color_entry_t *entries, size_t unlocke
       weight = entries[i].count ? entries[i].count : 1;
 
       for (candidate = 0; candidate < palette_count; ++candidate) {
-        dist = color_distance_sq_u32(color, palette[candidate]);
+        dist = simd_color_distance_sq_u32(color, palette[candidate]);
         if (dist < best_dist) {
           best_dist = dist;
           best_index = candidate;
@@ -633,7 +668,7 @@ static inline void refine_reduced_palette(color_entry_t *entries, size_t unlocke
     best_index = 0;
 
     for (candidate = 0; candidate < palette_count; ++candidate) {
-      dist = color_distance_sq_u32(color, palette[candidate]);
+      dist = simd_color_distance_sq_u32(color, palette[candidate]);
       if (dist < best_dist) {
         best_dist = dist;
         best_index = candidate;
@@ -818,13 +853,13 @@ static inline bool build_color_histogram(const pngx_rgba_image_t *image, const p
   return true;
 }
 
-static inline bool apply_reduced_rgba32_quantization(color_histogram_t *hist, pngx_rgba_image_t *image, uint32_t target_colors, uint8_t bits_rgb, uint8_t bits_alpha, uint32_t *applied_colors) {
-  const color_map_entry_t *mapping;
+static inline bool apply_reduced_rgba32_quantization(uint32_t thread_count, color_histogram_t *hist, pngx_rgba_image_t *image, uint32_t target_colors, uint8_t bits_rgb, uint8_t bits_alpha, uint32_t *applied_colors) {
   color_box_t *boxes = NULL, new_box;
   color_map_entry_t *map = NULL;
-  uint32_t *palette_seed = NULL, actual_colors = 0, mapped, original, split_index;
-  uint8_t *palette_bits_rgb = NULL, *palette_bits_alpha = NULL, r, g, b, a, *px;
+  uint32_t *palette_seed = NULL, actual_colors = 0, mapped, split_index;
+  uint8_t *palette_bits_rgb = NULL, *palette_bits_alpha = NULL, r, g, b, a;
   size_t box_count = 0, map_count, i, idx;
+  color_remap_parallel_ctx_t remap_ctx;
 
   if (!hist || !image || target_colors == 0) {
     if (applied_colors) {
@@ -947,20 +982,17 @@ static inline bool apply_reduced_rgba32_quantization(color_histogram_t *hist, pn
 
   qsort(map, map_count, sizeof(*map), compare_color_map_by_color);
 
-  for (i = 0; i < image->pixel_count; ++i) {
-    px = &image->rgba[i * PNGX_RGBA_CHANNELS];
-    if (px[3] <= PNGX_REDUCED_ALPHA_NEAR_TRANSPARENT) {
-      continue;
-    }
-    original = pack_rgba_u32(px[0], px[1], px[2], px[3]);
-    mapping = find_color_mapping(map, map_count, original);
+  remap_ctx.rgba = image->rgba;
+  remap_ctx.pixel_count = image->pixel_count;
+  remap_ctx.map = map;
+  remap_ctx.map_count = map_count;
 
-    if (!mapping) {
-      continue;
-    }
 
-    unpack_rgba_u32(mapping->mapped_color, &px[0], &px[1], &px[2], &px[3]);
-  }
+#if COLOPRESSO_ENABLE_THREADS
+  colopresso_parallel_for(thread_count, (uint32_t)image->pixel_count, color_remap_parallel_worker, &remap_ctx);
+#else
+  color_remap_parallel_worker(&remap_ctx, 0, (uint32_t)image->pixel_count);
+#endif
 
   qsort(map, map_count, sizeof(*map), compare_color_map_by_mapped);
   for (i = 0; i < map_count; ++i) {
@@ -982,9 +1014,23 @@ static inline bool apply_reduced_rgba32_quantization(color_histogram_t *hist, pn
   return true;
 }
 
+static void pack_rgba_parallel_worker(void *context, uint32_t start, uint32_t end) {
+  pack_rgba_parallel_ctx_t *ctx = (pack_rgba_parallel_ctx_t *)context;
+  size_t i, base;
+
+  if (!ctx || !ctx->rgba || !ctx->packed) {
+    return;
+  }
+
+  for (i = (size_t)start; i < (size_t)end && i < ctx->pixel_count; ++i) {
+    base = i * 4;
+    ctx->packed[i] = pack_rgba_u32(ctx->rgba[base + 0], ctx->rgba[base + 1], ctx->rgba[base + 2], ctx->rgba[base + 3]);
+  }
+}
+
 static inline bool pack_sorted_rgba(const uint8_t *rgba, size_t pixel_count, uint32_t **out_sorted) {
   uint32_t *packed;
-  size_t base, i;
+  pack_rgba_parallel_ctx_t ctx;
 
   if (!rgba || pixel_count == 0 || !out_sorted) {
     return false;
@@ -999,10 +1045,15 @@ static inline bool pack_sorted_rgba(const uint8_t *rgba, size_t pixel_count, uin
     return false;
   }
 
-  for (i = 0; i < pixel_count; ++i) {
-    base = i * 4;
-    packed[i] = pack_rgba_u32(rgba[base + 0], rgba[base + 1], rgba[base + 2], rgba[base + 3]);
-  }
+  ctx.rgba = rgba;
+  ctx.packed = packed;
+  ctx.pixel_count = pixel_count;
+
+#if COLOPRESSO_ENABLE_THREADS
+  colopresso_parallel_for(0, (uint32_t)pixel_count, pack_rgba_parallel_worker, &ctx);
+#else
+  pack_rgba_parallel_worker(&ctx, 0, (uint32_t)pixel_count);
+#endif
 
   qsort(packed, pixel_count, sizeof(uint32_t), compare_u32);
   *out_sorted = packed;
@@ -1195,12 +1246,12 @@ static inline bool enforce_manual_reduced_limit(uint32_t thread_count, pngx_rgba
     source = freq[idx].color;
     best_keep = keep_indices[0];
     best_color = freq[best_keep].color;
-    best_dist = color_distance_sq_u32(source, best_color);
+    best_dist = simd_color_distance_sq_u32(source, best_color);
 
     for (keep_idx = 1; keep_idx < keep_count; ++keep_idx) {
       candidate_index = keep_indices[keep_idx];
       candidate_color = freq[candidate_index].color;
-      distance = color_distance_sq_u32(source, candidate_color);
+      distance = simd_color_distance_sq_u32(source, candidate_color);
 
       if (distance < best_dist) {
         best_dist = distance;
@@ -2083,15 +2134,15 @@ static inline uint32_t resolve_reduced_rgba32_target(const color_histogram_t *hi
 }
 
 bool pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint32_t *resolved_target, uint32_t *applied_colors, uint8_t **out_data, size_t *out_size) {
-  pngx_rgba_image_t image;
-  color_histogram_t histogram;
-  pngx_quant_support_t support = {0};
-  pngx_image_stats_t stats;
-  pngx_options_t tuned_opts;
   uint32_t target = 0, actual = 0, manual_limit = 0, auto_trim_limit = 0, grid_cap;
   uint8_t bits_rgb, bits_alpha;
   size_t grid_unique, passthrough_threshold;
   bool wrote, manual_target = false, success, auto_target, grid_passthrough, auto_trim_applied = false;
+  pngx_rgba_image_t image;
+  pngx_quant_support_t support = {0};
+  pngx_image_stats_t stats;
+  pngx_options_t tuned_opts;
+  color_histogram_t histogram;
 
   if (!png_data || png_size == 0 || !opts || !out_data || !out_size) {
     return false;
@@ -2190,7 +2241,7 @@ bool pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t png_size, cons
     actual = (uint32_t)histogram.count;
     snap_rgba_image_to_bits(opts->thread_count, image.rgba, image.pixel_count, bits_rgb, bits_alpha);
   } else {
-    if (!apply_reduced_rgba32_quantization(&histogram, &image, target, bits_rgb, bits_alpha, &actual)) {
+    if (!apply_reduced_rgba32_quantization(opts->thread_count, &histogram, &image, target, bits_rgb, bits_alpha, &actual)) {
       color_histogram_reset(&histogram);
       quant_support_reset(&support);
       rgba_image_reset(&image);

@@ -100,6 +100,10 @@ if(_pngx_bridge_wasm_ar)
   )
 endif()
 
+list(APPEND _pngx_bridge_wasm_env
+  "RUSTFLAGS=-C target-feature=+simd128"
+)
+
 list(APPEND _pngx_bridge_wasm_build_commands
   COMMAND ${CMAKE_COMMAND} -E echo "Building pngx_bridge WASM module with wasm-pack"
   COMMAND ${CMAKE_COMMAND} -E env ${_pngx_bridge_wasm_env}

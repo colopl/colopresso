@@ -19,6 +19,7 @@
 #include "internal/log.h"
 #include "internal/png.h"
 #include "internal/pngx_common.h"
+#include "internal/simd.h"
 #include "internal/threads.h"
 
 typedef struct {
@@ -376,34 +377,29 @@ void snap_rgba_image_to_bits(uint32_t thread_count, uint8_t *rgba, size_t pixel_
     return;
   }
 
-#if COLOPRESSO_ENABLE_THREADS
   ctx.rgba = rgba;
   ctx.pixel_count = pixel_count;
   ctx.bits_rgb = bits_rgb;
   ctx.bits_alpha = bits_alpha;
+
+#if COLOPRESSO_ENABLE_THREADS
   colopresso_parallel_for(thread_count, (uint32_t)pixel_count, snap_rgba_parallel_worker, &ctx);
 #else
-  ctx.rgba = rgba;
-  ctx.pixel_count = pixel_count;
-  ctx.bits_rgb = bits_rgb;
-  ctx.bits_alpha = bits_alpha;
   snap_rgba_parallel_worker(&ctx, 0, (uint32_t)pixel_count);
 #endif
 }
 
 uint32_t color_distance_sq(const cpres_rgba_color_t *lhs, const cpres_rgba_color_t *rhs) {
-  int32_t dr, dg, db, da;
+  uint32_t lhs_packed, rhs_packed;
 
   if (!lhs || !rhs) {
     return 0;
   }
 
-  dr = (int32_t)lhs->r - (int32_t)rhs->r;
-  dg = (int32_t)lhs->g - (int32_t)rhs->g;
-  db = (int32_t)lhs->b - (int32_t)rhs->b;
-  da = (int32_t)lhs->a - (int32_t)rhs->a;
+  lhs_packed = (uint32_t)lhs->r | ((uint32_t)lhs->g << 8) | ((uint32_t)lhs->b << 16) | ((uint32_t)lhs->a << 24);
+  rhs_packed = (uint32_t)rhs->r | ((uint32_t)rhs->g << 8) | ((uint32_t)rhs->b << 16) | ((uint32_t)rhs->a << 24);
 
-  return (uint32_t)(dr * dr + dg * dg + db * db + da * da);
+  return simd_color_distance_sq_u32(lhs_packed, rhs_packed);
 }
 
 float estimate_bitdepth_dither_level(const uint8_t *rgba, png_uint_32 width, png_uint_32 height, uint8_t bits_per_channel) {

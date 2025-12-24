@@ -17,6 +17,7 @@
 
 #include "internal/log.h"
 #include "internal/pngx_common.h"
+#include "internal/threads.h"
 
 typedef struct {
   pngx_rgba_image_t image;
@@ -27,6 +28,17 @@ typedef struct {
   bool prefer_uniform;
   bool initialized;
 } palette256_context_t;
+
+typedef struct {
+  uint8_t *indices;
+  const uint8_t *reference;
+  uint32_t width;
+  uint32_t height;
+  const cpres_rgba_color_t *palette;
+  size_t palette_len;
+  const uint8_t *importance_map;
+  float cutoff;
+} postprocess_indices_parallel_ctx_t;
 
 static palette256_context_t g_palette256_ctx = {0};
 
@@ -266,13 +278,105 @@ static inline void tune_quant_params_for_image(PngxBridgeQuantParams *params, co
   }
 }
 
-static inline void postprocess_indices(uint8_t *indices, uint32_t width, uint32_t height, const cpres_rgba_color_t *palette, size_t palette_len, const pngx_quant_support_t *support,
-                                       const pngx_options_t *opts) {
-  uint32_t x, y, dist_sq;
-  uint8_t base_color, importance, neighbor_colors[4], neighbor_used, *reference, candidate;
-  size_t pixel_count, idx;
-  float cutoff;
+static void postprocess_indices_parallel_worker(void *context, uint32_t start, uint32_t end) {
+  postprocess_indices_parallel_ctx_t *ctx = (postprocess_indices_parallel_ctx_t *)context;
+  uint32_t x, y, dist_sq, idx_start_y, idx_end_y;
+  uint8_t base_color, importance, neighbor_colors[4], neighbor_used, candidate;
+  size_t idx;
   bool neighbor_has_base;
+
+  if (!ctx || !ctx->indices || !ctx->reference || !ctx->importance_map) {
+    return;
+  }
+
+  idx_start_y = start;
+  idx_end_y = end;
+  if (idx_end_y > ctx->height) {
+    idx_end_y = ctx->height;
+  }
+
+  for (y = idx_start_y; y < idx_end_y; ++y) {
+    for (x = 0; x < ctx->width; ++x) {
+      idx = (size_t)y * (size_t)ctx->width + (size_t)x;
+      base_color = ctx->reference[idx];
+      importance = ctx->importance_map[idx];
+      neighbor_used = 0;
+      neighbor_has_base = false;
+
+      if (ctx->cutoff >= 0.0f && ((float)importance / 255.0f) >= ctx->cutoff) {
+        continue;
+      }
+
+      if (x > 0) {
+        neighbor_colors[neighbor_used] = ctx->reference[idx - 1];
+        if (neighbor_colors[neighbor_used] == base_color) {
+          neighbor_has_base = true;
+        }
+        ++neighbor_used;
+      }
+      if (x + 1 < ctx->width) {
+        neighbor_colors[neighbor_used] = ctx->reference[idx + 1];
+        if (neighbor_colors[neighbor_used] == base_color) {
+          neighbor_has_base = true;
+        }
+        ++neighbor_used;
+      }
+      if (y > 0) {
+        neighbor_colors[neighbor_used] = ctx->reference[idx - (size_t)ctx->width];
+        if (neighbor_colors[neighbor_used] == base_color) {
+          neighbor_has_base = true;
+        }
+        ++neighbor_used;
+      }
+      if (y + 1 < ctx->height) {
+        neighbor_colors[neighbor_used] = ctx->reference[idx + (size_t)ctx->width];
+        if (neighbor_colors[neighbor_used] == base_color) {
+          neighbor_has_base = true;
+        }
+        ++neighbor_used;
+      }
+
+      if (neighbor_used < 3) {
+        continue;
+      }
+
+      candidate = neighbor_colors[0];
+      if (neighbor_used == 3) {
+        if (!(neighbor_colors[1] == candidate && neighbor_colors[2] == candidate)) {
+          continue;
+        }
+      } else {
+        if (!(neighbor_colors[1] == candidate && neighbor_colors[2] == candidate && neighbor_colors[3] == candidate)) {
+          continue;
+        }
+      }
+
+      if (candidate == base_color) {
+        continue;
+      }
+
+      if (neighbor_has_base) {
+        continue;
+      }
+
+      if (ctx->palette && ctx->palette_len > 0 && (size_t)base_color < ctx->palette_len && (size_t)candidate < ctx->palette_len) {
+        dist_sq = color_distance_sq(&ctx->palette[base_color], &ctx->palette[candidate]);
+        if (dist_sq > PNGX_POSTPROCESS_MAX_COLOR_DISTANCE_SQ) {
+          continue;
+        }
+      }
+
+      ctx->indices[idx] = candidate;
+    }
+  }
+}
+
+static inline void postprocess_indices(uint32_t thread_count, uint8_t *indices, uint32_t width, uint32_t height, const cpres_rgba_color_t *palette, size_t palette_len, const pngx_quant_support_t *support,
+                                       const pngx_options_t *opts) {
+  uint8_t *reference;
+  size_t pixel_count;
+  float cutoff;
+  postprocess_indices_parallel_ctx_t ctx;
 
   if (!indices || !support || !opts || width == 0 || height == 0) {
     return;
@@ -308,80 +412,20 @@ static inline void postprocess_indices(uint8_t *indices, uint32_t width, uint32_
 
   memcpy(reference, indices, pixel_count);
 
-  for (y = 0; y < height; ++y) {
-    for (x = 0; x < width; ++x) {
-      idx = (size_t)y * (size_t)width + (size_t)x;
-      base_color = reference[idx];
-      importance = support->importance_map[idx];
-      neighbor_used = 0;
-      neighbor_has_base = false;
+  ctx.indices = indices;
+  ctx.reference = reference;
+  ctx.width = width;
+  ctx.height = height;
+  ctx.palette = palette;
+  ctx.palette_len = palette_len;
+  ctx.importance_map = support->importance_map;
+  ctx.cutoff = cutoff;
 
-      if (cutoff >= 0.0f && ((float)importance / 255.0f) >= cutoff) {
-        continue;
-      }
-
-      if (x > 0) {
-        neighbor_colors[neighbor_used] = reference[idx - 1];
-        if (neighbor_colors[neighbor_used] == base_color) {
-          neighbor_has_base = true;
-        }
-        ++neighbor_used;
-      }
-      if (x + 1 < width) {
-        neighbor_colors[neighbor_used] = reference[idx + 1];
-        if (neighbor_colors[neighbor_used] == base_color) {
-          neighbor_has_base = true;
-        }
-        ++neighbor_used;
-      }
-      if (y > 0) {
-        neighbor_colors[neighbor_used] = reference[idx - (size_t)width];
-        if (neighbor_colors[neighbor_used] == base_color) {
-          neighbor_has_base = true;
-        }
-        ++neighbor_used;
-      }
-      if (y + 1 < height) {
-        neighbor_colors[neighbor_used] = reference[idx + (size_t)width];
-        if (neighbor_colors[neighbor_used] == base_color) {
-          neighbor_has_base = true;
-        }
-        ++neighbor_used;
-      }
-
-      if (neighbor_used < 3) {
-        continue;
-      }
-
-      candidate = neighbor_colors[0];
-      if (neighbor_used == 3) {
-        if (!(neighbor_colors[1] == candidate && neighbor_colors[2] == candidate)) {
-          continue;
-        }
-      } else {
-        if (!(neighbor_colors[1] == candidate && neighbor_colors[2] == candidate && neighbor_colors[3] == candidate)) {
-          continue;
-        }
-      }
-
-      if (candidate == base_color) {
-        continue;
-      }
-
-      if (neighbor_has_base) {
-        continue;
-      }
-
-      if (palette && palette_len > 0 && (size_t)base_color < palette_len && (size_t)candidate < palette_len) {
-        dist_sq = color_distance_sq(&palette[base_color], &palette[candidate]);
-        if (dist_sq > PNGX_POSTPROCESS_MAX_COLOR_DISTANCE_SQ) {
-          continue;
-        }
-      }
-
-      indices[idx] = candidate;
-    }
-  }
+#if COLOPRESSO_ENABLE_THREADS
+  colopresso_parallel_for(thread_count, height, postprocess_indices_parallel_worker, &ctx);
+#else
+  postprocess_indices_parallel_worker(&ctx, 0, height);
+#endif
 
   free(reference);
 }
@@ -931,7 +975,7 @@ bool pngx_palette256_finalize(const uint8_t *indices, size_t indices_len, const 
 
   memcpy(mutable_indices, indices, indices_len);
 
-  postprocess_indices(mutable_indices, g_palette256_ctx.image.width, g_palette256_ctx.image.height, mutable_palette, palette_len, &g_palette256_ctx.support, &g_palette256_ctx.tuned_opts);
+  postprocess_indices(g_palette256_ctx.tuned_opts.thread_count, mutable_indices, g_palette256_ctx.image.width, g_palette256_ctx.image.height, mutable_palette, palette_len, &g_palette256_ctx.support, &g_palette256_ctx.tuned_opts);
 
   success = pngx_create_palette_png(mutable_indices, indices_len, mutable_palette, palette_len, g_palette256_ctx.image.width, g_palette256_ctx.image.height, out_data, out_size);
 

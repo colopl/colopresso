@@ -13,6 +13,18 @@ endfunction()
 
 colopresso_force_cache(BUILD_SHARED_LIBS BOOL OFF)
 
+# Emscripten WASM SIMD128 and SSE emulation optimization
+if(EMSCRIPTEN)
+  option(COLOPRESSO_ENABLE_WASM_SIMD "Enable WASM SIMD128 optimizations" ON)
+  if(COLOPRESSO_ENABLE_WASM_SIMD)
+    message(STATUS "Enabling WASM SIMD128 optimizations")
+    add_compile_options(-msimd128 -msse -msse2 -msse3 -mssse3 -msse4.1)
+    colopresso_force_cache(WEBP_ENABLE_SIMD BOOL ON)
+  else()
+    colopresso_force_cache(WEBP_ENABLE_SIMD BOOL OFF)
+  endif()
+endif()
+
 # zlib
 set(ZLIB_LIBRARY_TYPE STATIC)
 colopresso_force_cache(ZLIB_BUILD_EXAMPLES BOOL OFF)
@@ -83,7 +95,36 @@ if(TARGET zlib)
 endif()
 
 add_subdirectory(third_party/libpng EXCLUDE_FROM_ALL)
+
+if(EMSCRIPTEN AND COLOPRESSO_ENABLE_WASM_SIMD)
+  set(_colopresso_saved_c_flags "${CMAKE_C_FLAGS}")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -U__AVX__ -U__AVX2__")
+endif()
+
 add_subdirectory(third_party/libwebp EXCLUDE_FROM_ALL)
+
+if(EMSCRIPTEN AND COLOPRESSO_ENABLE_WASM_SIMD)
+  set(CMAKE_C_FLAGS "${_colopresso_saved_c_flags}")
+  unset(_colopresso_saved_c_flags)
+endif()
+
 add_subdirectory(third_party/libavif EXCLUDE_FROM_ALL)
 
 set(BUILD_TESTING ${COLOPRESSO_BACKUP_BUILD_TESTING})
+
+# libwebp SIMD workaround for Emscripten:
+# - AVX/AVX2 disabled (incomplete Emscripten)
+# - HAVE_CONFIG_H + WEBP_HAVE_* for explicit SIMD control in cpu.h
+# - Must apply to OBJECT libraries as well as final libraries
+if(EMSCRIPTEN AND COLOPRESSO_ENABLE_WASM_SIMD)
+  foreach(_webp_target webp webpdecoder webpdemux webpmux sharpyuv webpdsp webpdspdecode webpdecode webpencode webputils webputilsdecode)
+    if(TARGET ${_webp_target})
+      target_compile_options(${_webp_target} PRIVATE -U__AVX__ -U__AVX2__)
+      target_compile_definitions(${_webp_target} PRIVATE
+        HAVE_CONFIG_H=1
+        WEBP_HAVE_SSE2=1
+        WEBP_HAVE_SSE41=1
+      )
+    endif()
+  endforeach()
+endif()

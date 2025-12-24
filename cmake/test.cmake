@@ -24,7 +24,7 @@ if(COLOPRESSO_ENABLE_COVERAGE)
     COMMAND ${CMAKE_CTEST_COMMAND} -C ${CMAKE_BUILD_TYPE} --parallel
     COMMAND ${LCOV} --directory ${CMAKE_BINARY_DIR} --capture --output-file ${_coverage_dir}/test.info
     COMMAND ${LCOV} --add-tracefile ${_coverage_dir}/base.info --add-tracefile ${_coverage_dir}/test.info --output-file ${_coverage_dir}/total.info
-    COMMAND ${LCOV} --remove ${_coverage_dir}/total.info '*/third_party/*' --ignore-errors unused --output-file ${_coverage_dir}/filtered.info
+    COMMAND ${LCOV} --remove ${_coverage_dir}/total.info '*/third_party/*' '/usr/*' --ignore-errors unused --output-file ${_coverage_dir}/filtered.info
     COMMAND ${GENHTML} --demangle-cpp --legend --title "${CMAKE_PROJECT_NAME} Coverage Report" --output-directory ${_coverage_dir}/html ${_coverage_dir}/filtered.info
     COMMENT "Generating coverage report with lcov/gcov"
   )
