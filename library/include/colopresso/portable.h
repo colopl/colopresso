@@ -60,9 +60,12 @@ typedef struct {
 extern int colopresso_thread_create(colopresso_thread_t *thread, const void *attr, void *(*start_routine)(void *), void *arg);
 extern int colopresso_thread_join(colopresso_thread_t thread, void **retval);
 
-#define pthread_t colopresso_thread_t
-#define pthread_create colopresso_thread_create
-#define pthread_join colopresso_thread_join
+typedef CRITICAL_SECTION colopresso_mutex_t;
+
+extern int colopresso_mutex_init(colopresso_mutex_t *mutex, const void *attr);
+extern int colopresso_mutex_lock(colopresso_mutex_t *mutex);
+extern int colopresso_mutex_unlock(colopresso_mutex_t *mutex);
+extern int colopresso_mutex_destroy(colopresso_mutex_t *mutex);
 
 #else
 
@@ -70,6 +73,16 @@ extern int colopresso_thread_join(colopresso_thread_t thread, void **retval);
 #include <pthread.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+typedef pthread_t colopresso_thread_t;
+typedef pthread_mutex_t colopresso_mutex_t;
+
+#define colopresso_thread_create pthread_create
+#define colopresso_thread_join pthread_join
+#define colopresso_mutex_init pthread_mutex_init
+#define colopresso_mutex_lock pthread_mutex_lock
+#define colopresso_mutex_unlock pthread_mutex_unlock
+#define colopresso_mutex_destroy pthread_mutex_destroy
 
 #endif
 

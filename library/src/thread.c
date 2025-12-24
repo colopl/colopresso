@@ -48,7 +48,7 @@ uint32_t cpres_get_max_thread_count(void) { return colopresso_get_cpu_count(); }
 bool cpres_is_threads_enabled(void) { return true; }
 
 bool colopresso_parallel_for(uint32_t use_threads, uint32_t total_items, parallel_func_t func, void *context) {
-  pthread_t *threads;
+  colopresso_thread_t *threads;
   thread_work_t *works;
   uint32_t thread_count, chunk_size, remainder, start, end, i;
   int rc;
@@ -68,7 +68,7 @@ bool colopresso_parallel_for(uint32_t use_threads, uint32_t total_items, paralle
     return true;
   }
 
-  threads = (pthread_t *)malloc(sizeof(pthread_t) * thread_count);
+  threads = (colopresso_thread_t *)malloc(sizeof(colopresso_thread_t) * thread_count);
   works = (thread_work_t *)malloc(sizeof(thread_work_t) * thread_count);
   if (!threads || !works) {
     free(threads);
@@ -93,19 +93,19 @@ bool colopresso_parallel_for(uint32_t use_threads, uint32_t total_items, paralle
     works[i].start_index = start;
     works[i].end_index = end;
 
-    rc = pthread_create(&threads[i], NULL, thread_worker, &works[i]);
+    rc = colopresso_thread_create(&threads[i], NULL, thread_worker, &works[i]);
     if (rc != 0) {
-      colopresso_log(CPRES_LOG_LEVEL_WARNING, "Threads: pthread_create failed (rc=%d) - falling back to inline execution", rc);
+      colopresso_log(CPRES_LOG_LEVEL_WARNING, "Threads: colopresso_thread_create failed (rc=%d) - falling back to inline execution", rc);
       works[i].func(works[i].context, works[i].start_index, works[i].end_index);
-      threads[i] = (pthread_t)NULL;
+      threads[i] = (colopresso_thread_t)NULL;
     }
 
     start = end;
   }
 
   for (i = 0; i < thread_count; ++i) {
-    if (threads[i] != (pthread_t)NULL) {
-      pthread_join(threads[i], NULL);
+    if (threads[i] != (colopresso_thread_t)NULL) {
+      colopresso_thread_join(threads[i], NULL);
     }
   }
 

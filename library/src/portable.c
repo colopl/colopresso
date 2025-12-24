@@ -100,6 +100,44 @@ int colopresso_thread_join(colopresso_thread_t thread, void **retval) {
   return 0;
 }
 
+int colopresso_mutex_init(colopresso_mutex_t *mutex, const void *attr) {
+  (void)attr;
+
+  if (!mutex) {
+    return EINVAL;
+  }
+
+  InitializeCriticalSection(mutex);
+  return 0;
+}
+
+int colopresso_mutex_lock(colopresso_mutex_t *mutex) {
+  if (!mutex) {
+    return EINVAL;
+  }
+
+  EnterCriticalSection(mutex);
+  return 0;
+}
+
+int colopresso_mutex_unlock(colopresso_mutex_t *mutex) {
+  if (!mutex) {
+    return EINVAL;
+  }
+
+  LeaveCriticalSection(mutex);
+  return 0;
+}
+
+int colopresso_mutex_destroy(colopresso_mutex_t *mutex) {
+  if (!mutex) {
+    return EINVAL;
+  }
+
+  DeleteCriticalSection(mutex);
+  return 0;
+}
+
 static const struct option *match_long_option(const char *name, size_t name_len, const struct option *longopts, int *index_out) {
   int i;
 
