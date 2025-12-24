@@ -9,7 +9,7 @@
  * Developed with AI (LLM) code assistance. See `NOTICE` for details.
  */
 
-import { BuildInfoPayload, FileEntry, FormatOptions, SettingsState, StatusMessage } from './index';
+import { BuildInfoPayload, FormatOptions, SettingsState, StatusMessage } from './index';
 
 export type ElectronSettingKey = 'deletePng' | 'createZip';
 export type ChromeSettingKey = 'processFolder' | 'createZip';
