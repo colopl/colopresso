@@ -11,7 +11,7 @@
 
 import { FormatOptions } from '../types';
 import { initializeModule, prewarmThreadPool, isThreadsEnabled, getVersionInfo, ModuleWithHelpers } from './converter';
-import { initPngxBridge, initPngxBridgeFromBytes, isPngxBridgeInitialized, pngxOxipngVersion, pngxLibimagequantVersion } from './pngxBridge';
+import { initPngxBridge, isPngxBridgeInitialized, pngxOxipngVersion, pngxLibimagequantVersion } from './pngxBridge';
 import { getFormat, getDefaultFormat, normalizeFormatOptions } from '../formats';
 
 export interface ConversionWorkerRequest {
@@ -19,8 +19,7 @@ export interface ConversionWorkerRequest {
   id: number;
   moduleUrl?: string;
   pngxBridgeUrl?: string;
-  pngxBridgeJsSource?: string;
-  pngxBridgeWasmBytes?: ArrayBuffer;
+  pngxThreads?: number;
   formatId?: string;
   options?: FormatOptions;
   inputBytes?: ArrayBuffer;
@@ -128,33 +127,34 @@ const handleInit = async (request: ConversionWorkerRequest) => {
     moduleRef = Module;
     modulePromise = null;
     threadsEnabled = isThreadsEnabled(Module);
+    console.log('[conversionWorker] threadsEnabled:', threadsEnabled);
 
     if (threadsEnabled) {
       const hardwareConcurrency = typeof navigator !== 'undefined' && navigator.hardwareConcurrency > 0 ? navigator.hardwareConcurrency : 1;
       prewarmThreadPool(Module, hardwareConcurrency);
     }
 
-    if (request.pngxBridgeJsSource && request.pngxBridgeWasmBytes) {
+    console.log('[conversionWorker] request.pngxBridgeUrl:', request.pngxBridgeUrl);
+
+    if (request.pngxBridgeUrl) {
+      console.log('[conversionWorker] Initializing pngx_bridge from URL...');
       try {
-        await initPngxBridgeFromBytes(request.pngxBridgeJsSource, request.pngxBridgeWasmBytes);
+        await initPngxBridge(request.pngxBridgeUrl, request.pngxThreads);
         pngxBridgeEnabled = isPngxBridgeInitialized();
-      } catch (pngxError) {
-        console.warn('[conversionWorker] pngx_bridge init from bytes failed:', pngxError);
-        pngxBridgeEnabled = false;
-      }
-    } else if (request.pngxBridgeUrl) {
-      try {
-        await initPngxBridge(request.pngxBridgeUrl);
-        pngxBridgeEnabled = isPngxBridgeInitialized();
+        console.log('[conversionWorker] pngx_bridge from URL result:', pngxBridgeEnabled);
       } catch (pngxError) {
         console.warn('[conversionWorker] pngx_bridge init failed, PNGX format may not work:', pngxError);
         pngxBridgeEnabled = false;
       }
+    } else {
+      console.log('[conversionWorker] No pngx_bridge URL provided');
     }
 
+    console.log('[conversionWorker] Final pngxBridgeEnabled:', pngxBridgeEnabled);
+
     const versionInfo = getVersionInfo(Module);
-    const pngxOxipng = pngxBridgeEnabled ? pngxOxipngVersion() : versionInfo.pngxOxipngVersion;
-    const pngxLibiq = pngxBridgeEnabled ? pngxLibimagequantVersion() : versionInfo.pngxLibimagequantVersion;
+    const pngxOxipng = pngxBridgeEnabled ? pngxOxipngVersion() : undefined;
+    const pngxLibiq = pngxBridgeEnabled ? pngxLibimagequantVersion() : undefined;
 
     cachedVersionInfo = {
       version: versionInfo.version,

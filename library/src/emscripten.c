@@ -605,6 +605,15 @@ EMSCRIPTEN_KEEPALIVE
 bool emscripten_is_threads_enabled(void) { return cpres_is_threads_enabled(); }
 
 EMSCRIPTEN_KEEPALIVE
+bool emscripten_is_pngx_bridge_integrated(void) {
+#if !defined(PNGX_BRIDGE_WASM_SEPARATION)
+  return true;
+#else
+  return false;
+#endif
+}
+
+EMSCRIPTEN_KEEPALIVE
 uint32_t emscripten_get_default_thread_count(void) { return cpres_get_default_thread_count(); }
 
 EMSCRIPTEN_KEEPALIVE

@@ -53,6 +53,7 @@ const sections: FormatSection[] = [
         noteKey: 'settingsModal.notes.pngxThreads',
         requiresThreads: true,
         excludeFromExport: true,
+        requiresReload: true,
       },
     ],
   },
@@ -330,8 +331,10 @@ export const pngxFormat: FormatDefinition = {
   normalizeOptions: (raw?: FormatOptions) => normalizePngxOptions(raw),
   async convert({ Module, inputBytes, options }): Promise<Uint8Array> {
     const normalized = normalizePngxOptions(options);
+    const bridgeInitialized = isPngxBridgeInitialized();
+    console.log('[pngx.convert] isPngxBridgeInitialized:', bridgeInitialized, 'options:', normalized);
 
-    if (isPngxBridgeInitialized()) {
+    if (bridgeInitialized) {
       const lossyEnabled = normalized.pngx_lossy_enable as boolean | undefined;
       const lossyTypeRaw = normalized.pngx_lossy_type;
       const lossyType = typeof lossyTypeRaw === 'number' ? lossyTypeRaw : typeof lossyTypeRaw === 'string' ? parseInt(lossyTypeRaw, 10) : 0;
@@ -339,11 +342,15 @@ export const pngxFormat: FormatDefinition = {
       const stripSafe = (normalized.pngx_strip_safe as boolean | undefined) ?? true;
       const optimizeAlpha = (normalized.pngx_optimize_alpha as boolean | undefined) ?? true;
 
+      console.log('[pngx.convert] lossyEnabled:', lossyEnabled, 'lossyType:', lossyType, 'optimizationLevel:', optimizationLevel);
+
       if (lossyEnabled && (lossyType === 1 || lossyType === 2)) {
+        console.log('[pngx.convert] Using C code path for lossyType', lossyType);
         return convertPngToPngx(Module, inputBytes, normalized);
       }
 
       if (lossyEnabled && lossyType === 0) {
+        console.log('[pngx.convert] Using pngxBridge for palette256 mode');
         let prepareResult;
 
         try {
@@ -364,6 +371,8 @@ export const pngxFormat: FormatDefinition = {
           fixedColors: prepareResult.fixedColors ?? undefined,
         });
 
+        console.log('[pngx.convert] quantResult status:', quantResult.status);
+
         if (quantResult.status === 1 && prepareResult.qualityMin > 0) {
           quantResult = pngxQuantize(prepareResult.rgba, prepareResult.width, prepareResult.height, {
             speed: prepareResult.speed,
@@ -377,7 +386,10 @@ export const pngxFormat: FormatDefinition = {
           });
         }
 
+        console.log('[pngx.convert] quantResult again status:', quantResult.status);
+
         if (quantResult.status !== 0) {
+          console.log('[pngx.convert] Quantization failed, falling back to lossless optimization');
           pngxPalette256Cleanup(Module);
           const losslessResult = pngxOptimizeLossless(inputBytes, { optimizationLevel, stripSafe, optimizeAlpha });
           return losslessResult.length < inputBytes.length ? losslessResult : inputBytes;
@@ -408,10 +420,13 @@ export const pngxFormat: FormatDefinition = {
         throw new OutputLargerThanInputError('PNG', inputBytes.length, lossyCandidate.length);
       }
 
+      console.log('[pngx.convert] Using pngxBridge for lossless optimization only');
       const result = pngxOptimizeLossless(inputBytes, { optimizationLevel, stripSafe, optimizeAlpha });
+      console.log('[pngx.convert] Lossless result size:', result.length, 'input size:', inputBytes.length);
       return result.length < inputBytes.length ? result : inputBytes;
     }
 
+    console.log('[pngx.convert] FALLBACK: pngxBridge not initialized, using C code path');
     return convertPngToPngx(Module, inputBytes, normalized);
   },
 };

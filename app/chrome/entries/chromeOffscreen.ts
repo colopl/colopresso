@@ -11,6 +11,7 @@
 
 import { initializeModule, getVersionInfo, isThreadsEnabled, ModuleWithHelpers } from '../../shared/core/converter';
 import { initPngxBridge, isPngxBridgeInitialized } from '../../shared/core/pngxBridge';
+import { loadFormatConfig } from '../../shared/core/configStore';
 import { getDefaultFormat, getFormat, normalizeFormatOptions } from '../../shared/formats';
 import { FormatDefinition, FormatOptions } from '../../shared/types';
 // @ts-ignore
@@ -37,9 +38,23 @@ async function ensureModule(): Promise<ModuleWithHelpers> {
 
       try {
         const pngxBridgeBaseUrl = new URL('./', self.location.href).href;
-        await initPngxBridge(pngxBridgeBaseUrl);
+
+        let pngxThreads: number | undefined;
+        try {
+          const pngxFormat = getFormat('pngx');
+          if (pngxFormat) {
+            const pngxConfig = await loadFormatConfig(pngxFormat);
+            pngxThreads = typeof pngxConfig.pngx_threads === 'number' ? pngxConfig.pngx_threads : undefined;
+            console.log('[chromeOffscreen] pngxThreads from config:', pngxThreads);
+          }
+        } catch (e) {
+          console.warn('[chromeOffscreen] Failed to load pngx_threads config:', e);
+        }
+
+        await initPngxBridge(pngxBridgeBaseUrl, pngxThreads);
         pngxBridgeInitialized = isPngxBridgeInitialized();
         if (pngxBridgeInitialized) {
+          console.log('[chromeOffscreen] pngx_bridge WASM initialized');
         }
       } catch (error) {
         console.warn('[chromeOffscreen] pngx_bridge WASM init failed, PNGX format may have limited functionality:', error);

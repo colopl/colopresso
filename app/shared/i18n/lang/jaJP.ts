@@ -49,6 +49,7 @@ const bundle: TranslationBundle = {
       closeAria: '閉じる',
       profileLabel: 'プロファイル:',
       profileSelectAria: 'プロファイル選択',
+      environmentSettings: '環境設定',
       profileCurrent: '(現在の設定)',
       buttons: {
         save: '保存',
@@ -82,6 +83,9 @@ const bundle: TranslationBundle = {
         importDuplicate: '設定値が同一のプロファイル "{name}" が既に存在します',
         importSuccess: 'プロファイル "{name}" をインポートしました',
         importFailed: 'インポート失敗: {error}',
+        reloadRequired: 'この設定変更を反映するにはアプリケーションの再読み込みが必要です。今すぐ再読み込みしますか？',
+        reloadRequiredTitle: '再読み込みが必要',
+        reloadRequiredWarning: '設定の反映にはアプリケーションの再読み込みが必要です',
       },
       prompts: {
         profileName: 'プロファイル名を入力',
@@ -101,7 +105,7 @@ const bundle: TranslationBundle = {
         pngxDitherReducedUnused: '0〜100 のディザ強度をグリッド量子化で使用します。',
         pngxPalette256GradientDitherFloor: '内部デフォルトを使う場合は -1 を指定し、0.0〜1.0 を指定するとグラデーション・プロファイル調整のディザ下限になります。',
         pngxPalette256AlphaBleed: '透明境界の偽色 (フリンジ) を軽減するため、近傍色をにじませます。',
-        pngxThreads: '0 で自動 (利用可能な CPU コア数)、1 以上で使用スレッド数を手動で指定します。',
+        pngxThreads: '0 で最速、1 以上で使用スレッド数を手動で指定します (最大: {numThreads})',
       },
       labels: {
         pngxMaxColorsBase: '最大色数',

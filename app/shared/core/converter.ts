@@ -10,7 +10,6 @@
  */
 
 import { ColopressoModule, FormatOptions } from '../types';
-import { isPngxBridgeInitialized, pngxOxipngVersion, pngxLibimagequantVersion } from './pngxBridge';
 
 const PNGX_RGBA_LOSSY_TYPES = new Set([1, 2]);
 const CPRES_ERROR_OUTPUT_NOT_SMALLER = 9;
@@ -116,6 +115,7 @@ export type ModuleWithHelpers = ColopressoModule & {
   _emscripten_get_pngx_libimagequant_version?(): number;
   _emscripten_get_buildtime?(): number;
   _emscripten_is_threads_enabled?(): number;
+  _emscripten_is_pngx_bridge_integrated?(): number;
   _emscripten_get_default_thread_count?(): number;
   _emscripten_get_max_thread_count?(): number;
   _emscripten_prewarm_thread_pool?(num_threads: number): number;
@@ -497,16 +497,12 @@ export function convertPngToPngx(Module: ColopressoModule, pngData: Uint8Array, 
 
 export function getVersionInfo(Module: ColopressoModule) {
   const mod = Module as ModuleWithHelpers;
-  const pngxOxipng = isPngxBridgeInitialized() ? pngxOxipngVersion() : mod._emscripten_get_pngx_oxipng_version ? mod._emscripten_get_pngx_oxipng_version() : undefined;
-  const pngxLibimagequant = isPngxBridgeInitialized() ? pngxLibimagequantVersion() : mod._emscripten_get_pngx_libimagequant_version ? mod._emscripten_get_pngx_libimagequant_version() : undefined;
 
   return {
     version: mod._emscripten_get_version ? mod._emscripten_get_version() : undefined,
     libwebpVersion: mod._emscripten_get_libwebp_version ? mod._emscripten_get_libwebp_version() : undefined,
     libpngVersion: mod._emscripten_get_libpng_version ? mod._emscripten_get_libpng_version() : undefined,
     libavifVersion: mod._emscripten_get_libavif_version ? mod._emscripten_get_libavif_version() : undefined,
-    pngxOxipngVersion: pngxOxipng,
-    pngxLibimagequantVersion: pngxLibimagequant,
     buildtime: mod._emscripten_get_buildtime ? mod._emscripten_get_buildtime() : undefined,
   };
 }

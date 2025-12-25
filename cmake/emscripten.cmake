@@ -215,6 +215,14 @@ function(colopresso_configure_gui_target PLATFORM DISPLAY_NAME)
         "${_pngx_bridge_wasm_out_dir}/pngx_bridge_bg.wasm"
         ${RESOURCE_DEST_DIR}/pngx_bridge_bg.wasm
     )
+    # Copy snippets directory for wasm-bindgen-rayon workerHelpers.js
+    if(EXISTS "${_pngx_bridge_wasm_out_dir}/snippets")
+      list(APPEND _post_build_commands
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+          "${_pngx_bridge_wasm_out_dir}/snippets"
+          ${RESOURCE_DEST_DIR}/snippets
+      )
+    endif()
   endif()
 
   set(_cleanup_files

@@ -36,6 +36,7 @@ export interface FormatFieldBase<T extends FormatFieldType = FormatFieldType> {
   noteKey?: string;
   requiresThreads?: boolean;
   excludeFromExport?: boolean;
+  requiresReload?: boolean;
 }
 
 export interface NumberField extends FormatFieldBase<'number'> {

@@ -44,6 +44,8 @@ RUN --mount=type=cache,target=/opt/rust/cargo/registry,sharing=locked \
     curl --proto '=https' --tlsv1.2 -sSf "https://sh.rustup.rs" | sh -s -- -y --default-toolchain "stable" --profile "minimal" --no-modify-path && \
     echo 'export PATH="${CARGO_HOME}/bin:${PATH}"' > "/etc/profile.d/cargo.sh" && \
     . "/etc/profile.d/cargo.sh" && \
+    rustup toolchain install "nightly" && \
+    rustup component add "rust-src" --toolchain "nightly" && \
     rustup target add "wasm32-unknown-emscripten" && \
     rustup target add "wasm32-unknown-unknown" && \
     cargo install "wasm-pack"
@@ -144,9 +146,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     pip3 install --resume-retries=5 --no-cache-dir "numpy" "opencv-python" "Pillow" "scikit-image" "flake8" "black" && \
     update-alternatives --install "/usr/bin/python" python "$(command -v "python3")" 100 && \
     . "/etc/profile.d/cargo.sh" && \
-    rustup component add "rustfmt" && \
-    rustup toolchain install "nightly" && \
-    rustup component add "rust-src" --toolchain "nightly"
+    rustup component add "rustfmt"
 
 ENV EDITOR="vim"
 ENV VISUAL="vim"

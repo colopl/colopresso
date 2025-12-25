@@ -29,7 +29,6 @@ const api: ElectronAPI = {
   saveFileDialog: (defaultFileName) => ipcRenderer.invoke('save-file-dialog', defaultFileName),
   saveZipDialog: (defaultFileName) => ipcRenderer.invoke('save-zip-dialog', defaultFileName),
   saveJsonDialog: (defaultFileName) => ipcRenderer.invoke('save-json-dialog', defaultFileName),
-  readPngxBridgeFiles: (basePath) => ipcRenderer.invoke('read-pngx-bridge-files', basePath),
   openExternal: (url) => void shell.openExternal(url),
   onUpdateDownloadStart: (handler) => {
     const listener = (_event: unknown, payload: unknown) => handler(payload as unknown as Record<string, unknown>);
@@ -66,6 +65,8 @@ const api: ElectronAPI = {
   installUpdateNow: () => ipcRenderer.invoke('install-update-now'),
   getUpdateChannel: () => ipcRenderer.invoke('get-update-channel'),
   getArchitecture: () => ipcRenderer.invoke('get-architecture'),
+  getPngxBridgeUrl: () => ipcRenderer.invoke('get-pngx-bridge-url'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', api);

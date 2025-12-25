@@ -49,6 +49,7 @@ const bundle: TranslationBundle = {
       closeAria: 'Close',
       profileLabel: 'Profile:',
       profileSelectAria: 'Select profile',
+      environmentSettings: 'Environment Settings',
       profileCurrent: '(Current settings)',
       buttons: {
         save: 'Save',
@@ -82,6 +83,9 @@ const bundle: TranslationBundle = {
         importDuplicate: 'A profile with identical settings "{name}" already exists.',
         importSuccess: 'Imported profile "{name}"',
         importFailed: 'Import failed: {error}',
+        reloadRequired: 'This setting change requires reloading the application to take effect. Do you want to reload now?',
+        reloadRequiredTitle: 'Reload Required',
+        reloadRequiredWarning: 'Requires application reload to take effect',
       },
       prompts: {
         profileName: 'Enter profile name',
@@ -101,7 +105,7 @@ const bundle: TranslationBundle = {
         pngxDitherReducedUnused: 'Use 0-100 dithering strength for grid quantization.',
         pngxPalette256GradientDitherFloor: 'Set -1 to use the internal default, or specify 0.0-1.0 as the dithering floor for gradient-profile tuning.',
         pngxPalette256AlphaBleed: 'Reduces color fringing around transparent edges by bleeding nearby colors.',
-        pngxThreads: '0 for auto (uses available CPU cores), 1 or more to manually specify the thread count.',
+        pngxThreads: '0 for fastest, 1 or more to manually specify the thread count (max: {numThreads})',
       },
       labels: {
         pngxMaxColorsBase: 'Max colors',

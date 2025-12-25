@@ -647,29 +647,6 @@ async function handleSaveJsonDialog(_event: IpcMainInvokeEvent, defaultFileName:
   }
 }
 
-interface ElectronPngxBridgeFilesResult {
-  success: boolean;
-  jsSource?: string;
-  wasmBytes?: ArrayBuffer;
-  error?: string;
-}
-
-async function handleReadPngxBridgeFiles(_event: IpcMainInvokeEvent, basePath: string): Promise<ElectronPngxBridgeFilesResult> {
-  try {
-    const jsPath = path.join(basePath, 'pngx_bridge.js');
-    const wasmPath = path.join(basePath, 'pngx_bridge_bg.wasm');
-
-    const [jsBuffer, wasmBuffer] = await Promise.all([fs.readFile(jsPath), fs.readFile(wasmPath)]);
-
-    const jsSource = jsBuffer.toString('utf-8');
-    const wasmBytes = wasmBuffer.buffer.slice(wasmBuffer.byteOffset, wasmBuffer.byteOffset + wasmBuffer.byteLength);
-
-    return { success: true, jsSource, wasmBytes };
-  } catch (error) {
-    return { success: false, error: extractErrorMessage(error) };
-  }
-}
-
 function registerIpcHandlers(): void {
   ipcMain.handle('read-directory', handleReadDirectory);
   ipcMain.handle('write-file', handleWriteFile);
@@ -680,9 +657,26 @@ function registerIpcHandlers(): void {
   ipcMain.handle('save-file-dialog', handleSaveFileDialog);
   ipcMain.handle('save-zip-dialog', handleSaveZipDialog);
   ipcMain.handle('save-json-dialog', handleSaveJsonDialog);
-  ipcMain.handle('read-pngx-bridge-files', handleReadPngxBridgeFiles);
   ipcMain.handle('get-update-channel', () => getUpdateChannel());
   ipcMain.handle('get-architecture', () => process.arch);
+  ipcMain.handle('check-for-updates', async () => {
+    if (!autoUpdateInitialized || !app.isPackaged || process.platform === 'linux') {
+      return { success: false, error: 'Auto update is not available' };
+    }
+
+    try {
+      await autoUpdater.checkForUpdates();
+      return { success: true };
+    } catch (error) {
+      console.error('check-for-updates failed', error);
+      return { success: false, error: extractErrorMessage(error) };
+    }
+  });
+  ipcMain.handle('get-pngx-bridge-url', () => {
+    const pngxBridgeDir = __dirname.replace(/\\/g, '/');
+    const customUrl = `${CUSTOM_SCHEME}://app${pngxBridgeDir}/`;
+    return customUrl;
+  });
   ipcMain.handle('install-update-now', () => {
     if (!pendingUpdateEvent) {
       return { success: false, error: 'No update is ready to install' };
@@ -746,6 +740,14 @@ function setupCrossOriginIsolation(): void {
     if (process.platform === 'win32' && filePath.startsWith('/')) {
       filePath = filePath.slice(1);
     }
+
+    const unpackedPatterns = ['/pngx_bridge.js', '/pngx_bridge_bg.wasm'];
+    const shouldUseUnpacked = unpackedPatterns.some((pattern) => filePath.includes(pattern));
+
+    if (shouldUseUnpacked && filePath.includes('app.asar')) {
+      filePath = filePath.replace('app.asar', 'app.asar.unpacked');
+    }
+
     const fileUrl = `file://${process.platform === 'win32' ? '/' : ''}${filePath}`;
     const response = await net.fetch(fileUrl);
     const body = await response.arrayBuffer();

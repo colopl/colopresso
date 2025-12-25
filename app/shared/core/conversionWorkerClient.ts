@@ -45,23 +45,15 @@ class ConversionWorkerError extends Error {
   }
 }
 
-export interface PngxBridgeFiles {
-  jsSource: string;
-  wasmBytes: ArrayBuffer;
-}
-
 export interface ConversionWorkerClientOptions {
   pngxBridgeUrl?: string;
-  pngxBridgeLoader?: (basePath: string) => Promise<PngxBridgeFiles>;
+  pngxThreads?: number;
 }
 
 export function createConversionWorkerClient(workerUrl: URL, moduleUrl: string, options?: ConversionWorkerClientOptions): ConversionWorkerClient {
   const worker = new Worker(workerUrl, { type: 'module' });
   let requestIdCounter = 0;
   const pendingRequests = new Map<number, { resolve: (response: ConversionWorkerResponse) => void; reject: (error: Error) => void }>();
-
-  let pngxBridgeJsSource: string | undefined;
-  let pngxBridgeWasmBytes: ArrayBuffer | undefined;
 
   worker.onmessage = (event: MessageEvent<ConversionWorkerResponse>) => {
     const response = event.data;
@@ -97,54 +89,13 @@ export function createConversionWorkerClient(workerUrl: URL, moduleUrl: string, 
     });
   };
 
-  const preFetchPngxBridge = async (baseUrl: string): Promise<{ jsSource: string; wasmBytes: ArrayBuffer }> => {
-    const normalizedUrl = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
-    const jsUrl = normalizedUrl + 'pngx_bridge.js';
-    const wasmUrl = normalizedUrl + 'pngx_bridge_bg.wasm';
-
-    const [jsResponse, wasmResponse] = await Promise.all([fetch(jsUrl), fetch(wasmUrl)]);
-
-    if (!jsResponse.ok) {
-      throw new Error(`Failed to fetch pngx_bridge.js: ${jsResponse.status} ${jsResponse.statusText}`);
-    }
-    if (!wasmResponse.ok) {
-      throw new Error(`Failed to fetch pngx_bridge_bg.wasm: ${wasmResponse.status} ${wasmResponse.statusText}`);
-    }
-
-    const jsSource = await jsResponse.text();
-    const wasmBytes = await wasmResponse.arrayBuffer();
-
-    return { jsSource, wasmBytes };
-  };
-
   return {
     async init() {
-      if (options?.pngxBridgeUrl && !pngxBridgeJsSource) {
-        try {
-          if (options.pngxBridgeLoader) {
-            const url = new URL(options.pngxBridgeUrl);
-            const basePath = decodeURIComponent(url.pathname);
-            const { jsSource, wasmBytes } = await options.pngxBridgeLoader(basePath);
-
-            pngxBridgeJsSource = jsSource;
-            pngxBridgeWasmBytes = wasmBytes;
-          } else {
-            const { jsSource, wasmBytes } = await preFetchPngxBridge(options.pngxBridgeUrl);
-
-            pngxBridgeJsSource = jsSource;
-            pngxBridgeWasmBytes = wasmBytes;
-          }
-        } catch (error) {
-          console.warn('[ConversionWorkerClient] Failed to pre-fetch pngx_bridge:', error);
-        }
-      }
-
       const response = await sendRequest({
         type: 'init',
         moduleUrl,
         pngxBridgeUrl: options?.pngxBridgeUrl,
-        pngxBridgeJsSource,
-        pngxBridgeWasmBytes,
+        pngxThreads: options?.pngxThreads,
       });
       if (!response.success) {
         throw new ConversionWorkerError(response.error ?? 'Init failed');

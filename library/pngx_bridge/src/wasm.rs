@@ -16,6 +16,103 @@ use crate::{
     QuantizeError, RgbaColor,
 };
 
+// Provide malloc/free for C dependencies (libdeflate-sys) in WASM builds
+// These use Rust's global allocator internally
+#[cfg(feature = "wasm-bindgen-rayon")]
+mod wasm_c_alloc {
+    use std::alloc::{alloc, alloc_zeroed, dealloc, realloc as std_realloc, Layout};
+
+    const ALLOC_ALIGN: usize = 16;
+
+    #[no_mangle]
+    pub unsafe extern "C" fn malloc(size: usize) -> *mut u8 {
+        if size == 0 {
+            return std::ptr::null_mut();
+        }
+        // Store size before the allocated block for free()
+        let total_size = size + ALLOC_ALIGN;
+        let layout = match Layout::from_size_align(total_size, ALLOC_ALIGN) {
+            Ok(l) => l,
+            Err(_) => return std::ptr::null_mut(),
+        };
+        let ptr = alloc(layout);
+        if ptr.is_null() {
+            return std::ptr::null_mut();
+        }
+        // Store size at the beginning
+        *(ptr as *mut usize) = size;
+        ptr.add(ALLOC_ALIGN)
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn calloc(nmemb: usize, size: usize) -> *mut u8 {
+        let total = match nmemb.checked_mul(size) {
+            Some(t) => t,
+            None => return std::ptr::null_mut(),
+        };
+        if total == 0 {
+            return std::ptr::null_mut();
+        }
+        let total_size = total + ALLOC_ALIGN;
+        let layout = match Layout::from_size_align(total_size, ALLOC_ALIGN) {
+            Ok(l) => l,
+            Err(_) => return std::ptr::null_mut(),
+        };
+        let ptr = alloc_zeroed(layout);
+        if ptr.is_null() {
+            return std::ptr::null_mut();
+        }
+        *(ptr as *mut usize) = total;
+        ptr.add(ALLOC_ALIGN)
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn realloc(ptr: *mut u8, new_size: usize) -> *mut u8 {
+        if ptr.is_null() {
+            return malloc(new_size);
+        }
+        if new_size == 0 {
+            free(ptr);
+            return std::ptr::null_mut();
+        }
+        let real_ptr = ptr.sub(ALLOC_ALIGN);
+        let old_size = *(real_ptr as *const usize);
+        let old_total = old_size + ALLOC_ALIGN;
+        let new_total = new_size + ALLOC_ALIGN;
+        let old_layout = match Layout::from_size_align(old_total, ALLOC_ALIGN) {
+            Ok(l) => l,
+            Err(_) => return std::ptr::null_mut(),
+        };
+        let new_ptr = std_realloc(real_ptr, old_layout, new_total);
+        if new_ptr.is_null() {
+            return std::ptr::null_mut();
+        }
+        *(new_ptr as *mut usize) = new_size;
+        new_ptr.add(ALLOC_ALIGN)
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn free(ptr: *mut u8) {
+        if ptr.is_null() {
+            return;
+        }
+        let real_ptr = ptr.sub(ALLOC_ALIGN);
+        let size = *(real_ptr as *const usize);
+        let total_size = size + ALLOC_ALIGN;
+        let layout = match Layout::from_size_align(total_size, ALLOC_ALIGN) {
+            Ok(l) => l,
+            Err(_) => return,
+        };
+        dealloc(real_ptr, layout);
+    }
+}
+
+// Check if threading is available (wasm-bindgen-rayon feature)
+#[wasm_bindgen]
+pub fn pngx_wasm_is_threads_enabled() -> bool {
+    cfg!(feature = "wasm-bindgen-rayon")
+}
+
 thread_local! {
     static LAST_OXIPNG_ERROR: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) };
 }

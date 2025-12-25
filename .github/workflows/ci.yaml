@@ -97,9 +97,6 @@ jobs:
               cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
               ctest --test-dir "build" --output-on-failure --parallel
 
-              rustup toolchain install nightly
-              rustup component add rust-src --toolchain nightly
-
               if type "valgrind" &> /dev/null; then
                 rm -rf "build"
                 cmake -B "build" \
@@ -166,7 +163,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
-          toolchain: stable
+          toolchain: nightly
           targets: wasm32-unknown-emscripten,wasm32-unknown-unknown
       - name: Setup wasm-pack
         run: cargo install "wasm-pack"

@@ -12,20 +12,30 @@ name = "pngx_bridge"
 [features]
 default = []
 rayon = ["dep:rayon", "oxipng/parallel", "imagequant/threads"]
-# For WASM builds: use freestanding mode and disable libdeflater (C code)
-# to avoid needing a WASM-capable C compiler
+
+# WASM builds with stable Rust (no threading)
 wasm-bindgen = ["dep:wasm-bindgen", "oxipng/freestanding", "oxipng/filetime"]
 
+# WASM builds with nightly Rust (threading via wasm-bindgen-rayon)
+wasm-bindgen-rayon = [
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-rayon",
+    "dep:rayon",
+    "oxipng/freestanding",
+    "oxipng/filetime",
+    "oxipng/parallel",
+    "imagequant/threads",
+]
+
 [dependencies]
-libc = "0.2"
 rayon = { version = "1.11", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen-rayon = { version = "1.3", optional = true }
 
 [dependencies.oxipng]
 version = "10.0.0"
 default-features = false
-# Use zopfli for compression (pure Rust), avoid libdeflater (requires C compiler)
-features = ["zopfli"]
+features = ["zopfli", "freestanding"]
 
 [dependencies.imagequant]
 version = "4.4.0"

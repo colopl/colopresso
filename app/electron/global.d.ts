@@ -61,13 +61,6 @@ interface ElectronConfirmInstallUpdateResult {
   confirmed: boolean;
 }
 
-interface ElectronPngxBridgeFilesResult {
-  success: boolean;
-  jsSource?: string;
-  wasmBytes?: ArrayBuffer;
-  error?: string;
-}
-
 interface ElectronAPI {
   getPathForFile?: (file: File) => string | undefined;
   saveJsonDialog?: (defaultFileName: string) => Promise<ElectronSaveDialogResult>;
@@ -91,7 +84,8 @@ interface ElectronAPI {
   installUpdateNow?: () => Promise<ElectronInstallUpdateResult>;
   getUpdateChannel?: () => Promise<string | undefined>;
   getArchitecture?: () => Promise<string | undefined>;
-  readPngxBridgeFiles?: (basePath: string) => Promise<ElectronPngxBridgeFilesResult>;
+  getPngxBridgeUrl?: () => Promise<string | undefined>;
+  checkForUpdates?: () => Promise<{ success: boolean; error?: string }>;
 }
 
 declare global {

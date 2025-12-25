@@ -29,9 +29,9 @@ import BuildInfoPanel from '../../shared/components/BuildInfoPanel';
 import { AppHeader, DropZone, FileList, ProgressBar, SettingsPanel, StatusMessage as StatusMessageComponent, SettingItemConfig } from '../../shared/components';
 
 const ELECTRON_SETTINGS_STORAGE_KEY = 'settings';
+const CHECK_FOR_UPDATES_AFTER_RELOAD_KEY = 'checkForUpdatesAfterReload';
 const COLOPRESSO_MODULE_URL = new URL(/* @vite-ignore */ './colopresso.js', import.meta.url);
 const COLOPRESSO_WORKER_URL = new URL(/* @vite-ignore */ './conversionWorker.js', import.meta.url);
-const PNGX_BRIDGE_URL = new URL(/* @vite-ignore */ './', import.meta.url).href;
 
 type ColopressoModuleFactoryType = (moduleConfig?: Record<string, unknown>) => Promise<ModuleWithHelpers>;
 
@@ -187,26 +187,31 @@ const ElectronAppInner: React.FC = () => {
     }
 
     const creation = (async () => {
-      const pngxBridgeLoader = async (basePath: string) => {
-        const api = window.electronAPI;
-        if (!api?.readPngxBridgeFiles) {
-          throw new Error('readPngxBridgeFiles API not available');
+      const pngxBridgeUrl = await window.electronAPI?.getPngxBridgeUrl?.();
+      console.log('[ElectronApp] pngxBridgeUrl from IPC:', pngxBridgeUrl);
+      let pngxThreads: number | undefined;
+
+      try {
+        const pngxFormat = getFormat('pngx');
+        if (pngxFormat) {
+          const pngxConfig = await loadFormatConfig(pngxFormat);
+          pngxThreads = typeof pngxConfig.pngx_threads === 'number' ? pngxConfig.pngx_threads : undefined;
+          console.log('[ElectronApp] pngxThreads from config:', pngxThreads);
         }
-        const result = await api.readPngxBridgeFiles(basePath);
-        if (!result.success || !result.jsSource || !result.wasmBytes) {
-          throw new Error(result.error ?? 'Failed to read pngx_bridge files');
-        }
-        return { jsSource: result.jsSource, wasmBytes: result.wasmBytes };
-      };
+      } catch (e) {
+        console.warn('[ElectronApp] Failed to load pngx_threads config:', e);
+      }
 
       const client = createConversionWorkerClient(COLOPRESSO_WORKER_URL, COLOPRESSO_MODULE_URL.href, {
-        pngxBridgeUrl: PNGX_BRIDGE_URL,
-        pngxBridgeLoader,
+        pngxBridgeUrl,
+        pngxThreads,
       });
       const initResult = await client.init();
+
       threadsEnabledRef.current = initResult.threadsEnabled;
       workerInitResultRef.current = initResult;
       workerClientRef.current = client;
+
       return client;
     })();
 
@@ -222,6 +227,7 @@ const ElectronAppInner: React.FC = () => {
   const loadBuildInfoFromModule = useCallback(async (): Promise<BuildInfoPayload | null> => {
     try {
       await ensureWorkerClient();
+
       const initResult = workerInitResultRef.current;
       if (!initResult) {
         return null;
@@ -229,7 +235,6 @@ const ElectronAppInner: React.FC = () => {
 
       const getUpdateChannel = window.electronAPI?.getUpdateChannel;
       const getArchitecture = window.electronAPI?.getArchitecture;
-
       let releaseChannel: string | undefined;
       let architecture: string | undefined;
 
@@ -277,7 +282,9 @@ const ElectronAppInner: React.FC = () => {
         clearTimeout(statusTimerRef.current);
         statusTimerRef.current = null;
       }
+
       dispatch({ type: 'setStatus', status });
+
       if (status && status.durationMs && status.durationMs > 0) {
         statusTimerRef.current = window.setTimeout(() => {
           dispatch({ type: 'setStatus', status: null });
@@ -683,6 +690,16 @@ const ElectronAppInner: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const shouldCheck = sessionStorage.getItem(CHECK_FOR_UPDATES_AFTER_RELOAD_KEY);
+    if (shouldCheck) {
+      sessionStorage.removeItem(CHECK_FOR_UPDATES_AFTER_RELOAD_KEY);
+      if (window.electronAPI?.checkForUpdates) {
+        void window.electronAPI.checkForUpdates();
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     return () => {
       moduleRef.current = null;
       modulePromiseRef.current = null;
@@ -820,9 +837,7 @@ const ElectronAppInner: React.FC = () => {
 
     try {
       await resetAllStoredData();
-      if (window.electronAPI?.checkForUpdates) {
-        void window.electronAPI.checkForUpdates();
-      }
+      sessionStorage.setItem(CHECK_FOR_UPDATES_AFTER_RELOAD_KEY, 'true');
       window.alert(t('settingsMenu.resetSuccess'));
       window.location.reload();
     } catch (error) {

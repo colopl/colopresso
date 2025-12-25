@@ -142,6 +142,45 @@ const ADVANCED_SETTINGS_STYLES = `
   color: var(--color-fg-base);
 }
 
+.reload-required-section {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: var(--color-bg-muted);
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+}
+
+.reload-required-section h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: var(--color-fg-base);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 8px;
+  position: relative;
+}
+
+.reload-required-section h3::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--color-accent);
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.reload-required-section .reload-warning {
+  color: #c53030;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.reload-required-section .config-item {
+  margin-bottom: 0;
+}
+
 .profile-section select {
   flex: 1;
   min-width: 150px;
@@ -513,6 +552,15 @@ const ADVANCED_SETTINGS_STYLES = `
   color: var(--color-fg-base);
 }
 
+.theme-dark .reload-required-section {
+  background: var(--color-bg-muted);
+  border-color: var(--color-border-strong);
+}
+
+.theme-dark .reload-required-section .reload-warning {
+  color: #fc8181;
+}
+
 .theme-dark .profile-section select {
   background: var(--color-bg-surface);
   color: var(--color-fg-base);
@@ -818,10 +866,21 @@ class AdvancedSettingsManager {
           alert(t('settingsModal.alerts.applyValidationError'));
           return;
         }
+
+        const needsReload = hasReloadRequiredFieldsChanged(format, this.currentConfig, config);
+
         await this.persistConfig(format, config);
         this.onApply(config);
         window.dispatchEvent(new CustomEvent('colopresso:configApplied', { detail: { config, format } }));
         closeModal(modal);
+
+        if (needsReload) {
+          const shouldReload = confirm(t('settingsModal.alerts.reloadRequired'));
+          if (shouldReload) {
+            sessionStorage.setItem('checkForUpdatesAfterReload', 'true');
+            window.location.reload();
+          }
+        }
       });
     }
 
@@ -1072,6 +1131,25 @@ function cloneConfig<T>(config: T): T {
   }
 }
 
+function hasReloadRequiredFieldsChanged(format: FormatDefinition, oldConfig: FormatOptions | null, newConfig: FormatOptions): boolean {
+  if (!oldConfig) {
+    return false;
+  }
+
+  for (const section of format.optionsSchema) {
+    for (const field of section.fields) {
+      if (field.requiresReload) {
+        const oldValue = oldConfig[field.id];
+        const newValue = newConfig[field.id];
+        if (oldValue !== newValue) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 function fieldLabel(field: FormatField): string {
   const labelKey = (field as { labelKey?: string }).labelKey;
 
@@ -1084,7 +1162,14 @@ function fieldLabel(field: FormatField): string {
 
 function fieldNote(field: FormatField): string {
   const noteKey = (field as { noteKey?: string }).noteKey;
-  return noteKey ? t(noteKey) : '';
+  if (!noteKey) {
+    return '';
+  }
+  if (noteKey === 'settingsModal.notes.pngxThreads') {
+    const numThreads = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : 1;
+    return t(noteKey, { numThreads });
+  }
+  return t(noteKey);
 }
 
 function fieldDefaultValue(field: FormatField): unknown {
@@ -1145,6 +1230,7 @@ function buildFieldHTML(field: FormatField, value: unknown): string {
 
 function buildModalHTML(format: FormatDefinition, config: FormatOptions): string {
   const formatLabel = getFormatDisplayName(format, (key) => t(key));
+  const reloadRequiredFields: { field: FormatField; value: unknown }[] = [];
   const sectionsHTML = (format.optionsSchema || [])
     .map((section) => {
       const sectionLabel = section.labelKey ? t(section.labelKey) : section.section;
@@ -1152,12 +1238,31 @@ function buildModalHTML(format: FormatDefinition, config: FormatOptions): string
         if (field.requiresThreads && !threadsEnabledFlag) {
           return false;
         }
+        if (field.requiresReload) {
+          reloadRequiredFields.push({ field, value: (config as Record<string, unknown>)[field.id] });
+          return false;
+        }
         return true;
       });
+      if (visibleFields.length === 0) {
+        return '';
+      }
       const fieldsHTML = visibleFields.map((field) => buildFieldHTML(field, (config as Record<string, unknown>)[field.id])).join('\n');
       return `<div class="config-group" data-section="${section.section}"><h3>${sectionLabel}</h3>${fieldsHTML}</div>`;
     })
+    .filter((html) => html.length > 0)
     .join('\n');
+
+  let reloadRequiredSectionHTML = '';
+  if (reloadRequiredFields.length > 0) {
+    const fieldsHTML = reloadRequiredFields.map(({ field, value }) => buildFieldHTML(field, value)).join('\n');
+    reloadRequiredSectionHTML = `
+        <div class="reload-required-section">
+          <h3>${t('settingsModal.environmentSettings')}</h3>
+          ${fieldsHTML}
+          <div class="reload-warning">${t('settingsModal.alerts.reloadRequiredWarning')}</div>
+        </div>`;
+  }
 
   return `
   <div class="modal" id="advancedModal" role="dialog" aria-modal="true" aria-label="${t('settingsModal.ariaLabel', { format: formatLabel })}">
@@ -1166,7 +1271,7 @@ function buildModalHTML(format: FormatDefinition, config: FormatOptions): string
         <h2>${t('settingsModal.title', { format: formatLabel })}</h2>
         <button class="modal-close" id="advancedModalClose" aria-label="${t('settingsModal.closeAria')}">&times;</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body">${reloadRequiredSectionHTML}
         <div class="profile-section" id="profileSection">
           <label for="profileSelect">${t('settingsModal.profileLabel')}</label>
           <select id="profileSelect" aria-label="${t('settingsModal.profileSelectAria')}">
