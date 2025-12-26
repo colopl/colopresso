@@ -144,7 +144,9 @@ const handleInit = async (request: ConversionWorkerRequest) => {
       } catch (pngxError) {
         throw new Error('pngx_bridge init failed.');
       }
-    } else { /* NOP */ }
+    } else {
+      /* NOP */
+    }
 
     const versionInfo = getVersionInfo(Module);
     const pngxOxipng = pngxBridgeEnabled ? pngxOxipngVersion() : undefined;
@@ -154,7 +156,9 @@ const handleInit = async (request: ConversionWorkerRequest) => {
     if (pngxBridgeEnabled && (!rustVersion || rustVersion === 'unknown')) {
       try {
         rustVersion = pngxRustVersionString();
-      } catch { /* NOP */ }
+      } catch {
+        /* NOP */
+      }
     }
 
     cachedVersionInfo = {

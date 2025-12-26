@@ -46,7 +46,9 @@ async function ensureModule(): Promise<ModuleWithHelpers> {
             const pngxConfig = await loadFormatConfig(pngxFormat);
             pngxThreads = typeof pngxConfig.pngx_threads === 'number' ? pngxConfig.pngx_threads : undefined;
           }
-        } catch { /* NOP */ }
+        } catch {
+          /* NOP */
+        }
 
         await initPngxBridge(pngxBridgeBaseUrl, pngxThreads);
         pngxBridgeInitialized = isPngxBridgeInitialized();

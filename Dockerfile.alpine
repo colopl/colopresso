@@ -21,13 +21,16 @@ RUN apk add --no-cache \
     "linux-headers"
 
 # Install Rust
+COPY rust-toolchain.toml /tmp/rust-toolchain.toml
 ENV RUSTUP_HOME="/opt/rust/rustup"
 ENV CARGO_HOME="/opt/rust/cargo"
 ENV PATH="${CARGO_HOME}/bin:${PATH}"
 RUN --mount=type=cache,target=/opt/rust/cargo/registry,sharing=locked \
     --mount=type=cache,target=/opt/rust/cargo/git,sharing=locked \
     set -e; \
+    RUST_VERSION=$(grep -E '^channel\s*=' /tmp/rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/'); \
     curl --proto '=https' --tlsv1.2 -sSf "https://sh.rustup.rs" | \
-      sh -s -- -y --default-toolchain "stable" --profile "minimal" --no-modify-path
+      sh -s -- -y --default-toolchain "${RUST_VERSION}" --profile "minimal" --no-modify-path; \
+    rm /tmp/rust-toolchain.toml
 
 WORKDIR "/workspace"

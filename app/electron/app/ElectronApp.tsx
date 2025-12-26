@@ -196,7 +196,9 @@ const ElectronAppInner: React.FC = () => {
           const pngxConfig = await loadFormatConfig(pngxFormat);
           pngxThreads = typeof pngxConfig.pngx_threads === 'number' ? pngxConfig.pngx_threads : undefined;
         }
-      } catch { /* NOP */ }
+      } catch {
+        /* NOP */
+      }
 
       const client = createConversionWorkerClient(COLOPRESSO_WORKER_URL, COLOPRESSO_MODULE_URL.href, {
         pngxBridgeUrl,

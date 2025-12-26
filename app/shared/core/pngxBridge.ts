@@ -183,7 +183,9 @@ async function loadPngxBridgeModule(jsUrl: string, wasmUrl: string): Promise<Png
     try {
       const module = await import(/* @vite-ignore */ jsUrl);
       return module as PngxBridgeWasmModuleWithInit;
-    } catch { /* NOP */ }
+    } catch {
+      /* NOP */
+    }
   }
   const response = await fetch(jsUrl);
   if (!response.ok) {
