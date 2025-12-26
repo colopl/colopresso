@@ -1,18 +1,114 @@
-# libcolopresso / colopresso
-
-PNG 画像を新しいフォーマットに変換または最適化するライブラリ (兼 アプリケーション)
+# 🎨 colopresso
 
 <p align="center">
-  <img src="resources/icon.png" alt="colopresso icon" />
+  <img src="resources/icon.png" alt="colopresso icon" width="128" />
 </p>
+
 <p align="center">
-  <img src="resources/screenshot_ja.png" alt="colopresso screenshot (japanese)" width="50%" />
+  <strong>PNG 画像を次世代フォーマットに変換・最適化するオールインワンツール</strong>
 </p>
 
-## 目次
+<p align="center">
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPLv3" /></a>
+  <img src="https://img.shields.io/badge/C99-Library-green.svg" alt="C99 library" />
+  <img src="https://img.shields.io/badge/Rust-Used-green.svg" alt="Rust used" />
+  <img src="https://img.shields.io/badge/Platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg" alt="Platforms" />
+</p>
 
-- [概要](#概要)
-- [種類](#種類)
+<p align="center">
+  <a href="./README.md">English</a>
+</p>
+
+---
+
+**colopresso** は、PNG 画像を WebP、AVIF、最適化 PNG へ変換・減色圧縮するための高性能ライブラリ `libcolopresso` と、その機能を活用した CLI / GUI アプリケーションを提供するオープンソースプロジェクトです。
+
+<p align="center">
+  <img src="resources/screenshot_ja.png" alt="colopresso スクリーンショット" width="60%" />
+</p>
+
+## ✨ 特長
+
+- 🚀 **高速変換** — C99 ベースのネイティブライブラリによる高速処理
+- 📦 **複数フォーマット対応** — WebP, AVIF, 最適化 PNG (256色, Reduced RGBA32, Limited RGBA4444)
+- 🖥️ **マルチプラットフォーム** — Windows, macOS, Linux に対応
+- 🎛️ **柔軟な利用形態** — CLI, Electron アプリ, Chrome 拡張機能, Node.js から選択可能
+- ⚙️ **プロファイル機能** — フォーマットごとのパラメータを保存・エクスポート・インポート
+- 🌐 **WebAssembly 対応** — ブラウザや Node.js で動作する WASM ビルドもサポート
+
+## 📥 クイックスタート
+
+```bash
+git clone --recursive "https://github.com/colopl/colopresso.git"
+cd colopresso
+```
+
+詳細なビルド手順は [ビルドガイド](#ビルド-linux) を参照してください。
+
+## 🎯 対応フォーマット
+
+| フォーマット | モード | 説明 |
+|-------------|--------|------|
+| **WebP** | 圧縮 / ロスレス | 広く対応した次世代フォーマット |
+| **AVIF** | 圧縮 / ロスレス | 最高品質の次世代フォーマット |
+| **PNG** | 256色パレット | 256色量子化 (保護色指定あり) |
+| **PNG** | Reduced RGBA32 | ビット深度削減 (8-bit RGBA 出力を維持) |
+| **PNG** | Limited RGBA4444 | 誤差拡散ディザリング付き量子化 |
+| **PNG** | ロスレス | メタデータ削除による最適化 |
+
+### 📱 フォーマット選択ガイド
+
+| 対応デバイス | 推奨フォーマット |
+|-------------|-----------------|
+| iOS 16+ | **AVIF** (最高品質) |
+| iOS 14+ | **WebP** |
+| iOS 14 未満 | **PNG** |
+
+> [!NOTE]
+> Android 5.x 以降は常に Chromium (Google Chrome) に依存しているため、すべてのフォーマットがサポートされています。
+
+## 🛠️ アプリケーション
+
+### CLI
+
+コンソールで動作する高速コマンドラインツールです。
+
+- ✅ OS レベルのマルチスレッドと CPU 拡張命令を最大限に活用
+- ✅ Windows, Linux, macOS で利用可能
+- ✅ バッチ処理や CI/CD パイプラインに最適
+
+### Electron (デスクトップ GUI)
+
+直感的なドラッグ&ドロップ操作が可能なデスクトップアプリケーションです。
+
+- ✅ フォルダ内のすべての PNG ファイルを一括変換
+- ✅ 変換後に元ファイルを自動削除するオプション
+- ✅ プロファイル機能でワークフローを効率化
+
+### Chrome 拡張機能
+
+ブラウザ上で動作する軽量な変換ツールです。
+
+- ✅ 変換ファイルを Chrome から直接ダウンロード
+- ✅ 複数ファイルを ZIP アーカイブとしてダウンロード可能
+
+> [!NOTE]
+> 公式の Chrome 拡張機能は Chrome ウェブストアでは公開されていません。セルフホストでの利用を推奨します。
+
+### Node.js (WebAssembly)
+
+Node.js 環境で動作する WASM 版 CLI です。
+
+- ✅ Node.js 18 以降で `colopresso.js` を直接実行可能
+- ✅ サーバーサイドでの画像処理に最適
+
+---
+
+## 📚 詳細ドキュメント
+
+<details>
+<summary><strong>📖 目次</strong></summary>
+
 - [開発環境](#開発環境)
 - [ビルドオプション](#ビルドオプション)
 - [ビルド (Linux)](#ビルド-linux)
@@ -21,69 +117,20 @@ PNG 画像を新しいフォーマットに変換または最適化するライ�
 - [ビルド (Chrome Extension)](#ビルド-chrome-extension)
 - [ビルド (Electron)](#ビルド-electron)
 - [ライセンス](#ライセンス)
+- [作者](#作者)
 - [特記事項](#特記事項)
 
-## 種類
+</details>
 
-### CLI
-
-- 各OS上でコンソールアプリケーションとして動作します
-- パフォーマンスのためにOSレベルのマルチスレッドとCPU拡張命令を最大限に活用します
-- Windows, Linux, macOS で利用可能です
-
-### Chrome Extension
-
-- Google Chrome 拡張機能として動作します
-- 変換されたファイルは Chrome によって直接ダウンロードされます
-- フォルダや複数の PNG ファイルを一度にドロップし、変換されたファイルを ZIP アーカイブとしてダウンロードする機能をサポートしています（設定で変更可能）
-
-> [!NOTE]
-> 公式の Chrome 拡張機能は現在 Chrome ウェブストアで公開されておらず、今後リリースの予定もありません。
-
-### Electron
-
-- デスクトップアプリケーションとして動作します
-- 選択またはドロップされたフォルダに含まれるすべての PNG ファイルを変換して保存します
-    - オプションで、変換後に元の PNG ファイルを削除することも可能です
-
-### Node.js (with WebAssembly)
-
-- Node.js 18 以降が利用可能な場合、Emscripten でビルドされた CLI (`colopresso.js`) をそのまま実行できます
-- `COLOPRESSO_NODE_BUILD=ON` と `COLOPRESSO_USE_CLI=ON` の両方が設定されている場合、`./build/cli/colopresso.js` と `colopresso.wasm` が生成され、`node ./build/cli/colopresso.js --help` などのコマンドが実行可能になります
-
-### 共通機能
-
-- サポートされる出力形式
-    - WebP (圧縮 / ロスレス)
-    - AVIF (圧縮 / ロスレス)
-    - PNG (256色パレット, Reduced RGBA32, Limited RGBA4444, ロスレス)
-        - ロスレス圧縮 (メタデータの削除)
-        - 256色量子化 (保護色指定あり)
-        - Reduced RGBA32 量子化 (自動または手動の色ターゲット、8-bit RGBA 出力を維持)
-            - CLI (`--reduce-bits-rgb`, `--reduce-alpha`) または GUI の詳細パネルで RGB / アルファグリッドのビット深度 (1-8, デフォルト 4) を制御可能。重要度を考慮したディザリング付き
-            - 反復的な改善を行う重要度重み付きクラスタリングにより、PSNR を維持しつつ、より小さな RGBA PNG を生成します
-        - Limited RGBA4444 ビット深度量子化 (誤差拡散ディザリングと自動ディザヒューリスティック付き)
-            - `--dither -1` を設定するか、GUI フィールドを空欄にすることで自動推定を行います
-
-- プロファイル機能
-    - フォーマットごとのパラメータを微調整し、プロファイルを保存、エクスポート、またはインポートできます
-
-#### フォーマットのガイダンス
-
-- サポートする最小デバイスが iOS 16 以降の場合、一般的に最高の画質を提供する AVIF を使用できます。
-- サポートする最小デバイスが iOS 14 以降の場合、WebP を使用してください。
-- サポートする最小デバイスが iOS 14 より前の場合、PNG を使用してください。
-
-> [!NOTE]
-> Android 5.x 以降は常に Google Chrome 経由の Chromium に依存しているため、追加の考慮事項は不要です（すべての形式がサポートされています）。
+---
 
 ## 開発環境
 
 ```bash
-$ git clone --recursive "https://github.com/colopl/colopresso.git"
+git clone --recursive "https://github.com/colopl/colopresso.git"
 ```
 
-クローンした `libcolopresso` ディレクトリを Visual Studio Code で開き、`Dev Containers` 拡張機能を使用して Dev Container にアタッチしてください。
+クローンした `colopresso` ディレクトリを Visual Studio Code で開き、`Dev Containers` 拡張機能を使用して Dev Container にアタッチしてください。
 
 > [!NOTE]
 > SIMD (NEON) を有効にした arm64 上で MemorySanitizer を実行すると、`libpng` が未初期化メモリの読み取りとしてフラグ付けされる場合があります。現在、MemorySanitizer の実行中は SIMD (NEON) を無効にしています。
@@ -98,150 +145,226 @@ $ git clone --recursive "https://github.com/colopl/colopresso.git"
 
 ### 常に利用可能
 
-- `COLOPRESSO_USE_CLI`        ON/OFF [デフォルト: OFF] CLI バイナリのビルドを有効にします。`COLOPRESSO_WITH_FILE_OPS=ON` が必要です。
-- `COLOPRESSO_USE_UTILS`      ON/OFF [デフォルト: OFF] `library/utils/` 以下のコードをビルドします。`COLOPRESSO_WITH_FILE_OPS=OFF` の場合、自動的に無効になります。
-- `COLOPRESSO_USE_TESTS`      ON/OFF [デフォルト: OFF] `library/tests/` 以下のコードをビルドします。
-- `COLOPRESSO_WITH_FILE_OPS`  ON/OFF [デフォルト: ON] ファイル I/O API (`cpres_encode_*_file`) を有効にします。標準ファイル I/O (`fopen`, `fwrite` など) に依存します。メモリベースの API (`cpres_encode_*_memory`) は常に利用可能です。Chrome Extension または Electron ビルドを有効にすると、強制的に `OFF` になります。
+| オプション | デフォルト | 説明 |
+|-----------|-----------|------|
+| `COLOPRESSO_USE_CLI` | OFF | CLI バイナリのビルドを有効にします。`COLOPRESSO_WITH_FILE_OPS=ON` が必要です。 |
+| `COLOPRESSO_USE_UTILS` | OFF | `library/utils/` 以下のコードをビルドします。`COLOPRESSO_WITH_FILE_OPS=OFF` の場合、自動的に無効になります。 |
+| `COLOPRESSO_USE_TESTS` | OFF | `library/tests/` 以下のコードをビルドします。 |
+| `COLOPRESSO_WITH_FILE_OPS` | ON | ファイル I/O API (`cpres_encode_*_file`) を有効にします。Chrome Extension または Electron ビルドを有効にすると、強制的に `OFF` になります。 |
 
-### GCC (GNU C Compiler) && `-DCMAKE_BUILD_TYPE=Debug`
-- `COLOPRESSO_USE_VALGRIND`     ON/OFF 利用可能な場合、Valgrind 統合を有効にします。
-- `COLOPRESSO_USE_COVERAGE`     ON/OFF 利用可能な場合、`gcov` カバレッジを有効にします。
+### GCC && Debug モード
 
-### Clang && `-DCMAKE_BUILD_TYPE=Debug`
-- `COLOPRESSO_USE_ASAN`         ON/OFF 利用可能な場合、AddressSanitizer を有効にします。
-- `COLOPRESSO_USE_MSAN`         ON/OFF 利用可能な場合、MemorySanitizer を有効にします。
-- `COLOPRESSO_USE_UBSAN`        ON/OFF 利用可能な場合、UndefinedBehaviorSanitizer を有効にします。
+| オプション | 説明 |
+|-----------|------|
+| `COLOPRESSO_USE_VALGRIND` | 利用可能な場合、Valgrind 統合を有効にします。 |
+| `COLOPRESSO_USE_COVERAGE` | 利用可能な場合、`gcov` カバレッジを有効にします。 |
+
+### Clang && Debug モード
+
+| オプション | 説明 |
+|-----------|------|
+| `COLOPRESSO_USE_ASAN` | AddressSanitizer を有効にします。 |
+| `COLOPRESSO_USE_MSAN` | MemorySanitizer を有効にします。 |
+| `COLOPRESSO_USE_UBSAN` | UndefinedBehaviorSanitizer を有効にします。 |
 
 ## ビルド (Linux)
 
 1. VS Code と Docker (または互換ソフトウェア) をインストールし、リポジトリディレクトリを開きます
 2. Dev Containers を使用してアタッチします
-3. `rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Release -DCOLOPRESSO_USE_UTILS=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_USE_CLI=ON`
-4. `cmake --build "build" --parallel`
-5. `ctest --test-dir "build" --output-on-failure --parallel`
-6. `./build/cli/colopresso` に CLI バイナリが、`./build/utils` にユーティリティバイナリが含まれ、`./build` に `libcolopresso.a` が含まれます
+3. 以下のコマンドを実行します:
+
+```bash
+rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Release \
+  -DCOLOPRESSO_USE_UTILS=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_USE_CLI=ON
+cmake --build "build" --parallel
+ctest --test-dir "build" --output-on-failure --parallel
+```
+
+4. `./build/cli/colopresso` に CLI バイナリが、`./build/utils` にユーティリティバイナリが、`./build` に `libcolopresso.a` が生成されます
 
 ### カバレッジ出力
 
-1. `rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_COVERAGE=ON -DCOLOPRESSO_USE_TESTS=ON`
-2. `cmake --build "build" --parallel`
-3. `cmake --build "build" --target coverage`
-4. カバレッジレポートは `./build/coverage/html/` 以下に生成されます
+```bash
+rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Debug \
+  -DCOLOPRESSO_USE_COVERAGE=ON -DCOLOPRESSO_USE_TESTS=ON
+cmake --build "build" --parallel
+cmake --build "build" --target coverage
+```
+
+カバレッジレポートは `./build/coverage/html/` 以下に生成されます。
 
 ### Valgrind チェック
 
-1. `rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_VALGRIND=ON -DCOLOPRESSO_USE_TESTS=ON`
-2. `cmake --build "build" --parallel`
-3. `ctest --test-dir "build" --output-on-failure --parallel`
+```bash
+rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Debug \
+  -DCOLOPRESSO_USE_VALGRIND=ON -DCOLOPRESSO_USE_TESTS=ON
+cmake --build "build" --parallel
+ctest --test-dir "build" --output-on-failure --parallel
+```
 
-#### 補足 (速度と詳細度のトレードオフ)
+<details>
+<summary><strong>Valgrind オプションの詳細</strong></summary>
 
 Valgrind のテストはエンコーダのエンドツーエンド系テストを含むため、CI 環境では非常に時間がかかる場合があります。
-カバー範囲を落とさずに実行時間を短縮できるよう、Valgrind 実行時の挙動は次の CMake オプションで調整できます。
 
-- `COLOPRESSO_VALGRIND_TRACK_ORIGINS` (デフォルト: `OFF`)
-    - `ON` にすると Valgrind に `--track-origins=yes` を付与します。
-    - **非常に遅くなります** が、未初期化値の発生源追跡に有効です（`Memcheck:Value*` / `Memcheck:Cond` の原因調査向け）。
+| オプション | デフォルト | 説明 |
+|-----------|-----------|------|
+| `COLOPRESSO_VALGRIND_TRACK_ORIGINS` | OFF | `ON` にすると `--track-origins=yes` を付与。**非常に遅くなります**が、未初期化値の発生源追跡に有効です。 |
+| `COLOPRESSO_VALGRIND_RAYON_NUM_THREADS` | 1 | Valgrind テスト実行時の `RAYON_NUM_THREADS` を設定します。 |
+| `COLOPRESSO_VALGRIND_LEAK_CHECK` | full | Valgrind の `--leak-check` を指定します (`no|summary|full`)。 |
+| `COLOPRESSO_VALGRIND_SHOW_LEAK_KINDS` | all | Valgrind の `--show-leak-kinds` を指定します。 |
 
-- `COLOPRESSO_VALGRIND_RAYON_NUM_THREADS` (デフォルト: `1`)
-    - Valgrind テスト実行時に `RAYON_NUM_THREADS` を設定します。
-    - Rust / Rayon を含む処理での過剰並列を抑え、ランタイムと揺らぎ（非決定性）を減らします。
+**例: CI 向け (高速) の Valgrind 実行:**
 
-- `COLOPRESSO_VALGRIND_LEAK_CHECK` (デフォルト: `full`)
-    - Valgrind の `--leak-check` を指定します（`no|summary|full`）。
+```bash
+rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Debug \
+  -DCOLOPRESSO_USE_VALGRIND=ON -DCOLOPRESSO_USE_TESTS=ON \
+  -DCOLOPRESSO_VALGRIND_TRACK_ORIGINS=OFF -DCOLOPRESSO_VALGRIND_RAYON_NUM_THREADS=1
+```
 
-- `COLOPRESSO_VALGRIND_SHOW_LEAK_KINDS` (デフォルト: `all`)
-    - Valgrind の `--show-leak-kinds` を指定します（例: `definite,indirect,possible,reachable` または `all`）。
+**例: 特定のテストのみ実行:**
 
-例:
+```bash
+ctest --test-dir "build" --output-on-failure -R '^test_encode_pngx_memory_valgrind$'
+```
 
-- CI 向け (高速寄り) の Valgrind 実行:
-    - `rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_VALGRIND=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_VALGRIND_TRACK_ORIGINS=OFF -DCOLOPRESSO_VALGRIND_RAYON_NUM_THREADS=1`
-
-- 詳細メモリデバッグ（未初期化の発生源追跡）:
-    - `rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_VALGRIND=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_VALGRIND_TRACK_ORIGINS=ON -DCOLOPRESSO_VALGRIND_RAYON_NUM_THREADS=1`
-
-- 特定の Valgrind テストだけ実行:
-    - `ctest --test-dir "build" --output-on-failure -R '^test_encode_pngx_memory_valgrind$'`
+</details>
 
 ### Sanitizer チェック
 
-1. `rm -rf "build" && cmake -B "build" -DCMAKE_C_COMPILER="$(command -v "clang")" -DCMAKE_CXX_COMPILER="$(command -v "clang++")" -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_(ASAN|MSAN|UBSAN)=ON -DCOLOPRESSO_USE_TESTS=ON`
-2. `cmake --build "build" --parallel`
-3. `ctest --test-dir "build" --output-on-failure --parallel`
+```bash
+rm -rf "build" && cmake -B "build" \
+  -DCMAKE_C_COMPILER="$(command -v clang)" \
+  -DCMAKE_CXX_COMPILER="$(command -v clang++)" \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DCOLOPRESSO_USE_ASAN=ON -DCOLOPRESSO_USE_TESTS=ON
+cmake --build "build" --parallel
+ctest --test-dir "build" --output-on-failure --parallel
+```
 
 ## ビルド (macOS)
 
 1. Homebrew 経由で `cmake` をインストールします (Intel CPU の場合は `nasm` も)
 2. ターミナルでクローンディレクトリに移動します
-3. `rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Release -DCOLOPRESSO_USE_UTILS=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_USE_CLI=ON`
-4. `cmake --build "build" --parallel`
-5. `ctest --test-dir "build" --output-on-failure --parallel`
-6. `./build/cli/colopresso` と `./build/utils/cpres` に実行可能ファイルが含まれ、`./build` に `libcolopresso.a` が含まれます
+3. 以下のコマンドを実行します:
+
+```bash
+rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Release \
+  -DCOLOPRESSO_USE_UTILS=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_USE_CLI=ON
+cmake --build "build" --parallel
+ctest --test-dir "build" --output-on-failure --parallel
+```
+
+4. `./build/cli/colopresso` と `./build/utils/cpres` に実行可能ファイルが、`./build` に `libcolopresso.a` が生成されます
 
 ## ビルド (Node.js)
 
 1. VS Code と Docker (または互換ソフトウェア) をインストールし、リポジトリディレクトリを開きます
 2. Dev Containers を使用してアタッチします
-3. `rm -rf "build" && emcmake cmake -B "build" -DCMAKE_BUILD_TYPE=Release -DCOLOPRESSO_USE_UTILS=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_USE_CLI=ON -DCOLOPRESSO_NODE_BUILD=ON`
-4. `cmake --build "build" --parallel`
-5. `ctest --test-dir "build" --output-on-failure --parallel`
-6. `COLOPRESSO_USE_UTILS=ON` の場合、Node.js 対応の `*.js` / `*.wasm` ファイルが `./build/utils/` 以下に配置されます。`COLOPRESSO_USE_CLI=ON` の場合、`./build/cli/colopresso.js` / `colopresso.wasm` が `libcolopresso.a` と共に生成されます
+3. 以下のコマンドを実行します:
+
+```bash
+rm -rf "build" && emcmake cmake -B "build" -DCMAKE_BUILD_TYPE=Release \
+  -DCOLOPRESSO_USE_UTILS=ON -DCOLOPRESSO_USE_TESTS=ON \
+  -DCOLOPRESSO_USE_CLI=ON -DCOLOPRESSO_NODE_BUILD=ON
+cmake --build "build" --parallel
+ctest --test-dir "build" --output-on-failure --parallel
+```
+
+4. `./build/cli/colopresso.js` / `colopresso.wasm` が生成されます
 
 ## ビルド (Chrome Extension)
 
 1. VS Code と Docker (または互換ソフトウェア) をインストールし、リポジトリディレクトリを開きます
 2. Dev Containers を使用してアタッチします
-3. `rm -rf "build" && emcmake cmake -B "build" -DCMAKE_BUILD_TYPE=Release -DCOLOPRESSO_CHROME_EXTENSION=ON`
-    - ファイル I/O API は自動的に無効になり、メモリベースの API のみが利用可能になります
-4. `cmake --build "build" --parallel`
-5. 拡張機能のビルド成果物は `./build/chrome` 以下に配置されます
+3. 以下のコマンドを実行します:
+
+```bash
+rm -rf "build" && emcmake cmake -B "build" -DCMAKE_BUILD_TYPE=Release \
+  -DCOLOPRESSO_CHROME_EXTENSION=ON
+cmake --build "build" --parallel
+```
+
+4. 拡張機能のビルド成果物は `./build/chrome` 以下に配置されます
 
 ## ビルド (Electron)
 
 ### 共通要件
 
 - Node.js
-- `wasm32-unknown-emscripten` ターゲットを持つ Rust stable
+- Rust nightly
+  ```bash
+  rustup toolchain install nightly
+  rustup component add "rust-src" --toolchain nightly
+  rustup target add "wasm32-unknown-emscripten"
+  rustup target add "wasm32-unknown-unknown"
+  ```
+- `wasm32-unknown-unknown` をサポートする LLVM / Clang
+  - macOS: `brew install llvm`
 - `third_party/emsdk` と同じタグでインストールされた EMSDK
 - `PATH` 経由でアクセス可能な `emcmake` / `cmake`
-- Electron ビルドではファイル I/O API が自動的に無効になり、メモリ API のみが利用可能になります
+
+> [!NOTE]
+> Electron ビルドではファイル I/O API が自動的に無効になり、メモリ API のみが利用可能になります。
 
 ### macOS
 
 > [!TIP]
 > 信頼できる最新の手順が必要な場合は、常に `release.yaml` を参照してください。
 
-1. `third_party/emsdk` で `./emsdk install <tag>` / `./emsdk activate <tag>` を実行し、`. ./emsdk_env.sh` を source します
-2. `rm -rf "build" && emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--mac"`
-3. `cmake --build "build" --config Release --parallel`
-4. 成果物は `dist_build/colopresso-<version>_{x64,arm64}.dmg` に書き込まれます
+```bash
+# 1. EMSDK のセットアップ
+cd third_party/emsdk
+./emsdk install <tag>
+./emsdk activate <tag>
+source ./emsdk_env.sh
+cd ../..
+
+# 2. ビルド
+rm -rf "build" && emcmake cmake -B "build" \
+  -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--mac"
+cmake --build "build" --config Release --parallel
+```
+
+成果物は `dist_build/colopresso-<version>_{x64,arm64}.dmg` に出力されます。
 
 ### Windows
 
 > [!TIP]
 > cmd (コマンドプロンプト) ではなく、常に `pwsh` を使用してください。
 
-1. `third_party/emsdk\emsdk.ps1 install <tag>` / `activate <tag>` を実行し、`emsdk_env.ps1` を適用します
-1. `rm -rf "build" && emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--win"`
-1. `cmake --build "build" --config Release --parallel`
-1. 成果物は `dist_build/colopresso-<version>_{ia32,x64,arm64}.exe` として表示されます
+```powershell
+# 1. EMSDK のセットアップ
+cd third_party/emsdk
+.\emsdk.ps1 install <tag>
+.\emsdk.ps1 activate <tag>
+. .\emsdk_env.ps1
+cd ..\..
+
+# 2. ビルド
+rm -rf "build"
+emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--win"
+cmake --build "build" --config Release --parallel
+```
+
+成果物は `dist_build/colopresso-<version>_{ia32,x64,arm64}.exe` として出力されます。
+
+---
 
 ## ライセンス
 
-GNU General Public Licence 3 (GPLv3)
+**GNU General Public License v3.0 (GPLv3)**
 
-詳細は [`LICENSE`](./LICENSE) を参照してください。
+詳細は [LICENSE](./LICENSE) を参照してください。
 
 ## 作者
 
-- Go Kudo <g-kudo@colopl.co.jp>
-
-- Icon resource designed by Moana Sato
+- **Go Kudo** <g-kudo@colopl.co.jp>
+- Icon resource designed by **Moana Sato**
 
 ## 特記事項
 
-[`NOTICE`](./NOTICE) を参照してください。
+[NOTICE](./NOTICE) を参照してください。
 
 このソフトウェアは、大規模言語モデル (LLM) の支援を受けて開発されました。
 すべての設計上の決定は人間によって行われ、LLM によって生成されたすべてのコードは、正確性とコンプライアンスについてレビューおよび検証されています。
@@ -249,7 +372,7 @@ GNU General Public Licence 3 (GPLv3)
 このソフトウェアのアイコンおよびグラフィックアセットは、生成 AI を使用せずに作成されました。
 `assets/` ディレクトリ内のファイルは、Python コードからプログラム的に生成されたテスト用画像です。
 
-使用されたコーディングエージェント:
+**使用されたコーディングエージェント:**
 
 - GitHub, Inc. / GitHub Copilot
 - Anthropic PBC / Claude Code

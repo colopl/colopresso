@@ -36,15 +36,33 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 SHELL [ "/bin/bash", "-c" ]
 CMD [ "/bin/bash" ]
 
+COPY rust-toolchain.toml /tmp/rust-toolchain.toml
+RUN set -e; \
+    RUST_STABLE_VERSION="$(grep -E '^channel\s*=' /tmp/rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')"; \
+    RUST_NIGHTLY_VERSION="$(grep -E '^nightly\s*=' /tmp/rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')"; \
+    WASM_PACK_VERSION="$(grep -E '^wasm-pack\s*=' /tmp/rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')"; \
+    echo "RUST_STABLE_VERSION=${RUST_STABLE_VERSION}" > /tmp/rust-versions.env; \
+    echo "RUST_NIGHTLY_VERSION=${RUST_NIGHTLY_VERSION}" >> /tmp/rust-versions.env; \
+    echo "WASM_PACK_VERSION=${WASM_PACK_VERSION}" >> /tmp/rust-versions.env; \
+    rm /tmp/rust-toolchain.toml
+
 ENV RUSTUP_HOME="/opt/rust/rustup"
 ENV CARGO_HOME="/opt/rust/cargo"
 RUN --mount=type=cache,target=/opt/rust/cargo/registry,sharing=locked \
     --mount=type=cache,target=/opt/rust/cargo/git,sharing=locked \
     set -e; \
-    curl --proto '=https' --tlsv1.2 -sSf "https://sh.rustup.rs" | sh -s -- -y --default-toolchain "stable" --profile "minimal" --no-modify-path && \
+    . /tmp/rust-versions.env; \
+    curl --proto '=https' --tlsv1.2 -sSf "https://sh.rustup.rs" | sh -s -- -y --default-toolchain "${RUST_STABLE_VERSION}" --profile "minimal" --no-modify-path && \
     echo 'export PATH="${CARGO_HOME}/bin:${PATH}"' > "/etc/profile.d/cargo.sh" && \
     . "/etc/profile.d/cargo.sh" && \
-    rustup target add "wasm32-unknown-emscripten"
+    rustup toolchain install "${RUST_STABLE_VERSION}" && \
+    rustup target add "wasm32-unknown-emscripten" && \
+    rustup target add "wasm32-unknown-unknown" && \
+    rustup toolchain install "${RUST_NIGHTLY_VERSION}" && \
+    rustup component add "rust-src" --toolchain "${RUST_NIGHTLY_VERSION}" && \
+    rustup target add "wasm32-unknown-emscripten" --toolchain "${RUST_NIGHTLY_VERSION}" && \
+    rustup target add "wasm32-unknown-unknown" --toolchain "${RUST_NIGHTLY_VERSION}" && \
+    cargo install "wasm-pack" --version "${WASM_PACK_VERSION}" --locked
 
 ARG ENABLE_CLANG
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -142,9 +160,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     pip3 install --resume-retries=5 --no-cache-dir "numpy" "opencv-python" "Pillow" "scikit-image" "flake8" "black" && \
     update-alternatives --install "/usr/bin/python" python "$(command -v "python3")" 100 && \
     . "/etc/profile.d/cargo.sh" && \
-    rustup component add "rustfmt" && \
-    rustup toolchain install "nightly" && \
-    rustup component add "rust-src" --toolchain "nightly"
+    rm -f /tmp/rust-versions.env
 
 ENV EDITOR="vim"
 ENV VISUAL="vim"

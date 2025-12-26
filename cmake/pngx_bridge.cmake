@@ -10,9 +10,64 @@
 set(PNGX_BRIDGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/library/pngx_bridge")
 set(PNGX_BRIDGE_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/pngx_bridge")
 
-option(PNGX_BRIDGE_ENABLE_RUST_ASAN "Enable AddressSanitizer instrumentation for the Rust pngx_bridge build (requires nightly) (maybe doesn't work)" OFF)
-option(PNGX_BRIDGE_ENABLE_RUST_MSAN "Enable MemorySanitizer instrumentation for the Rust pngx_bridge build (requires nightly + -Zbuild-std)" ON)
+macro(_pngx_bridge_create_wasm_stub)
+  set(PNGX_BRIDGE_USE_WASM_SEPARATION ON)
+  include(cmake/pngx_bridge_wasm.cmake)
 
+  set(PNGX_BRIDGE_STUB_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/library/src/wasm.c")
+
+  add_library(pngx_bridge STATIC "${PNGX_BRIDGE_STUB_SOURCE}")
+  add_dependencies(pngx_bridge pngx_bridge_wasm_build)
+
+  target_compile_definitions(pngx_bridge PRIVATE PNGX_BRIDGE_WASM_SEPARATION=1)
+
+  file(MAKE_DIRECTORY "${PNGX_BRIDGE_BUILD_DIR}/generated")
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/library/include/colopresso/pngx_bridge.h.in"
+    "${PNGX_BRIDGE_BUILD_DIR}/generated/pngx_bridge.h"
+    @ONLY
+  )
+
+  target_include_directories(pngx_bridge PUBLIC "${PNGX_BRIDGE_BUILD_DIR}/generated")
+endmacro()
+
+if(EMSCRIPTEN)
+  if(COLOPRESSO_ELECTRON_APP OR COLOPRESSO_CHROME_EXTENSION)
+    set(COLOPRESSO_NODE_WASM_SEPARATION ON CACHE BOOL "Use WASM separation (forced ON for Electron/Chrome)" FORCE)
+    message(STATUS "pngx_bridge: WASM separation forced ON for Electron/Chrome Extension build")
+  else()
+    option(COLOPRESSO_NODE_WASM_SEPARATION "Use WASM separation for Node.js build (enables separate pngx_bridge WASM module)" OFF)
+  endif()
+
+  if(COLOPRESSO_NODE_WASM_SEPARATION)
+    message(STATUS "pngx_bridge: Using WASM separation mode")
+    _pngx_bridge_create_wasm_stub()
+    return()
+  else()
+    message(STATUS "pngx_bridge: Building pngx_bridge for wasm32-unknown-emscripten (integrated mode, no Rayon)")
+  endif()
+endif()
+
+set(PNGX_BRIDGE_USE_WASM_SEPARATION OFF)
+
+set(_pngx_bridge_artifact libpngx_bridge.a)
+set(_pngx_bridge_cargo_args)
+
+if(EMSCRIPTEN AND COLOPRESSO_NODE_BUILD)
+  set(_pngx_bridge_target "wasm32-unknown-emscripten")
+  set(PNGX_BRIDGE_ENABLE_RAYON OFF)
+  message(STATUS "pngx_bridge: Building for wasm32-unknown-emscripten (Rayon disabled)")
+else()
+  set(_pngx_bridge_target native)
+  set(PNGX_BRIDGE_ENABLE_RAYON ON)
+  message(STATUS "pngx_bridge: Rayon multithreading enabled (native build)")
+endif()
+
+if(WIN32)
+  set(_pngx_bridge_artifact pngx_bridge.lib)
+endif()
+
+# Sanitizers
 if(PNGX_BRIDGE_ENABLE_RUST_ASAN AND COLOPRESSO_USE_ASAN)
   set(PNGX_BRIDGE_ENABLE_ASAN ON)
 else()
@@ -25,22 +80,17 @@ else()
     set(PNGX_BRIDGE_ENABLE_MSAN OFF)
 endif()
 
+if (PNGX_BRIDGE_ENABLE_RUST_VALGRIND AND COLOPRESSO_USE_VALGRIND)
+    set(PNGX_BRIDGE_ENABLE_VALGRIND ON)
+else()
+    set(PNGX_BRIDGE_ENABLE_VALGRIND OFF)
+endif()
+
 if(COLOPRESSO_USE_ASAN AND NOT PNGX_BRIDGE_ENABLE_ASAN)
   message(STATUS "pngx_bridge: COLOPRESSO_USE_ASAN=ON but Rust ASan is disabled (set PNGX_BRIDGE_ENABLE_RUST_ASAN=ON to enable)")
 endif()
 if(COLOPRESSO_USE_MSAN AND NOT PNGX_BRIDGE_ENABLE_MSAN)
   message(STATUS "pngx_bridge: COLOPRESSO_USE_MSAN=ON but Rust MSan is disabled (set PNGX_BRIDGE_ENABLE_RUST_MSAN=ON to enable)")
-endif()
-
-set(_pngx_bridge_artifact libpngx_bridge.a)
-set(_pngx_bridge_target native)
-set(_pngx_bridge_cargo_args)
-
-if(EMSCRIPTEN)
-  set(_pngx_bridge_target wasm32-unknown-emscripten)
-  set(_pngx_bridge_cargo_args --target ${_pngx_bridge_target})
-elseif(WIN32)
-  set(_pngx_bridge_artifact pngx_bridge.lib)
 endif()
 
 set(PNGX_BRIDGE_RUST_TARGET ${_pngx_bridge_target})
@@ -51,7 +101,7 @@ set(_pngx_bridge_sanitizer_rustflags "")
 set(_pngx_bridge_sanitizer_cargo_flags "")
 set(_pngx_bridge_needs_nightly OFF)
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT EMSCRIPTEN AND NOT WIN32)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32 AND NOT EMSCRIPTEN)
   # MSan builds are intentionally forced to the Rust release profile to keep build/test time practical (especially with -Zbuild-std).
   if(PNGX_BRIDGE_ENABLE_MSAN)
     message(STATUS "pngx_bridge: MemorySanitizer detected, enabling for Rust build")
@@ -105,6 +155,19 @@ endif()
 
 list(APPEND PNGX_BRIDGE_CARGO_FLAGS ${_pngx_bridge_cargo_profile_arg} ${_pngx_bridge_sanitizer_cargo_flags})
 
+if(NOT PNGX_BRIDGE_RUST_TARGET STREQUAL "native")
+  list(APPEND PNGX_BRIDGE_CARGO_FLAGS "--target" "${PNGX_BRIDGE_RUST_TARGET}")
+endif()
+
+set(_pngx_bridge_features "")
+if(PNGX_BRIDGE_ENABLE_RAYON)
+  list(APPEND _pngx_bridge_features "rayon")
+endif()
+if(_pngx_bridge_features)
+  list(JOIN _pngx_bridge_features "," _pngx_bridge_features_str)
+  list(APPEND PNGX_BRIDGE_CARGO_FLAGS "--features" "${_pngx_bridge_features_str}")
+endif()
+
 if(_pngx_bridge_rust_profile STREQUAL "dev")
   set(_pngx_bridge_profile_dir "debug")
 else()
@@ -136,6 +199,13 @@ add_custom_command(
 )
 
 set(PNGX_BRIDGE_RUSTFLAGS "-A mismatched_lifetime_syntaxes")
+
+if(EMSCRIPTEN)
+  if(COLOPRESSO_ENABLE_WASM_SIMD)
+    string(APPEND PNGX_BRIDGE_RUSTFLAGS " -C target-feature=+simd128")
+  endif()
+endif()
+
 if(_pngx_bridge_sanitizer_rustflags)
   string(APPEND PNGX_BRIDGE_RUSTFLAGS " ${_pngx_bridge_sanitizer_rustflags}")
 endif()
@@ -156,6 +226,12 @@ if(PNGX_BRIDGE_SANITIZER_CFLAGS)
   list(APPEND _pngx_bridge_cargo_env
     "CFLAGS=${PNGX_BRIDGE_SANITIZER_CFLAGS}"
     "CXXFLAGS=${PNGX_BRIDGE_SANITIZER_CFLAGS}")
+endif()
+
+if(PNGX_BRIDGE_ENABLE_MSAN OR COLOPRESSO_USE_VALGRIND)
+  list(APPEND _pngx_bridge_cargo_env
+    "ZSTD_SYS_USE_PKG_CONFIG=0")
+  message(STATUS "pngx_bridge: Forcing zstd-sys to build from source for memory testing instrumentation")
 endif()
 
 if(PNGX_BRIDGE_ENABLE_ASAN AND _pngx_bridge_sanitizer_rustflags)
@@ -240,22 +316,65 @@ endif()
 
 set(_pngx_bridge_cargo_command "cargo")
 if(_pngx_bridge_needs_nightly)
-  set(_pngx_bridge_cargo_command "cargo" "+nightly")
-  message(STATUS "pngx_bridge: Using nightly toolchain for sanitizer support")
+  file(READ "${CMAKE_SOURCE_DIR}/rust-toolchain.toml" _rust_toolchain_content)
+  string(REGEX MATCH "nightly[ \t]*=[ \t]*\"([^\"]+)\"" _nightly_match "${_rust_toolchain_content}")
+  if(CMAKE_MATCH_1)
+    set(_pngx_bridge_nightly_version "${CMAKE_MATCH_1}")
+  else()
+    message(FATAL_ERROR "pngx_bridge: Failed to read nightly version from rust-toolchain.toml")
+  endif()
+  set(_pngx_bridge_cargo_command "cargo" "+${_pngx_bridge_nightly_version}")
 endif()
 
 list(JOIN PNGX_BRIDGE_CARGO_FLAGS " " _pngx_bridge_cargo_flags_str)
 
+set(_pngx_bridge_build_command
+  ${_pngx_bridge_cargo_command} build
+  --manifest-path "${PNGX_BRIDGE_BUILD_DIR}/Cargo.toml"
+  ${PNGX_BRIDGE_CARGO_FLAGS}
+)
+set(_pngx_bridge_build_comment "Building pngx_bridge (Rust target: ${PNGX_BRIDGE_RUST_TARGET}, flags: ${_pngx_bridge_cargo_flags_str})")
+
+set(_pngx_bridge_cargo_toml "${PNGX_BRIDGE_BUILD_DIR}/Cargo.toml")
+set(_pngx_bridge_cargo_toml_staticlib_only_script "${PNGX_BRIDGE_BUILD_DIR}/set_staticlib_only.cmake")
+file(WRITE "${_pngx_bridge_cargo_toml_staticlib_only_script}"
+"file(READ \"${_pngx_bridge_cargo_toml}\" _content)
+string(REPLACE \"crate-type = [\\\"staticlib\\\", \\\"cdylib\\\"]\" \"crate-type = [\\\"staticlib\\\"]\" _content \"\${_content}\")
+file(WRITE \"${_pngx_bridge_cargo_toml}\" \"\${_content}\")
+")
+
+set(_pngx_bridge_cargo_toml_restore_script "${PNGX_BRIDGE_BUILD_DIR}/restore_crate_type.cmake")
+file(WRITE "${_pngx_bridge_cargo_toml_restore_script}"
+"file(READ \"${_pngx_bridge_cargo_toml}\" _content)
+string(REPLACE \"crate-type = [\\\"staticlib\\\"]\" \"crate-type = [\\\"staticlib\\\", \\\"cdylib\\\"]\" _content \"\${_content}\")
+file(WRITE \"${_pngx_bridge_cargo_toml}\" \"\${_content}\")
+")
+
+if(NOT COLOPRESSO_PNGX_WASM_SEPARATION)
+  set(_pngx_bridge_pre_build_commands
+    COMMAND ${CMAKE_COMMAND} -P "${_pngx_bridge_cargo_toml_staticlib_only_script}"
+  )
+  set(_pngx_bridge_post_build_commands
+    COMMAND ${CMAKE_COMMAND} -P "${_pngx_bridge_cargo_toml_restore_script}"
+  )
+  set(_pngx_bridge_build_comment "Building pngx_bridge (Rust target: ${PNGX_BRIDGE_RUST_TARGET}, crate-type: staticlib only, flags: ${_pngx_bridge_cargo_flags_str})")
+else()
+  set(_pngx_bridge_pre_build_commands)
+  set(_pngx_bridge_post_build_commands)
+endif()
+
 add_custom_command(
   OUTPUT "${PNGX_BRIDGE_LIB_PATH}" "${PNGX_BRIDGE_BUILD_DIR}/generated/pngx_bridge.h"
   COMMAND ${CMAKE_COMMAND} -E echo "Building pngx_bridge (target: ${PNGX_BRIDGE_RUST_TARGET}, profile: ${_pngx_bridge_rust_profile})"
+  ${_pngx_bridge_pre_build_commands}
   COMMAND ${CMAKE_COMMAND} -E env ${_pngx_bridge_cargo_env}
-    ${_pngx_bridge_cargo_command} build --manifest-path "${PNGX_BRIDGE_BUILD_DIR}/Cargo.toml" ${PNGX_BRIDGE_CARGO_FLAGS}
+    ${_pngx_bridge_build_command}
+  ${_pngx_bridge_post_build_commands}
   BYPRODUCTS "${PNGX_BRIDGE_BUILD_DIR}/generated/pngx_bridge.h"
   WORKING_DIRECTORY "${PNGX_BRIDGE_BUILD_DIR}"
   DEPENDS
     "${PNGX_BRIDGE_BUILD_DIR}/Cargo.toml"
-  COMMENT "Building pngx_bridge (Rust target: ${PNGX_BRIDGE_RUST_TARGET}, flags: ${_pngx_bridge_cargo_flags_str})"
+  COMMENT "${_pngx_bridge_build_comment}"
   VERBATIM
 )
 
@@ -272,5 +391,5 @@ add_dependencies(pngx_bridge pngx_bridge_build)
 message(STATUS "pngx_bridge: library path: ${PNGX_BRIDGE_LIB_PATH}")
 message(STATUS "pngx_bridge: RUSTFLAGS: ${PNGX_BRIDGE_RUSTFLAGS}")
 if(_pngx_bridge_needs_nightly)
-  message(STATUS "pngx_bridge: Sanitizer build enabled")
+  message(STATUS "pngx_bridge: Using nightly Rust toolchain")
 endif()

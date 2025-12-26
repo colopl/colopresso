@@ -73,6 +73,10 @@
     "files": [
       "build/electron/**/*"
     ],
+    "asarUnpack": [
+      "build/electron/pngx_bridge.js",
+      "build/electron/pngx_bridge_bg.wasm"
+    ],
     "directories": {
       "output": "dist_build"
     },

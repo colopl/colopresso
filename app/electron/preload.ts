@@ -65,6 +65,8 @@ const api: ElectronAPI = {
   installUpdateNow: () => ipcRenderer.invoke('install-update-now'),
   getUpdateChannel: () => ipcRenderer.invoke('get-update-channel'),
   getArchitecture: () => ipcRenderer.invoke('get-architecture'),
+  getPngxBridgeUrl: () => ipcRenderer.invoke('get-pngx-bridge-url'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', api);

@@ -68,6 +68,12 @@ export default defineConfig({
           [colopressoModuleSourcePath]: colopressoModulePublicPath,
         },
       },
+      onwarn(warning, warn) {
+        if (warning.code === 'PLUGIN_WARNING' && warning.message?.includes('has been externalized for browser compatibility')) {
+          return;
+        }
+        warn(warning);
+      },
     },
   },
 });

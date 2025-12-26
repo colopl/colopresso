@@ -50,11 +50,39 @@ extern struct tm *gmtime_r(const time_t *timer, struct tm *buf);
 #define stat _stat64
 #define strtok_r strtok_s
 
+typedef HANDLE colopresso_thread_t;
+
+typedef struct {
+  void *(*start_routine)(void *);
+  void *arg;
+} cpres_pthread_wrapper_ctx_t;
+
+extern int colopresso_thread_create(colopresso_thread_t *thread, const void *attr, void *(*start_routine)(void *), void *arg);
+extern int colopresso_thread_join(colopresso_thread_t thread, void **retval);
+
+typedef CRITICAL_SECTION colopresso_mutex_t;
+
+extern int colopresso_mutex_init(colopresso_mutex_t *mutex, const void *attr);
+extern int colopresso_mutex_lock(colopresso_mutex_t *mutex);
+extern int colopresso_mutex_unlock(colopresso_mutex_t *mutex);
+extern int colopresso_mutex_destroy(colopresso_mutex_t *mutex);
+
 #else
 
 #include <getopt.h>
+#include <pthread.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+typedef pthread_t colopresso_thread_t;
+typedef pthread_mutex_t colopresso_mutex_t;
+
+#define colopresso_thread_create pthread_create
+#define colopresso_thread_join pthread_join
+#define colopresso_mutex_init pthread_mutex_init
+#define colopresso_mutex_lock pthread_mutex_lock
+#define colopresso_mutex_unlock pthread_mutex_unlock
+#define colopresso_mutex_destroy pthread_mutex_destroy
 
 #endif
 

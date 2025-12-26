@@ -756,6 +756,17 @@ void test_pngx_palette256_profile_defaults_are_accepted_when_negative(void) {
   free(png_data);
 }
 
+void test_pngx_palette256_error_path_triggers_memory_buffer_reset(void) {
+  cpres_error_t error = CPRES_OK;
+  uint8_t *pngx_data = NULL;
+  size_t pngx_size = 0;
+
+  error = cpres_encode_pngx_memory(NULL, 0, &pngx_data, &pngx_size, &g_config);
+
+  TEST_ASSERT_NOT_EQUAL_INT(CPRES_OK, error);
+  TEST_ASSERT_NULL(pngx_data);
+}
+
 int main(void) {
   UNITY_BEGIN();
 

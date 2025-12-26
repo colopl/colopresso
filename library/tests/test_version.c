@@ -11,6 +11,8 @@
 
 #include <colopresso.h>
 
+#include <string.h>
+
 #include <unity.h>
 
 void setUp(void) {}
@@ -66,6 +68,22 @@ void test_version_get_version(void) {
   TEST_ASSERT_EQUAL_UINT32(COLOPRESSO_VERSION, version);
 }
 
+void test_version_get_compiler_version_string(void) {
+  const char *version = NULL;
+
+  version = cpres_get_compiler_version_string();
+  TEST_ASSERT_NOT_NULL(version);
+  TEST_ASSERT_GREATER_THAN(0, strlen(version));
+}
+
+void test_version_get_rust_version_string(void) {
+  const char *version = NULL;
+
+  version = cpres_get_rust_version_string();
+  TEST_ASSERT_NOT_NULL(version);
+  TEST_ASSERT_GREATER_THAN(0, strlen(version));
+}
+
 int main(void) {
   UNITY_BEGIN();
 
@@ -76,6 +94,8 @@ int main(void) {
   RUN_TEST(test_version_get_pngx_libimagequant_version);
   RUN_TEST(test_version_get_pngx_oxipng_version);
   RUN_TEST(test_version_get_version);
+  RUN_TEST(test_version_get_compiler_version_string);
+  RUN_TEST(test_version_get_rust_version_string);
 
   return UNITY_END();
 }

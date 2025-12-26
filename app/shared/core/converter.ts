@@ -28,7 +28,8 @@ interface ProtectedColor {
 
 export type ModuleWithHelpers = ColopressoModule & {
   HEAPU8: Uint8Array;
-  getValue(ptr: number, type: 'i32'): number;
+  HEAPF32: Float32Array;
+  getValue(ptr: number, type: 'i8' | 'i16' | 'i32' | 'float' | 'double'): number;
   _malloc(size: number): number;
   _free(ptr: number): void;
   _cpres_free(ptr: number): void;
@@ -101,6 +102,7 @@ export type ModuleWithHelpers = ColopressoModule & {
   _emscripten_config_pngx_palette256_tune_speed_max?(configPtr: number, value: number): void;
   _emscripten_config_pngx_palette256_tune_quality_min_floor?(configPtr: number, value: number): void;
   _emscripten_config_pngx_palette256_tune_quality_max_target?(configPtr: number, value: number): void;
+  _emscripten_config_pngx_threads?(configPtr: number, value: number): void;
   _emscripten_convert_png_to_webp?(pngPtr: number, pngSize: number, configPtr: number, outSizePtr: number): number;
   _emscripten_convert_png_to_avif?(pngPtr: number, pngSize: number, configPtr: number, outSizePtr: number): number;
   _emscripten_convert_png_to_pngx?(pngPtr: number, pngSize: number, configPtr: number, outSizePtr: number): number;
@@ -112,9 +114,39 @@ export type ModuleWithHelpers = ColopressoModule & {
   _emscripten_get_pngx_oxipng_version?(): number;
   _emscripten_get_pngx_libimagequant_version?(): number;
   _emscripten_get_buildtime?(): number;
+  _emscripten_get_compiler_version_string?(): number;
+  _emscripten_get_rust_version_string?(): number;
+  _emscripten_is_threads_enabled?(): number;
+  _emscripten_is_pngx_bridge_integrated?(): number;
+  _emscripten_get_default_thread_count?(): number;
+  _emscripten_get_max_thread_count?(): number;
+  _emscripten_prewarm_thread_pool?(num_threads: number): number;
+  _emscripten_decode_png_to_rgba?(pngPtr: number, pngSize: number, widthPtr: number, heightPtr: number): number;
+  _emscripten_encode_indexed_png?(indicesPtr: number, indicesLen: number, palettePtr: number, paletteLen: number, width: number, height: number, outSizePtr: number): number;
+  _emscripten_pngx_quantize_limited4444?(pngPtr: number, pngSize: number, bitsPerChannel: number, ditherLevel: number, outSizePtr: number): number;
+  _emscripten_pngx_quantize_reduced_rgba32?(pngPtr: number, pngSize: number, bitsRgb: number, bitsAlpha: number, maxColors: number, ditherLevel: number, outSizePtr: number): number;
+  _emscripten_pngx_palette256_prepare?(
+    pngPtr: number,
+    pngSize: number,
+    configPtr: number,
+    outRgbaPtr: number,
+    outWidthPtr: number,
+    outHeightPtr: number,
+    outImportanceMapPtr: number,
+    outImportanceMapLenPtr: number,
+    outSpeedPtr: number,
+    outQualityMinPtr: number,
+    outQualityMaxPtr: number,
+    outMaxColorsPtr: number,
+    outDitherLevelPtr: number,
+    outFixedColorsPtr: number,
+    outFixedColorsLenPtr: number
+  ): number;
+  _emscripten_pngx_palette256_finalize?(indicesPtr: number, indicesLen: number, palettePtr: number, paletteLen: number, outSizePtr: number): number;
+  _emscripten_pngx_palette256_cleanup?(): void;
 };
 
-class OutputLargerThanInputError extends Error {
+export class OutputLargerThanInputError extends Error {
   public readonly code = 'output_larger_than_input';
   public readonly inputSize?: number;
   public readonly outputSize?: number;
@@ -248,7 +280,6 @@ function createConfig(Module: ModuleWithHelpers, userConfig: FormatOptions = {})
   apply('_emscripten_config_pngx_chroma_weight_enable', userConfig.pngx_chroma_weight_enable as boolean | undefined);
   apply('_emscripten_config_pngx_postprocess_smooth_enable', userConfig.pngx_postprocess_smooth_enable as boolean | undefined);
   apply('_emscripten_config_pngx_postprocess_smooth_importance_cutoff', userConfig.pngx_postprocess_smooth_importance_cutoff as number | undefined);
-
   apply('_emscripten_config_pngx_palette256_gradient_profile_enable', userConfig.pngx_palette256_gradient_profile_enable as boolean | undefined);
   apply('_emscripten_config_pngx_palette256_gradient_dither_floor', userConfig.pngx_palette256_gradient_dither_floor as number | undefined);
   apply('_emscripten_config_pngx_palette256_alpha_bleed_enable', userConfig.pngx_palette256_alpha_bleed_enable as boolean | undefined);
@@ -264,6 +295,7 @@ function createConfig(Module: ModuleWithHelpers, userConfig: FormatOptions = {})
   apply('_emscripten_config_pngx_palette256_tune_speed_max', userConfig.pngx_palette256_tune_speed_max as number | undefined);
   apply('_emscripten_config_pngx_palette256_tune_quality_min_floor', userConfig.pngx_palette256_tune_quality_min_floor as number | undefined);
   apply('_emscripten_config_pngx_palette256_tune_quality_max_target', userConfig.pngx_palette256_tune_quality_max_target as number | undefined);
+  apply('_emscripten_config_pngx_threads', userConfig.pngx_threads as number | undefined);
 
   let protectedColorsPtr: number | null = null;
   const protectedColors = userConfig.pngx_protected_colors as ProtectedColor[] | undefined;
@@ -299,10 +331,12 @@ function isTruthy(value: unknown): boolean {
     if (value.toLowerCase() === 'true') {
       return true;
     }
+
     if (value.toLowerCase() === 'false') {
       return false;
     }
   }
+
   return Boolean(value);
 }
 
@@ -310,10 +344,12 @@ function getNumeric(value: unknown): number | undefined {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
   }
+
   if (typeof value === 'string') {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
   }
+
   return undefined;
 }
 
@@ -321,6 +357,7 @@ function allowsPngxRgbaOverflow(options?: FormatOptions): boolean {
   if (!options) {
     return false;
   }
+
   const lossyEnabledRaw = options.pngx_lossy_enable;
   const lossyEnabled = lossyEnabledRaw === undefined ? true : isTruthy(lossyEnabledRaw);
   if (!lossyEnabled) {
@@ -330,6 +367,7 @@ function allowsPngxRgbaOverflow(options?: FormatOptions): boolean {
   if (lossyTypeValue === undefined) {
     return false;
   }
+
   return PNGX_RGBA_LOSSY_TYPES.has(lossyTypeValue);
 }
 
@@ -350,11 +388,13 @@ function executeConversion(options: ExecuteConversionOptions): Uint8Array {
   if (!pngPtr) {
     throw new WasmAllocationError('input PNG buffer');
   }
+
   const outSizePtr = Module._malloc(4);
   if (!outSizePtr) {
     Module._free(pngPtr);
     throw new WasmAllocationError('output size buffer');
   }
+
   let configInstance: ConfigInstance | null = null;
 
   try {
@@ -363,7 +403,6 @@ function executeConversion(options: ExecuteConversionOptions): Uint8Array {
 
     const resultPtr = invokeConversion(Module, pngPtr, pngSize, configInstance.configPtr, outSizePtr);
     const resultSize = Module.getValue(outSizePtr, 'i32');
-
     if (!resultPtr || resultPtr === 0 || resultSize <= 0) {
       if (resultPtr) {
         Module._cpres_free(resultPtr);
@@ -382,10 +421,12 @@ function executeConversion(options: ExecuteConversionOptions): Uint8Array {
 
     const resultData = Module.HEAPU8.slice(resultPtr, resultPtr + resultSize);
     Module._cpres_free(resultPtr);
+
     return resultData;
   } finally {
     Module._free(pngPtr);
     Module._free(outSizePtr);
+
     if (configInstance) {
       freeConfig(Module, configInstance);
     }
@@ -458,13 +499,424 @@ export function convertPngToPngx(Module: ColopressoModule, pngData: Uint8Array, 
 
 export function getVersionInfo(Module: ColopressoModule) {
   const mod = Module as ModuleWithHelpers;
+
+  let compilerVersionString: string | undefined;
+  if (mod._emscripten_get_compiler_version_string && mod.UTF8ToString) {
+    const ptr = mod._emscripten_get_compiler_version_string();
+    if (ptr) {
+      compilerVersionString = mod.UTF8ToString(ptr);
+    }
+  }
+
+  let rustVersionString: string | undefined;
+  if (mod._emscripten_get_rust_version_string && mod.UTF8ToString) {
+    const ptr = mod._emscripten_get_rust_version_string();
+    if (ptr) {
+      rustVersionString = mod.UTF8ToString(ptr);
+    }
+  }
+
   return {
     version: mod._emscripten_get_version ? mod._emscripten_get_version() : undefined,
     libwebpVersion: mod._emscripten_get_libwebp_version ? mod._emscripten_get_libwebp_version() : undefined,
     libpngVersion: mod._emscripten_get_libpng_version ? mod._emscripten_get_libpng_version() : undefined,
     libavifVersion: mod._emscripten_get_libavif_version ? mod._emscripten_get_libavif_version() : undefined,
-    pngxOxipngVersion: mod._emscripten_get_pngx_oxipng_version ? mod._emscripten_get_pngx_oxipng_version() : undefined,
-    pngxLibimagequantVersion: mod._emscripten_get_pngx_libimagequant_version ? mod._emscripten_get_pngx_libimagequant_version() : undefined,
+    compilerVersionString,
+    rustVersionString,
     buildtime: mod._emscripten_get_buildtime ? mod._emscripten_get_buildtime() : undefined,
   };
+}
+
+export function isThreadsEnabled(Module: ColopressoModule): boolean {
+  const mod = Module as ModuleWithHelpers;
+  return mod._emscripten_is_threads_enabled ? mod._emscripten_is_threads_enabled() !== 0 : false;
+}
+
+export function getDefaultThreads(Module: ColopressoModule): number {
+  const mod = Module as ModuleWithHelpers;
+
+  if (!mod._emscripten_is_threads_enabled || mod._emscripten_is_threads_enabled() === 0) {
+    return 1;
+  }
+
+  if (!mod._emscripten_get_default_thread_count) {
+    return 1;
+  }
+
+  return mod._emscripten_get_default_thread_count();
+}
+
+export function getMaxThreads(Module: ColopressoModule): number {
+  const mod = Module as ModuleWithHelpers;
+
+  if (!mod._emscripten_is_threads_enabled || mod._emscripten_is_threads_enabled() === 0) {
+    return 1;
+  }
+
+  if (!mod._emscripten_get_max_thread_count) {
+    return 1;
+  }
+
+  return mod._emscripten_get_max_thread_count();
+}
+
+export function prewarmThreadPool(Module: ColopressoModule, numThreads?: number): number {
+  const mod = Module as ModuleWithHelpers;
+  if (!mod._emscripten_prewarm_thread_pool) {
+    return 0;
+  }
+  const target = typeof numThreads === 'number' && numThreads > 0 ? numThreads : 0;
+  return mod._emscripten_prewarm_thread_pool(target);
+}
+
+export interface DecodedPng {
+  rgba: Uint8Array;
+  width: number;
+  height: number;
+}
+
+export function decodePngToRgba(Module: ColopressoModule, pngData: Uint8Array): DecodedPng {
+  const mod = Module as ModuleWithHelpers;
+
+  if (!mod._emscripten_decode_png_to_rgba) {
+    throw new Error('PNG decode not available');
+  }
+
+  const pngPtr = mod._malloc(pngData.length);
+  if (!pngPtr) {
+    throw new Error('Failed to allocate memory for PNG data');
+  }
+
+  mod.HEAPU8.set(pngData, pngPtr);
+
+  const widthPtr = mod._malloc(4);
+  const heightPtr = mod._malloc(4);
+  if (!widthPtr || !heightPtr) {
+    mod._free(pngPtr);
+    if (widthPtr) mod._free(widthPtr);
+    if (heightPtr) mod._free(heightPtr);
+    throw new Error('Failed to allocate memory for dimensions');
+  }
+
+  try {
+    const rgbaPtr = mod._emscripten_decode_png_to_rgba(pngPtr, pngData.length, widthPtr, heightPtr);
+
+    if (!rgbaPtr) {
+      throw new Error('PNG decode failed');
+    }
+
+    const width = mod.getValue(widthPtr, 'i32');
+    const height = mod.getValue(heightPtr, 'i32');
+    const pixelCount = width * height * 4;
+    const rgba = new Uint8Array(mod.HEAPU8.buffer, rgbaPtr, pixelCount).slice();
+
+    mod._free(rgbaPtr);
+
+    return { rgba, width, height };
+  } finally {
+    mod._free(pngPtr);
+    mod._free(widthPtr);
+    mod._free(heightPtr);
+  }
+}
+
+export function encodeIndexedPng(Module: ColopressoModule, indices: Uint8Array, palette: Uint8Array, width: number, height: number): Uint8Array {
+  const mod = Module as ModuleWithHelpers;
+
+  if (!mod._emscripten_encode_indexed_png) {
+    throw new Error('Indexed PNG encode not available');
+  }
+
+  const paletteLen = Math.floor(palette.length / 4);
+  if (paletteLen === 0 || paletteLen > 256) {
+    throw new Error('Invalid palette length');
+  }
+
+  const indicesPtr = mod._malloc(indices.length);
+  const palettePtr = mod._malloc(palette.length);
+  const outSizePtr = mod._malloc(4);
+  if (!indicesPtr || !palettePtr || !outSizePtr) {
+    if (indicesPtr) mod._free(indicesPtr);
+    if (palettePtr) mod._free(palettePtr);
+    if (outSizePtr) mod._free(outSizePtr);
+    throw new Error('Failed to allocate memory');
+  }
+
+  mod.HEAPU8.set(indices, indicesPtr);
+  mod.HEAPU8.set(palette, palettePtr);
+
+  try {
+    const outPtr = mod._emscripten_encode_indexed_png(indicesPtr, indices.length, palettePtr, paletteLen, width, height, outSizePtr);
+
+    if (!outPtr) {
+      throw new Error('Indexed PNG encode failed');
+    }
+
+    const outSize = mod.getValue(outSizePtr, 'i32');
+    const result = new Uint8Array(mod.HEAPU8.buffer, outPtr, outSize).slice();
+
+    mod._cpres_free(outPtr);
+
+    return result;
+  } finally {
+    mod._free(indicesPtr);
+    mod._free(palettePtr);
+    mod._free(outSizePtr);
+  }
+}
+
+export function pngxQuantizeLimited4444(Module: ColopressoModule, pngData: Uint8Array, bitsPerChannel: number, ditherLevel: number): Uint8Array {
+  const mod = Module as ModuleWithHelpers;
+
+  if (!mod._emscripten_pngx_quantize_limited4444) {
+    throw new Error('PNGX limited4444 quantize not available');
+  }
+
+  const pngPtr = mod._malloc(pngData.length);
+  const outSizePtr = mod._malloc(4);
+  if (!pngPtr || !outSizePtr) {
+    if (pngPtr) mod._free(pngPtr);
+    if (outSizePtr) mod._free(outSizePtr);
+    throw new Error('Failed to allocate memory');
+  }
+
+  mod.HEAPU8.set(pngData, pngPtr);
+
+  try {
+    const outPtr = mod._emscripten_pngx_quantize_limited4444(pngPtr, pngData.length, bitsPerChannel, ditherLevel, outSizePtr);
+
+    if (!outPtr) {
+      throw new Error('PNGX limited4444 quantize failed');
+    }
+
+    const outSize = mod.getValue(outSizePtr, 'i32');
+    const result = new Uint8Array(mod.HEAPU8.buffer, outPtr, outSize).slice();
+
+    mod._cpres_free(outPtr);
+
+    return result;
+  } finally {
+    mod._free(pngPtr);
+    mod._free(outSizePtr);
+  }
+}
+
+export function pngxQuantizeReducedRgba32(Module: ColopressoModule, pngData: Uint8Array, bitsRgb: number, bitsAlpha: number, maxColors: number, ditherLevel: number): Uint8Array {
+  const mod = Module as ModuleWithHelpers;
+
+  if (!mod._emscripten_pngx_quantize_reduced_rgba32) {
+    throw new Error('PNGX reduced_rgba32 quantize not available');
+  }
+
+  const pngPtr = mod._malloc(pngData.length);
+  const outSizePtr = mod._malloc(4);
+  if (!pngPtr || !outSizePtr) {
+    if (pngPtr) mod._free(pngPtr);
+    if (outSizePtr) mod._free(outSizePtr);
+    throw new Error('Failed to allocate memory');
+  }
+
+  mod.HEAPU8.set(pngData, pngPtr);
+
+  try {
+    const outPtr = mod._emscripten_pngx_quantize_reduced_rgba32(pngPtr, pngData.length, bitsRgb, bitsAlpha, maxColors, ditherLevel, outSizePtr);
+
+    if (!outPtr) {
+      throw new Error('PNGX reduced_rgba32 quantize failed');
+    }
+
+    const outSize = mod.getValue(outSizePtr, 'i32');
+    const result = new Uint8Array(mod.HEAPU8.buffer, outPtr, outSize).slice();
+
+    mod._cpres_free(outPtr);
+
+    return result;
+  } finally {
+    mod._free(pngPtr);
+    mod._free(outSizePtr);
+  }
+}
+
+export interface Palette256PrepareResult {
+  rgba: Uint8Array;
+  width: number;
+  height: number;
+  importanceMap: Uint8Array | null;
+  fixedColors: Uint8Array | null;
+  speed: number;
+  qualityMin: number;
+  qualityMax: number;
+  maxColors: number;
+  ditherLevel: number;
+}
+
+export function pngxPalette256Prepare(Module: ColopressoModule, pngData: Uint8Array, options: Record<string, unknown>): Palette256PrepareResult {
+  const mod = Module as ModuleWithHelpers;
+
+  if (!mod._emscripten_pngx_palette256_prepare) {
+    throw new Error('PNGX palette256 prepare not available');
+  }
+
+  const configInstance = createConfig(mod, options);
+  if (configInstance.configPtr === 0) {
+    throw new Error('Failed to create config');
+  }
+
+  const pngPtr = mod._malloc(pngData.length);
+  const outRgbaPtr = mod._malloc(4);
+  const outWidthPtr = mod._malloc(4);
+  const outHeightPtr = mod._malloc(4);
+  const outImportanceMapPtr = mod._malloc(4);
+  const outImportanceMapLenPtr = mod._malloc(4);
+  const outSpeedPtr = mod._malloc(4);
+  const outQualityMinPtr = mod._malloc(1);
+  const outQualityMaxPtr = mod._malloc(1);
+  const outMaxColorsPtr = mod._malloc(4);
+  const outDitherLevelPtr = mod._malloc(4);
+  const outFixedColorsPtr = mod._malloc(4);
+  const outFixedColorsLenPtr = mod._malloc(4);
+
+  const ptrs = [
+    pngPtr,
+    outRgbaPtr,
+    outWidthPtr,
+    outHeightPtr,
+    outImportanceMapPtr,
+    outImportanceMapLenPtr,
+    outSpeedPtr,
+    outQualityMinPtr,
+    outQualityMaxPtr,
+    outMaxColorsPtr,
+    outDitherLevelPtr,
+    outFixedColorsPtr,
+    outFixedColorsLenPtr,
+  ];
+  if (ptrs.some((p) => !p)) {
+    ptrs.forEach((p) => {
+      if (p) mod._free(p);
+    });
+    freeConfig(mod, configInstance);
+    throw new Error('Failed to allocate memory');
+  }
+
+  mod.HEAPU8.set(pngData, pngPtr);
+
+  try {
+    const success = mod._emscripten_pngx_palette256_prepare(
+      pngPtr,
+      pngData.length,
+      configInstance.configPtr,
+      outRgbaPtr,
+      outWidthPtr,
+      outHeightPtr,
+      outImportanceMapPtr,
+      outImportanceMapLenPtr,
+      outSpeedPtr,
+      outQualityMinPtr,
+      outQualityMaxPtr,
+      outMaxColorsPtr,
+      outDitherLevelPtr,
+      outFixedColorsPtr,
+      outFixedColorsLenPtr
+    );
+
+    if (!success) {
+      throw new Error('PNGX palette256 prepare failed');
+    }
+
+    const rgbaPtr = mod.getValue(outRgbaPtr, 'i32');
+    const width = mod.getValue(outWidthPtr, 'i32');
+    const height = mod.getValue(outHeightPtr, 'i32');
+    const importanceMapPtr = mod.getValue(outImportanceMapPtr, 'i32');
+    const importanceMapLen = mod.getValue(outImportanceMapLenPtr, 'i32');
+    const speed = mod.getValue(outSpeedPtr, 'i32');
+    const qualityMin = mod.HEAPU8[outQualityMinPtr];
+    const qualityMax = mod.HEAPU8[outQualityMaxPtr];
+    const maxColors = mod.getValue(outMaxColorsPtr, 'i32');
+    const ditherLevel = mod.getValue(outDitherLevelPtr, 'float');
+    const fixedColorsPtr = mod.getValue(outFixedColorsPtr, 'i32');
+    const fixedColorsLen = mod.getValue(outFixedColorsLenPtr, 'i32');
+    const pixelCount = width * height * 4;
+    const rgba = new Uint8Array(mod.HEAPU8.buffer, rgbaPtr, pixelCount).slice();
+
+    let importanceMap: Uint8Array | null = null;
+    if (importanceMapPtr && importanceMapLen > 0) {
+      importanceMap = new Uint8Array(mod.HEAPU8.buffer, importanceMapPtr, importanceMapLen).slice();
+    }
+
+    let fixedColors: Uint8Array | null = null;
+    if (fixedColorsPtr && fixedColorsLen > 0) {
+      fixedColors = new Uint8Array(mod.HEAPU8.buffer, fixedColorsPtr, fixedColorsLen * 4).slice();
+    }
+
+    return { rgba, width, height, importanceMap, fixedColors, speed, qualityMin, qualityMax, maxColors, ditherLevel };
+  } finally {
+    mod._free(pngPtr);
+    mod._free(outRgbaPtr);
+    mod._free(outWidthPtr);
+    mod._free(outHeightPtr);
+    mod._free(outImportanceMapPtr);
+    mod._free(outImportanceMapLenPtr);
+    mod._free(outSpeedPtr);
+    mod._free(outQualityMinPtr);
+    mod._free(outQualityMaxPtr);
+    mod._free(outMaxColorsPtr);
+    mod._free(outDitherLevelPtr);
+    mod._free(outFixedColorsPtr);
+    mod._free(outFixedColorsLenPtr);
+    freeConfig(mod, configInstance);
+  }
+}
+
+export function pngxPalette256Finalize(Module: ColopressoModule, indices: Uint8Array, palette: Uint8Array): Uint8Array {
+  const mod = Module as ModuleWithHelpers;
+
+  if (!mod._emscripten_pngx_palette256_finalize) {
+    throw new Error('PNGX palette256 finalize not available');
+  }
+
+  const paletteLen = Math.floor(palette.length / 4);
+  if (paletteLen === 0 || paletteLen > 256) {
+    throw new Error('Invalid palette length');
+  }
+
+  const indicesPtr = mod._malloc(indices.length);
+  const palettePtr = mod._malloc(palette.length);
+  const outSizePtr = mod._malloc(4);
+
+  if (!indicesPtr || !palettePtr || !outSizePtr) {
+    if (indicesPtr) mod._free(indicesPtr);
+    if (palettePtr) mod._free(palettePtr);
+    if (outSizePtr) mod._free(outSizePtr);
+    throw new Error('Failed to allocate memory');
+  }
+
+  mod.HEAPU8.set(indices, indicesPtr);
+  mod.HEAPU8.set(palette, palettePtr);
+
+  try {
+    const outPtr = mod._emscripten_pngx_palette256_finalize(indicesPtr, indices.length, palettePtr, paletteLen, outSizePtr);
+
+    if (!outPtr) {
+      throw new Error('PNGX palette256 finalize failed');
+    }
+
+    const outSize = mod.getValue(outSizePtr, 'i32');
+    const result = new Uint8Array(mod.HEAPU8.buffer, outPtr, outSize).slice();
+
+    mod._cpres_free(outPtr);
+
+    return result;
+  } finally {
+    mod._free(indicesPtr);
+    mod._free(palettePtr);
+    mod._free(outSizePtr);
+  }
+}
+
+export function pngxPalette256Cleanup(Module: ColopressoModule): void {
+  const mod = Module as ModuleWithHelpers;
+  if (mod._emscripten_pngx_palette256_cleanup) {
+    mod._emscripten_pngx_palette256_cleanup();
+  }
 }

@@ -11,6 +11,7 @@
 
 #ifdef __EMSCRIPTEN__
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,6 +21,7 @@
 #include <emscripten.h>
 
 #include "internal/avif.h"
+#include "internal/png.h"
 #include "internal/pngx.h"
 #include "internal/webp.h"
 
@@ -593,6 +595,53 @@ void emscripten_config_pngx_palette256_tune_quality_max_target(cpres_config_t *c
 }
 
 EMSCRIPTEN_KEEPALIVE
+void emscripten_config_pngx_threads(cpres_config_t *config, int threads) {
+  if (config) {
+    config->pngx_threads = threads < 0 ? 0 : threads;
+  }
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool emscripten_is_threads_enabled(void) { return cpres_is_threads_enabled(); }
+
+EMSCRIPTEN_KEEPALIVE
+bool emscripten_is_pngx_bridge_integrated(void) {
+#if !defined(PNGX_BRIDGE_WASM_SEPARATION)
+  return true;
+#else
+  return false;
+#endif
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint32_t emscripten_get_default_thread_count(void) { return cpres_get_default_thread_count(); }
+
+EMSCRIPTEN_KEEPALIVE
+uint32_t emscripten_get_max_thread_count(void) { return cpres_get_max_thread_count(); }
+
+EMSCRIPTEN_KEEPALIVE
+int emscripten_prewarm_thread_pool(int num_threads) {
+#if COLOPRESSO_ENABLE_THREADS
+#if !defined(PNGX_BRIDGE_WASM_SEPARATION)
+  int target = num_threads;
+  if (target <= 0) {
+    target = 1;
+  }
+  if (!pngx_bridge_init_threads(target)) {
+    return 0;
+  }
+  return target;
+#else
+  (void)num_threads;
+  return 1;
+#endif
+#else
+  (void)num_threads;
+  return 1;
+#endif
+}
+
+EMSCRIPTEN_KEEPALIVE
 cpres_error_t emscripten_get_last_error(void) { return g_last_error; }
 
 EMSCRIPTEN_KEEPALIVE
@@ -717,5 +766,203 @@ uint32_t emscripten_get_pngx_libimagequant_version(void) { return cpres_get_pngx
 
 EMSCRIPTEN_KEEPALIVE
 uint32_t emscripten_get_buildtime(void) { return cpres_get_buildtime(); }
+
+EMSCRIPTEN_KEEPALIVE
+const char *emscripten_get_compiler_version_string(void) { return cpres_get_compiler_version_string(); }
+
+EMSCRIPTEN_KEEPALIVE
+const char *emscripten_get_rust_version_string(void) { return cpres_get_rust_version_string(); }
+
+EMSCRIPTEN_KEEPALIVE
+uint8_t *emscripten_decode_png_to_rgba(const uint8_t *png_data, size_t png_size, uint32_t *out_width, uint32_t *out_height) {
+  cpres_error_t result;
+  uint8_t *rgba_data = NULL;
+  png_uint_32 width = 0, height = 0;
+
+  if (!png_data || !out_width || !out_height || png_size == 0) {
+    g_last_error = CPRES_ERROR_INVALID_PARAMETER;
+    return NULL;
+  }
+
+  result = png_decode_from_memory(png_data, png_size, &rgba_data, &width, &height);
+  g_last_error = result;
+
+  if (result != CPRES_OK) {
+    return NULL;
+  }
+
+  *out_width = (uint32_t)width;
+  *out_height = (uint32_t)height;
+  return rgba_data;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint8_t *emscripten_encode_indexed_png(const uint8_t *indices, size_t indices_len, const uint8_t *palette_rgba, size_t palette_len, uint32_t width, uint32_t height, size_t *out_size) {
+  cpres_rgba_color_t palette[256];
+  uint8_t *out_data = NULL;
+  size_t i;
+  bool success;
+
+  if (!indices || !palette_rgba || !out_size || width == 0 || height == 0 || palette_len == 0 || palette_len > 256) {
+    g_last_error = CPRES_ERROR_INVALID_PARAMETER;
+    return NULL;
+  }
+
+  for (i = 0; i < palette_len; ++i) {
+    palette[i].r = palette_rgba[i * 4 + 0];
+    palette[i].g = palette_rgba[i * 4 + 1];
+    palette[i].b = palette_rgba[i * 4 + 2];
+    palette[i].a = palette_rgba[i * 4 + 3];
+  }
+
+  success = pngx_create_palette_png(indices, indices_len, palette, palette_len, width, height, &out_data, out_size);
+
+  if (!success) {
+    g_last_error = CPRES_ERROR_ENCODE_FAILED;
+    return NULL;
+  }
+
+  g_last_error = CPRES_OK;
+  return out_data;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint8_t *emscripten_pngx_quantize_limited4444(const uint8_t *png_data, size_t png_size, int bits_per_channel, float dither_level, size_t *out_size) {
+  pngx_options_t opts;
+  uint8_t *out_data = NULL;
+  bool success;
+
+  if (!png_data || !out_size || png_size == 0) {
+    g_last_error = CPRES_ERROR_INVALID_PARAMETER;
+    return NULL;
+  }
+
+  memset(&opts, 0, sizeof(opts));
+  opts.bridge.optimization_level = 0;
+  opts.bridge.strip_safe = true;
+  opts.bridge.optimize_alpha = true;
+  opts.lossy_enable = true;
+  opts.lossy_type = PNGX_LOSSY_TYPE_LIMITED_RGBA4444;
+  opts.lossy_reduced_bits_rgb = (uint8_t)(bits_per_channel > 0 && bits_per_channel <= 8 ? bits_per_channel : 4);
+  opts.lossy_reduced_alpha_bits = opts.lossy_reduced_bits_rgb;
+  opts.lossy_dither_auto = dither_level < 0.0f;
+  opts.lossy_dither_level = dither_level < 0.0f ? 0.0f : dither_level;
+  opts.thread_count = 1;
+
+  success = pngx_quantize_limited4444(png_data, png_size, &opts, &out_data, out_size);
+
+  if (!success) {
+    g_last_error = CPRES_ERROR_ENCODE_FAILED;
+    return NULL;
+  }
+
+  g_last_error = CPRES_OK;
+  return out_data;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint8_t *emscripten_pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t png_size, int bits_rgb, int bits_alpha, int max_colors, float dither_level, size_t *out_size) {
+  pngx_options_t opts;
+  uint8_t *out_data = NULL;
+  uint32_t resolved_target = 0, applied_colors = 0;
+  bool success;
+
+  if (!png_data || !out_size || png_size == 0) {
+    g_last_error = CPRES_ERROR_INVALID_PARAMETER;
+    return NULL;
+  }
+
+  memset(&opts, 0, sizeof(opts));
+  opts.bridge.optimization_level = 0;
+  opts.bridge.strip_safe = true;
+  opts.bridge.optimize_alpha = true;
+  opts.lossy_enable = true;
+  opts.lossy_type = PNGX_LOSSY_TYPE_REDUCED_RGBA32;
+  opts.lossy_reduced_bits_rgb = (uint8_t)(bits_rgb > 0 && bits_rgb <= 8 ? bits_rgb : 4);
+  opts.lossy_reduced_alpha_bits = (uint8_t)(bits_alpha > 0 && bits_alpha <= 8 ? bits_alpha : 4);
+  opts.lossy_max_colors = (uint16_t)(max_colors > 0 && max_colors <= 32768 ? max_colors : 1);
+  opts.lossy_dither_auto = dither_level < 0.0f;
+  opts.lossy_dither_level = dither_level < 0.0f ? 0.0f : dither_level;
+  opts.thread_count = 1;
+
+  success = pngx_quantize_reduced_rgba32(png_data, png_size, &opts, &resolved_target, &applied_colors, &out_data, out_size);
+
+  if (!success) {
+    g_last_error = CPRES_ERROR_ENCODE_FAILED;
+    return NULL;
+  }
+
+  g_last_error = CPRES_OK;
+  return out_data;
+}
+
+/*
+ * Palette256 prepare for WASM separation mode.
+ * Preprocesses PNG and returns RGBA data, importance map, and quantization parameters.
+ * The returned RGBA pointer is managed internally - do NOT free it.
+ * Call emscripten_pngx_palette256_finalize or emscripten_pngx_palette256_cleanup after use.
+ */
+EMSCRIPTEN_KEEPALIVE
+bool emscripten_pngx_palette256_prepare(const uint8_t *png_data, size_t png_size, const cpres_config_t *config, uint8_t **out_rgba, uint32_t *out_width, uint32_t *out_height,
+                                        uint8_t **out_importance_map, size_t *out_importance_map_len, int32_t *out_speed, uint8_t *out_quality_min, uint8_t *out_quality_max, uint32_t *out_max_colors,
+                                        float *out_dither_level, uint8_t **out_fixed_colors, size_t *out_fixed_colors_len) {
+  pngx_options_t opts;
+  bool success;
+
+  if (!png_data || png_size == 0 || !config || !out_rgba || !out_width || !out_height) {
+    g_last_error = CPRES_ERROR_INVALID_PARAMETER;
+    return false;
+  }
+
+  pngx_fill_pngx_options(&opts, config);
+
+  success = pngx_palette256_prepare(png_data, png_size, &opts, out_rgba, out_width, out_height, out_importance_map, out_importance_map_len, out_speed, out_quality_min, out_quality_max, out_max_colors,
+                                    out_dither_level, out_fixed_colors, out_fixed_colors_len);
+
+  if (!success) {
+    g_last_error = CPRES_ERROR_DECODE_FAILED;
+    return false;
+  }
+
+  g_last_error = CPRES_OK;
+  return true;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint8_t *emscripten_pngx_palette256_finalize(const uint8_t *indices, size_t indices_len, const uint8_t *palette_rgba, size_t palette_len, size_t *out_size) {
+  cpres_rgba_color_t palette[256];
+  uint8_t *out_data = NULL;
+  size_t i;
+  bool success;
+
+  if (!indices || indices_len == 0 || !palette_rgba || palette_len == 0 || palette_len > 256 || !out_size) {
+    g_last_error = CPRES_ERROR_INVALID_PARAMETER;
+    pngx_palette256_cleanup();
+    return NULL;
+  }
+
+  for (i = 0; i < palette_len; ++i) {
+    palette[i].r = palette_rgba[i * 4 + 0];
+    palette[i].g = palette_rgba[i * 4 + 1];
+    palette[i].b = palette_rgba[i * 4 + 2];
+    palette[i].a = palette_rgba[i * 4 + 3];
+  }
+
+  success = pngx_palette256_finalize(indices, indices_len, palette, palette_len, &out_data, out_size);
+
+  if (!success) {
+    g_last_error = CPRES_ERROR_ENCODE_FAILED;
+    return NULL;
+  }
+
+  g_last_error = CPRES_OK;
+  return out_data;
+}
+
+/*
+ * Cleanup palette256 context if prepare was called but finalize was not.
+ */
+EMSCRIPTEN_KEEPALIVE
+void emscripten_pngx_palette256_cleanup(void) { pngx_palette256_cleanup(); }
 
 #endif /* __EMSCRIPTEN__ */

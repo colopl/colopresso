@@ -10,6 +10,7 @@
  */
 
 /* This code ensures portability, so coverage measurement is not required */
+
 /* LCOV_EXCL_START */
 #include <limits.h>
 #include <stdint.h>
@@ -32,6 +33,110 @@ int opterr = 1;
 int optopt = 0;
 
 static int nextchar = 0;
+
+static DWORD WINAPI cpres_thread_wrapper(LPVOID arg) {
+  cpres_pthread_wrapper_ctx_t *ctx = (cpres_pthread_wrapper_ctx_t *)arg;
+  void *(*start_routine)(void *);
+  void *routine_arg;
+
+  if (!ctx) {
+    return 1;
+  }
+
+  start_routine = ctx->start_routine;
+  routine_arg = ctx->arg;
+  free(ctx);
+
+  if (start_routine) {
+    start_routine(routine_arg);
+  }
+
+  return 0;
+}
+
+int colopresso_thread_create(colopresso_thread_t *thread, const void *attr, void *(*start_routine)(void *), void *arg) {
+  cpres_pthread_wrapper_ctx_t *ctx;
+  HANDLE handle;
+
+  (void)attr;
+
+  if (!thread || !start_routine) {
+    return EINVAL;
+  }
+
+  ctx = (cpres_pthread_wrapper_ctx_t *)malloc(sizeof(cpres_pthread_wrapper_ctx_t));
+  if (!ctx) {
+    return ENOMEM;
+  }
+
+  ctx->start_routine = start_routine;
+  ctx->arg = arg;
+
+  handle = CreateThread(NULL, 0, cpres_thread_wrapper, ctx, 0, NULL);
+  if (handle == NULL) {
+    free(ctx);
+    return EAGAIN;
+  }
+
+  *thread = handle;
+  return 0;
+}
+
+int colopresso_thread_join(colopresso_thread_t thread, void **retval) {
+  DWORD result;
+
+  (void)retval;
+
+  if (thread == NULL || thread == INVALID_HANDLE_VALUE) {
+    return EINVAL;
+  }
+
+  result = WaitForSingleObject(thread, INFINITE);
+  if (result != WAIT_OBJECT_0) {
+    return EINVAL;
+  }
+
+  CloseHandle(thread);
+  return 0;
+}
+
+int colopresso_mutex_init(colopresso_mutex_t *mutex, const void *attr) {
+  (void)attr;
+
+  if (!mutex) {
+    return EINVAL;
+  }
+
+  InitializeCriticalSection(mutex);
+  return 0;
+}
+
+int colopresso_mutex_lock(colopresso_mutex_t *mutex) {
+  if (!mutex) {
+    return EINVAL;
+  }
+
+  EnterCriticalSection(mutex);
+  return 0;
+}
+
+int colopresso_mutex_unlock(colopresso_mutex_t *mutex) {
+  if (!mutex) {
+    return EINVAL;
+  }
+
+  LeaveCriticalSection(mutex);
+  return 0;
+}
+
+int colopresso_mutex_destroy(colopresso_mutex_t *mutex) {
+  if (!mutex) {
+    return EINVAL;
+  }
+
+  DeleteCriticalSection(mutex);
+  return 0;
+}
 
 static const struct option *match_long_option(const char *name, size_t name_len, const struct option *longopts, int *index_out) {
   int i;

@@ -34,11 +34,15 @@ export interface FormatFieldBase<T extends FormatFieldType = FormatFieldType> {
   type: T;
   labelKey?: string;
   noteKey?: string;
+  requiresThreads?: boolean;
+  excludeFromExport?: boolean;
+  requiresReload?: boolean;
 }
 
 export interface NumberField extends FormatFieldBase<'number'> {
   min?: number;
   max?: number;
+  maxIsHardwareConcurrency?: boolean;
   step?: number;
   defaultValue?: number;
 }
@@ -107,10 +111,11 @@ export interface FormatDefinition {
 
 export interface ColopressoModule {
   HEAPU8: Uint8Array;
+  HEAPF32: Float32Array;
   _malloc(size: number): number;
   _free(ptr: number): void;
   _cpres_free(ptr: number): void;
-  getValue(ptr: number, type: 'i32'): number;
+  getValue(ptr: number, type: 'i8' | 'i16' | 'i32' | 'float' | 'double'): number;
   [key: string]: unknown;
 }
 
@@ -133,6 +138,7 @@ export interface FileEntry {
   status: 'pending' | 'processing' | 'success' | 'error';
   originalSize?: number;
   convertedSize?: number;
+  conversionTimeMs?: number;
   errorMessageKey?: string;
   errorParams?: TranslationParams;
   errorMessageRaw?: string;
@@ -165,6 +171,8 @@ export interface BuildInfoPayload {
   libavifVersion?: number;
   pngxOxipngVersion?: number;
   pngxLibimagequantVersion?: number;
+  compilerVersionString?: string;
+  rustVersionString?: string;
   buildtime?: number;
   releaseChannel?: string;
   architecture?: string;

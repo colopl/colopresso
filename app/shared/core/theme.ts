@@ -94,6 +94,7 @@ function ensureColorSchemeMeta(theme: Theme): void {
   if (typeof document === 'undefined') {
     return;
   }
+
   let meta = document.querySelector('meta[name="color-scheme"]') as HTMLMetaElement | null;
   if (!meta) {
     meta = document.createElement('meta');
@@ -116,6 +117,7 @@ export function getPreferredTheme(): Theme {
   } catch (error) {
     console.warn('getPreferredTheme failed', error);
   }
+
   return 'light';
 }
 

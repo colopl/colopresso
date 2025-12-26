@@ -36,6 +36,9 @@ jobs:
       internal_release_tag: ${{ steps.generate_version.outputs.internal_release_tag }}
       internal_is_prerelease: ${{ steps.generate_version.outputs.internal_is_prerelease }}
       emsdk_version: ${{ steps.get_emsdk_version.outputs.emsdk_version }}
+      rust_stable: ${{ steps.get_rust_versions.outputs.rust_stable }}
+      rust_nightly: ${{ steps.get_rust_versions.outputs.rust_nightly }}
+      wasm_pack_version: ${{ steps.get_rust_versions.outputs.wasm_pack_version }}
     steps:
       - name: Generate version
         id: generate_version
@@ -107,6 +110,15 @@ jobs:
         run: |
           git fetch --tags
           echo "emsdk_version=$(git describe --tags --abbrev=0)" >> "${GITHUB_OUTPUT}"
+      - name: Get Rust versions from rust-toolchain.toml
+        id: get_rust_versions
+        run: |
+          RUST_STABLE=$(grep -E '^channel\s*=' rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')
+          RUST_NIGHTLY=$(grep -E '^nightly\s*=' rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')
+          WASM_PACK=$(grep -E '^wasm-pack\s*=' rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')
+          echo "rust_stable=${RUST_STABLE}" >> "${GITHUB_OUTPUT}"
+          echo "rust_nightly=${RUST_NIGHTLY}" >> "${GITHUB_OUTPUT}"
+          echo "wasm_pack_version=${WASM_PACK}" >> "${GITHUB_OUTPUT}"
       - name: Versioning
         run: |
           sed -i "s|/\* COLOPL_VERSION_START \*/.*/\* COLOPL_VERSION_END \*/|${{ steps.generate_version.outputs.version_int }}|" "library/include/colopresso.h"
@@ -234,8 +246,8 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
-          toolchain: stable
-          targets: wasm32-unknown-emscripten
+          toolchain: ${{ needs.Prepare.outputs.rust_stable }}
+          targets: wasm32-unknown-emscripten,wasm32-unknown-unknown
       - name: Setup emsdk
         shell: pwsh
         working-directory: "third_party/emsdk"
@@ -300,8 +312,11 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
-          toolchain: stable
-          targets: wasm32-unknown-emscripten
+          toolchain: ${{ needs.Prepare.outputs.rust_nightly }}
+          targets: wasm32-unknown-emscripten,wasm32-unknown-unknown
+          components: rust-src
+      - name: Setup wasm-pack
+        run: cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
       - name: Setup emsdk
         working-directory: "third_party/emsdk"
         run: |
@@ -472,7 +487,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
-          toolchain: stable
+          toolchain: ${{ needs.Prepare.outputs.rust_stable }}
       - name: Configure CMake
         run: cmake -B build -DCMAKE_BUILD_TYPE="Release" -DCOLOPRESSO_USE_CLI=ON
       - name: Build
@@ -542,7 +557,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
-          toolchain: stable
+          toolchain: ${{ needs.Prepare.outputs.rust_stable }}
           targets: ${{ matrix.arch.rust_target }}
       - name: Detect macOS CLI signing configuration
         id: macos_cli_signing

@@ -73,7 +73,7 @@ static inline void process_bitdepth_pixel(uint8_t *rgba, png_uint_32 width, png_
   }
 }
 
-static inline void reduce_rgba_bitdepth_dither(uint8_t *rgba, png_uint_32 width, png_uint_32 height, uint8_t bits_per_channel, float dither_level) {
+static inline void reduce_rgba_bitdepth_dither(uint32_t thread_count, uint8_t *rgba, png_uint_32 width, png_uint_32 height, uint8_t bits_per_channel, float dither_level) {
   uint32_t x, y;
   size_t row_stride;
   float *err_curr, *err_next, *tmp;
@@ -84,7 +84,7 @@ static inline void reduce_rgba_bitdepth_dither(uint8_t *rgba, png_uint_32 width,
   }
 
   if (dither_level <= 0.0f) {
-    snap_rgba_image_to_bits(rgba, (size_t)width * (size_t)height, bits_per_channel, bits_per_channel);
+    snap_rgba_image_to_bits(thread_count, rgba, (size_t)width * (size_t)height, bits_per_channel, bits_per_channel);
     return;
   }
 
@@ -94,7 +94,7 @@ static inline void reduce_rgba_bitdepth_dither(uint8_t *rgba, png_uint_32 width,
   if (!err_curr || !err_next) {
     free(err_curr);
     free(err_next);
-    snap_rgba_image_to_bits(rgba, (size_t)width * (size_t)height, bits_per_channel, bits_per_channel);
+    snap_rgba_image_to_bits(thread_count, rgba, (size_t)width * (size_t)height, bits_per_channel, bits_per_channel);
     return;
   }
 
@@ -121,7 +121,7 @@ static inline void reduce_rgba_bitdepth_dither(uint8_t *rgba, png_uint_32 width,
   free(err_next);
 }
 
-static inline void reduce_rgba_bitdepth(uint8_t *rgba, png_uint_32 width, png_uint_32 height, uint8_t bits_per_channel, float dither_level) {
+static inline void reduce_rgba_bitdepth(uint32_t thread_count, uint8_t *rgba, png_uint_32 width, png_uint_32 height, uint8_t bits_per_channel, float dither_level) {
   if (!rgba || width == 0 || height == 0) {
     return;
   }
@@ -131,9 +131,9 @@ static inline void reduce_rgba_bitdepth(uint8_t *rgba, png_uint_32 width, png_ui
   }
 
   if (dither_level > 0.0f) {
-    reduce_rgba_bitdepth_dither(rgba, width, height, bits_per_channel, dither_level);
+    reduce_rgba_bitdepth_dither(thread_count, rgba, width, height, bits_per_channel, dither_level);
   } else {
-    snap_rgba_image_to_bits(rgba, (size_t)width * (size_t)height, bits_per_channel, bits_per_channel);
+    snap_rgba_image_to_bits(thread_count, rgba, (size_t)width * (size_t)height, bits_per_channel, bits_per_channel);
   }
 }
 
@@ -156,7 +156,7 @@ bool pngx_quantize_limited4444(const uint8_t *png_data, size_t png_size, const p
     resolved_dither = clamp_float(opts->lossy_dither_level, 0.0f, 1.0f);
   }
 
-  reduce_rgba_bitdepth(image.rgba, image.width, image.height, lossy_type_bits(opts->lossy_type), resolved_dither);
+  reduce_rgba_bitdepth(opts->thread_count, image.rgba, image.width, image.height, lossy_type_bits(opts->lossy_type), resolved_dither);
 
   success = create_rgba_png(image.rgba, image.pixel_count, image.width, image.height, out_data, out_size);
   rgba_image_reset(&image);

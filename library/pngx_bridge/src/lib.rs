@@ -9,17 +9,54 @@
  * Developed with AI (LLM) code assistance. See `NOTICE` for details.
  */
 
+#[cfg(all(
+    target_arch = "wasm32",
+    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+))]
+mod wasm;
+
+#[cfg(all(target_arch = "wasm32", feature = "wasm-bindgen-rayon"))]
+pub use wasm_bindgen_rayon::init_thread_pool;
+
 use imagequant::{new as iq_new, Error as IqError, RGBA as IqRGBA};
 use oxipng::Options;
+#[cfg(feature = "rayon")]
+use rayon::ThreadPool;
+#[cfg(feature = "rayon")]
+use std::collections::HashMap;
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+)))]
 use std::os::raw::c_int;
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+)))]
 use std::panic::{catch_unwind, AssertUnwindSafe};
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+)))]
 use std::ptr;
 use std::slice;
-#[cfg(not(target_family = "wasm"))]
-use std::sync::Once;
+#[cfg(feature = "rayon")]
+use std::sync::{Mutex, OnceLock};
 
-#[cfg(not(target_family = "wasm"))]
-static RAYON_INIT: Once = Once::new();
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+)))]
+extern "C" {
+    fn malloc(size: usize) -> *mut std::ffi::c_void;
+    fn free(ptr: *mut std::ffi::c_void);
+}
+
+#[cfg(all(feature = "rayon", not(target_arch = "wasm32")))]
+static THREAD_POOL_CACHE: OnceLock<Mutex<HashMap<usize, std::sync::Arc<ThreadPool>>>> =
+    OnceLock::new();
+#[cfg(all(feature = "rayon", not(target_arch = "wasm32")))]
+static CURRENT_THREAD_COUNT: OnceLock<Mutex<usize>> = OnceLock::new();
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -81,7 +118,7 @@ pub enum PngxBridgeQuantStatus {
     Error = 2,
 }
 
-fn convert_lossless_options(opts: &PngxBridgeLosslessOptions) -> Options {
+pub(crate) fn convert_lossless_options(opts: &PngxBridgeLosslessOptions) -> Options {
     let mut options = Options::from_preset(opts.optimization_level);
     if opts.strip_safe {
         options.strip = oxipng::StripChunks::Safe;
@@ -90,6 +127,10 @@ fn convert_lossless_options(opts: &PngxBridgeLosslessOptions) -> Options {
     options
 }
 
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+)))]
 fn allocate_copy<T: Copy>(slice: &[T]) -> Result<*mut T, String> {
     if slice.is_empty() {
         return Ok(ptr::null_mut());
@@ -104,7 +145,7 @@ fn allocate_copy<T: Copy>(slice: &[T]) -> Result<*mut T, String> {
                 std::mem::size_of::<T>()
             )
         })?;
-    let ptr = unsafe { libc::malloc(bytes) as *mut T };
+    let ptr = unsafe { malloc(bytes) as *mut T };
     if ptr.is_null() {
         return Err(format!("Memory allocation failed for {} bytes", bytes));
     }
@@ -140,18 +181,18 @@ fn convert_palette(palette: &[IqRGBA]) -> Vec<RgbaColor> {
     out
 }
 
-struct QuantizeOutcome {
-    palette: Option<Vec<RgbaColor>>,
-    indices: Option<Vec<u8>>,
-    quality: i32,
+pub(crate) struct QuantizeOutcome {
+    pub(crate) palette: Option<Vec<RgbaColor>>,
+    pub(crate) indices: Option<Vec<u8>>,
+    pub(crate) quality: i32,
 }
 
-enum QuantizeError {
+pub(crate) enum QuantizeError {
     QualityTooLow,
     Generic,
 }
 
-fn quantize_image(
+pub(crate) fn quantize_image(
     pixels: &[RgbaColor],
     width: usize,
     height: usize,
@@ -254,6 +295,10 @@ fn quantize_image(
     })
 }
 
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+)))]
 #[no_mangle]
 pub unsafe extern "C" fn pngx_bridge_optimize_lossless(
     input_data: *const u8,
@@ -279,9 +324,25 @@ pub unsafe extern "C" fn pngx_bridge_optimize_lossless(
     };
 
     let rust_opts = convert_lossless_options(opts_ref);
+
+    #[cfg(all(feature = "rayon", not(target_arch = "wasm32")))]
+    let attempt = if let Some(pool) = get_current_thread_pool() {
+        pool.install(|| {
+            catch_unwind(AssertUnwindSafe(|| {
+                oxipng::optimize_from_memory(input_slice, &rust_opts)
+            }))
+        })
+    } else {
+        catch_unwind(AssertUnwindSafe(|| {
+            oxipng::optimize_from_memory(input_slice, &rust_opts)
+        }))
+    };
+
+    #[cfg(any(not(feature = "rayon"), target_arch = "wasm32"))]
     let attempt = catch_unwind(AssertUnwindSafe(|| {
         oxipng::optimize_from_memory(input_slice, &rust_opts)
     }));
+
     let result = match attempt {
         Ok(Ok(output_vec)) => output_vec,
         Ok(Err(_)) | Err(_) => input_slice.to_vec(),
@@ -294,7 +355,7 @@ pub unsafe extern "C" fn pngx_bridge_optimize_lossless(
         return PngxResult::Success;
     }
 
-    let buffer = unsafe { libc::malloc(len) as *mut u8 };
+    let buffer = unsafe { malloc(len) as *mut u8 };
     if buffer.is_null() {
         return PngxResult::IoError;
     }
@@ -307,6 +368,10 @@ pub unsafe extern "C" fn pngx_bridge_optimize_lossless(
     PngxResult::Success
 }
 
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+)))]
 #[no_mangle]
 pub unsafe extern "C" fn pngx_bridge_quantize(
     pixels: *const RgbaColor,
@@ -380,7 +445,7 @@ pub unsafe extern "C" fn pngx_bridge_quantize(
                         Err(_) => {
                             if !out.palette.is_null() {
                                 unsafe {
-                                    libc::free(out.palette as *mut libc::c_void);
+                                    free(out.palette as *mut std::ffi::c_void);
                                 }
                                 out.palette = ptr::null_mut();
                                 out.palette_len = 0;
@@ -413,10 +478,14 @@ pub unsafe extern "C" fn pngx_bridge_quantize(
     }
 }
 
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+)))]
 #[no_mangle]
 pub unsafe extern "C" fn pngx_bridge_free(ptr: *mut u8) {
     if !ptr.is_null() {
-        libc::free(ptr as *mut libc::c_void);
+        free(ptr as *mut std::ffi::c_void);
     }
 }
 
@@ -458,28 +527,75 @@ pub extern "C" fn pngx_bridge_libimagequant_version() -> u32 {
 }
 
 #[no_mangle]
+pub extern "C" fn pngx_bridge_rust_version_string() -> *const std::os::raw::c_char {
+    static VERSION: &str = concat!(env!("PNGX_BRIDGE_RUST_VERSION_STRING"), "\0");
+    VERSION.as_ptr() as *const std::os::raw::c_char
+}
+
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+)))]
+#[no_mangle]
 pub extern "C" fn pngx_bridge_init_threads(num_threads: c_int) -> bool {
-    #[cfg(not(target_family = "wasm"))]
-    {
-        let mut success = false;
-        RAYON_INIT.call_once(|| {
-            let builder = if num_threads > 0 {
-                rayon::ThreadPoolBuilder::new().num_threads(num_threads as usize)
-            } else {
-                rayon::ThreadPoolBuilder::new()
-            };
-
-            if builder.build_global().is_ok() {
-                success = true;
-            }
-        });
-
-        success || rayon::current_num_threads() > 0
-    }
-
-    #[cfg(target_family = "wasm")]
+    #[cfg(not(feature = "rayon"))]
     {
         let _ = num_threads;
-        false
+        return true;
     }
+
+    #[cfg(all(feature = "rayon", not(target_arch = "wasm32")))]
+    {
+        let target_threads = if num_threads > 0 {
+            num_threads as usize
+        } else {
+            std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(1)
+        };
+
+        let cache = THREAD_POOL_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+        let current = CURRENT_THREAD_COUNT.get_or_init(|| Mutex::new(0));
+
+        let needs_new_pool = {
+            let cache_guard = cache.lock().unwrap();
+            !cache_guard.contains_key(&target_threads)
+        };
+
+        if needs_new_pool {
+            let builder = rayon::ThreadPoolBuilder::new().num_threads(target_threads);
+            if let Ok(pool) = builder.build() {
+                let mut cache_guard = cache.lock().unwrap();
+                cache_guard.insert(target_threads, std::sync::Arc::new(pool));
+            } else {
+                return false;
+            }
+        }
+
+        {
+            let mut current_guard = current.lock().unwrap();
+            *current_guard = target_threads;
+        }
+
+        true
+    }
+
+    #[cfg(all(feature = "rayon", target_arch = "wasm32"))]
+    {
+        let _ = num_threads;
+        true
+    }
+}
+
+#[cfg(all(feature = "rayon", not(target_arch = "wasm32")))]
+fn get_current_thread_pool() -> Option<std::sync::Arc<ThreadPool>> {
+    let cache = THREAD_POOL_CACHE.get()?;
+    let current = CURRENT_THREAD_COUNT.get()?;
+
+    let current_guard = current.lock().ok()?;
+    let target_threads = *current_guard;
+    drop(current_guard);
+
+    let cache_guard = cache.lock().ok()?;
+    cache_guard.get(&target_threads).cloned()
 }

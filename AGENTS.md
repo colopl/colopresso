@@ -1,14 +1,14 @@
 ## 前提事項
 - チャットの回答はすべて日本語で回答してください
 - プログラムソースコードにおけるコメントはすべて英語で行ってください
+- 実行中のログが見えなくなってしまうので、実行しようとするコマンドの末尾に ` | tail -NUM` を付けないでください
 
 ## このプロジェクトについて
-
 このプロジェクトは C99 で実装された画像変換・減色圧縮ライブラリである `libcolopresso` と、それを用いたアプリケーション `colopresso` 含んでいます。
+
 また、 Rust で実装された外部依存ライブラリを呼び出すための `pngx_bridge` というプロジェクトも含んでいます。
 
 ## フォルダ構成
-
 - `/library`: `libcolopresso` ライブラリ本体です
     - `/library/pngx_bridge`: Rust 製ライブラリを統合するためのグループロジェクトである `pngx_bridge` のコードです
     - `/library/include`: インストールされるヘッダファイルです
@@ -16,8 +16,8 @@
         - `avif.c`: AVIF エンコーダ本体のコードです
         - `pngx.c`: PNGX エンコーダ本体のコードです
             - `pngx_common.c`: PNGX エンコーダ共通実装のコードです
-            - `pngx_limited4444.png` PNGX Limited4444 モードエンコーダ固有のコードです
-            - `pngx_palette256.png` PNGX 256 Palette モードエンコーダ固有のコードです
+            - `pngx_limited.c` PNGX Limited4444 モードエンコーダ固有のコードです
+            - `pngx_palette256.c` PNGX 256 Palette モードエンコーダ固有のコードです
             - `pngx_reduced.c` PNGX Reduced RGBA32 モードエンコーダ固有のコードです
         - `webp.c`: WebP エンコーダ本体のコードです
 - `/pages`: GitHub Pages で公開用のページディレクトリです

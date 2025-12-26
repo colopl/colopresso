@@ -21,13 +21,17 @@ import { getFormats, activateFormat, getFormat, getDefaultFormat, normalizeForma
 import { loadFormatConfig, saveFormatConfig, saveSelectedFormatId, loadSelectedFormatId, resetAllStoredData } from '../../shared/core/configStore';
 import { AdvancedSettingsController, setupFormatAwareAdvancedSettings } from '../../shared/core/advancedSettingsModal';
 import Storage from '../../shared/core/storage';
-import { initializeModule, getVersionInfo, ModuleWithHelpers } from '../../shared/core/converter';
+import { initializeModule, isThreadsEnabled, prewarmThreadPool, ModuleWithHelpers, getMaxThreads } from '../../shared/core/converter';
+import { createConversionWorkerClient, ConversionWorkerClient } from '../../shared/core/conversionWorkerClient';
 import { readFileAsArrayBuffer } from '../../shared/core/files';
 import { FileEntry, FormatDefinition, FormatOptions, SettingsState, StatusMessage, BuildInfoPayload, SETTINGS_SCHEMA_VERSION, SETTINGS_SCHEMA_VERSION_STORAGE_KEY } from '../../shared/types';
 import BuildInfoPanel from '../../shared/components/BuildInfoPanel';
+import { AppHeader, DropZone, FileList, ProgressBar, SettingsPanel, StatusMessage as StatusMessageComponent, SettingItemConfig } from '../../shared/components';
 
 const ELECTRON_SETTINGS_STORAGE_KEY = 'settings';
+const CHECK_FOR_UPDATES_AFTER_RELOAD_KEY = 'checkForUpdatesAfterReload';
 const COLOPRESSO_MODULE_URL = new URL(/* @vite-ignore */ './colopresso.js', import.meta.url);
+const COLOPRESSO_WORKER_URL = new URL(/* @vite-ignore */ './conversionWorker.js', import.meta.url);
 
 type ColopressoModuleFactoryType = (moduleConfig?: Record<string, unknown>) => Promise<ModuleWithHelpers>;
 
@@ -107,11 +111,26 @@ const ElectronAppInner: React.FC = () => {
   const [isUpdateRestarting, setIsUpdateRestarting] = useState(false);
   const moduleRef = useRef<ModuleWithHelpers | null>(null);
   const modulePromiseRef = useRef<Promise<ModuleWithHelpers> | null>(null);
+  const workerClientRef = useRef<ConversionWorkerClient | null>(null);
+  const workerClientPromiseRef = useRef<Promise<ConversionWorkerClient> | null>(null);
+  const workerInitResultRef = useRef<{
+    threadsEnabled: boolean;
+    pngxBridgeEnabled: boolean;
+    version?: number;
+    libwebpVersion?: number;
+    libpngVersion?: number;
+    libavifVersion?: number;
+    pngxOxipngVersion?: number;
+    pngxLibimagequantVersion?: number;
+    buildtime?: number;
+  } | null>(null);
+  const threadsEnabledRef = useRef<boolean>(true);
   const statusTimerRef = useRef<number | null>(null);
   const advancedSettingsControllerRef = useRef<AdvancedSettingsController | null>(null);
   const latestAdvancedFormatRef = useRef<string | null>(null);
   const latestAdvancedConfigRef = useRef<FormatOptions | null>(null);
-
+  const cancelRequestedRef = useRef<boolean>(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const currentFormat = useMemo(() => getFormat(state.activeFormatId) ?? getDefaultFormat(), [state.activeFormatId]);
   const storedFormatConfig = formatConfigs[currentFormat.id];
   const currentConfig = useMemo(() => storedFormatConfig ?? currentFormat.getDefaultOptions(), [currentFormat, storedFormatConfig]);
@@ -126,6 +145,7 @@ const ElectronAppInner: React.FC = () => {
     if (modulePromiseRef.current) {
       return modulePromiseRef.current;
     }
+
     const locateFile = (resource: string) => {
       try {
         return new URL(resource, COLOPRESSO_MODULE_URL).href;
@@ -133,10 +153,22 @@ const ElectronAppInner: React.FC = () => {
         return resource;
       }
     };
+    const moduleUrl = COLOPRESSO_MODULE_URL.href;
     const creation = loadColopressoModuleFactory()
-      .then((factory) => initializeModule(factory, { locateFile }))
+      .then((factory) =>
+        initializeModule(factory, {
+          locateFile,
+          mainScriptUrlOrBlob: moduleUrl,
+        })
+      )
       .then((Module) => {
         moduleRef.current = Module;
+        threadsEnabledRef.current = isThreadsEnabled(Module);
+
+        if (threadsEnabledRef.current) {
+          prewarmThreadPool(Module, getMaxThreads(Module));
+        }
+
         return Module;
       })
       .finally(() => {
@@ -146,10 +178,59 @@ const ElectronAppInner: React.FC = () => {
     return creation;
   }, []);
 
+  const ensureWorkerClient = useCallback(async (): Promise<ConversionWorkerClient> => {
+    if (workerClientRef.current) {
+      return workerClientRef.current;
+    }
+    if (workerClientPromiseRef.current) {
+      return workerClientPromiseRef.current;
+    }
+
+    const creation = (async () => {
+      const pngxBridgeUrl = await window.electronAPI?.getPngxBridgeUrl?.();
+      let pngxThreads: number | undefined;
+
+      try {
+        const pngxFormat = getFormat('pngx');
+        if (pngxFormat) {
+          const pngxConfig = await loadFormatConfig(pngxFormat);
+          pngxThreads = typeof pngxConfig.pngx_threads === 'number' ? pngxConfig.pngx_threads : undefined;
+        }
+      } catch {
+        /* NOP */
+      }
+
+      const client = createConversionWorkerClient(COLOPRESSO_WORKER_URL, COLOPRESSO_MODULE_URL.href, {
+        pngxBridgeUrl,
+        pngxThreads,
+      });
+      const initResult = await client.init();
+
+      threadsEnabledRef.current = initResult.threadsEnabled;
+      workerInitResultRef.current = initResult;
+      workerClientRef.current = client;
+
+      return client;
+    })();
+
+    workerClientPromiseRef.current = creation;
+
+    try {
+      return await creation;
+    } finally {
+      workerClientPromiseRef.current = null;
+    }
+  }, []);
+
   const loadBuildInfoFromModule = useCallback(async (): Promise<BuildInfoPayload | null> => {
     try {
-      const Module = await ensureModule();
-      const base = getVersionInfo(Module);
+      await ensureWorkerClient();
+
+      const initResult = workerInitResultRef.current;
+      if (!initResult) {
+        return null;
+      }
+
       const getUpdateChannel = window.electronAPI?.getUpdateChannel;
       const getArchitecture = window.electronAPI?.getArchitecture;
       let releaseChannel: string | undefined;
@@ -169,6 +250,18 @@ const ElectronAppInner: React.FC = () => {
         }
       }
 
+      const base: BuildInfoPayload = {
+        version: initResult.version,
+        libavifVersion: initResult.libavifVersion,
+        libwebpVersion: initResult.libwebpVersion,
+        libpngVersion: initResult.libpngVersion,
+        pngxOxipngVersion: initResult.pngxOxipngVersion,
+        pngxLibimagequantVersion: initResult.pngxLibimagequantVersion,
+        compilerVersionString: initResult.compilerVersionString,
+        rustVersionString: initResult.rustVersionString,
+        buildtime: initResult.buildtime,
+      };
+
       if (releaseChannel || architecture) {
         return {
           ...base,
@@ -181,7 +274,7 @@ const ElectronAppInner: React.FC = () => {
     } catch (_error) {
       return null;
     }
-  }, [ensureModule]);
+  }, [ensureWorkerClient]);
 
   const applyStatus = useCallback(
     (status: StatusMessage | null) => {
@@ -189,7 +282,9 @@ const ElectronAppInner: React.FC = () => {
         clearTimeout(statusTimerRef.current);
         statusTimerRef.current = null;
       }
+
       dispatch({ type: 'setStatus', status });
+
       if (status && status.durationMs && status.durationMs > 0) {
         statusTimerRef.current = window.setTimeout(() => {
           dispatch({ type: 'setStatus', status: null });
@@ -217,11 +312,13 @@ const ElectronAppInner: React.FC = () => {
     const offStart = api.onUpdateDownloadStart?.((payload) => {
       const typed = (payload ?? {}) as { version?: string };
       const progressText = t('updater.toast.progressUnknown');
+
       updatePhase = 'downloading';
       maxPercentSeen = 0;
       lastTransferred = undefined;
       setDeferredDownloadVersion(null);
       setIsUpdateDownloading(true);
+
       applyStatusRef.current({ type: 'info', messageKey: 'updater.toast.downloading', durationMs: 0, params: { progress: progressText, version: typed.version } });
     });
 
@@ -247,24 +344,29 @@ const ElectronAppInner: React.FC = () => {
       lastTransferred = transferred ?? lastTransferred;
 
       const messageKey = updatePhase === 'extracting' ? 'updater.toast.extracting' : 'updater.toast.downloading';
+
       applyStatusRef.current({ type: 'info', messageKey, durationMs: 0, params: { progress: progressText, version: typed.version } });
     });
 
     const offComplete = api.onUpdateDownloadComplete?.((payload) => {
       const typed = (payload ?? {}) as { version?: string };
+
       setIsUpdateDownloading(false);
+
       applyStatusRef.current({ type: 'success', messageKey: 'updater.toast.downloaded', durationMs: 2000, params: { version: typed.version } });
     });
 
     const offDownloadDeferred = api.onUpdateDownloadDeferred?.((payload) => {
       const typed = (payload ?? {}) as { version?: string };
       const version = typeof typed.version === 'string' ? typed.version.trim() : '';
+
       setDeferredDownloadVersion(version.length > 0 ? version : '');
     });
 
     const offDeferred = api.onUpdateInstallDeferred?.((payload) => {
       const typed = (payload ?? {}) as { version?: string };
       const version = typeof typed.version === 'string' ? typed.version.trim() : '';
+
       setDeferredDownloadVersion(null);
       setDeferredUpdateVersion(version.length > 0 ? version : '');
     });
@@ -272,7 +374,9 @@ const ElectronAppInner: React.FC = () => {
     const offError = api.onUpdateDownloadError?.((payload) => {
       const typed = (payload ?? {}) as { message?: unknown };
       const message = typeof typed.message === 'string' && typed.message.trim().length > 0 ? typed.message : t('common.unknownError');
+
       setIsUpdateDownloading(false);
+
       applyStatusRef.current({ type: 'error', messageKey: 'updater.toast.downloadFailed', durationMs: 0, params: { message } });
     });
 
@@ -304,12 +408,16 @@ const ElectronAppInner: React.FC = () => {
       const result = await api.downloadUpdateNow();
       if (!result?.success) {
         const message = typeof result?.error === 'string' && result.error.trim().length > 0 ? result.error : t('common.unknownError');
+
         applyStatus({ type: 'error', messageKey: 'updater.toast.downloadFailed', durationMs: 0, params: { message } });
+
         setIsUpdateDownloading(false);
       }
     } catch (error) {
       const message = (error as Error | undefined)?.message ?? t('common.unknownError');
+
       applyStatus({ type: 'error', messageKey: 'updater.toast.downloadFailed', durationMs: 0, params: { message } });
+
       setIsUpdateDownloading(false);
     }
   }, [applyStatus, isUpdateDownloading, isUpdateRestarting, t]);
@@ -345,11 +453,13 @@ const ElectronAppInner: React.FC = () => {
       const result = await api.installUpdateNow();
       if (!result?.success) {
         const message = typeof result?.error === 'string' && result.error.trim().length > 0 ? result.error : t('common.unknownError');
+
         applyStatus({ type: 'error', messageKey: 'updater.toast.downloadFailed', durationMs: 0, params: { message } });
         setIsUpdateRestarting(false);
       }
     } catch (error) {
       const message = (error as Error | undefined)?.message ?? t('common.unknownError');
+
       applyStatus({ type: 'error', messageKey: 'updater.toast.downloadFailed', durationMs: 0, params: { message } });
       setIsUpdateRestarting(false);
     }
@@ -377,21 +487,17 @@ const ElectronAppInner: React.FC = () => {
         outputSize?: number;
         details?: { inputSize?: number; outputSize?: number };
       };
-
       const rawDetails = typed.details ?? {
         inputSize: typed.inputSize,
         outputSize: typed.outputSize,
       };
-
       const extractSize = (value: unknown): number | undefined => {
         return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
       };
-
       const detailedInputSize = extractSize(rawDetails?.inputSize);
       const detailedOutputSize = extractSize(rawDetails?.outputSize);
       const inputSize = detailedInputSize ?? baseInputSize;
       const outputSize = detailedOutputSize;
-
       const describeSize = (size?: number) => {
         if (typeof size !== 'number' || Number.isNaN(size)) {
           return t('errors.sizeUnknown');
@@ -445,6 +551,7 @@ const ElectronAppInner: React.FC = () => {
         if (!restoreStatus) {
           return;
         }
+
         window.setTimeout(() => {
           applyStatus(restoreStatus);
         }, durationMs);
@@ -460,7 +567,9 @@ const ElectronAppInner: React.FC = () => {
         if (typeof document === 'undefined') {
           throw new Error('document is unavailable');
         }
+
         const textarea = document.createElement('textarea');
+
         textarea.value = message;
         textarea.style.position = 'fixed';
         textarea.style.opacity = '0';
@@ -468,6 +577,7 @@ const ElectronAppInner: React.FC = () => {
         document.body.appendChild(textarea);
         textarea.focus();
         textarea.select();
+
         const succeeded = document.execCommand('copy');
         document.body.removeChild(textarea);
         if (!succeeded) {
@@ -481,6 +591,7 @@ const ElectronAppInner: React.FC = () => {
         } else {
           copyViaFallback();
         }
+
         applyStatus({ type: 'success', messageKey: 'errors.copySuccess', durationMs: 2000 });
         scheduleRestore(2000);
       } catch (_copyError) {
@@ -511,7 +622,7 @@ const ElectronAppInner: React.FC = () => {
       setFormatConfigs((prev) => ({ ...prev, [format.id]: config }));
       try {
         await saveFormatConfig(format, config);
-      } catch (_) {
+      } catch {
         /* NOP */
       }
     },
@@ -535,6 +646,7 @@ const ElectronAppInner: React.FC = () => {
             saveCurrentConfigForFormat: async (target, nextConfig) => {
               await persistFormatConfig(target, nextConfig);
             },
+            isThreadsEnabled: threadsEnabledRef.current,
           }
         );
         advancedSettingsControllerRef.current = controller;
@@ -552,9 +664,11 @@ const ElectronAppInner: React.FC = () => {
     if (!storedFormatConfig) {
       return;
     }
+
     if (latestAdvancedFormatRef.current === currentFormat.id && latestAdvancedConfigRef.current === storedFormatConfig) {
       return;
     }
+
     void initializeAdvancedSettings(currentFormat, storedFormatConfig);
   }, [currentFormat, initializeAdvancedSettings, storedFormatConfig]);
 
@@ -576,9 +690,24 @@ const ElectronAppInner: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const shouldCheck = sessionStorage.getItem(CHECK_FOR_UPDATES_AFTER_RELOAD_KEY);
+    if (shouldCheck) {
+      sessionStorage.removeItem(CHECK_FOR_UPDATES_AFTER_RELOAD_KEY);
+      if (window.electronAPI?.checkForUpdates) {
+        void window.electronAPI.checkForUpdates();
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     return () => {
       moduleRef.current = null;
       modulePromiseRef.current = null;
+      if (workerClientRef.current) {
+        workerClientRef.current.terminate();
+        workerClientRef.current = null;
+      }
+      workerClientPromiseRef.current = null;
     };
   }, []);
 
@@ -638,6 +767,18 @@ const ElectronAppInner: React.FC = () => {
     };
   }, [dispatch, loadBuildInfoFromModule]);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && state.isProcessing) {
+        cancelRequestedRef.current = true;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [state.isProcessing]);
+
   const handleThemeToggle = useCallback(async () => {
     const nextTheme: Theme = state.theme === 'dark' ? 'light' : 'dark';
     await setTheme(nextTheme);
@@ -677,19 +818,26 @@ const ElectronAppInner: React.FC = () => {
   );
 
   const handleAdvancedSettingsClick = useCallback(async () => {
+    if (state.isProcessing) {
+      return;
+    }
+
     const configForModal = storedFormatConfig ?? currentFormat.getDefaultOptions();
     const controller = await initializeAdvancedSettings(currentFormat, configForModal);
+
     if (controller && typeof controller.open === 'function') {
       await controller.open();
     }
-  }, [currentFormat, initializeAdvancedSettings, storedFormatConfig]);
+  }, [currentFormat, initializeAdvancedSettings, state.isProcessing, storedFormatConfig]);
 
   const handleResetAllSettings = useCallback(async () => {
     if (!window.confirm(t('settingsMenu.resetConfirm'))) {
       return;
     }
+
     try {
       await resetAllStoredData();
+      sessionStorage.setItem(CHECK_FOR_UPDATES_AFTER_RELOAD_KEY, 'true');
       window.alert(t('settingsMenu.resetSuccess'));
       window.location.reload();
     } catch (error) {
@@ -719,6 +867,8 @@ const ElectronAppInner: React.FC = () => {
 
   const resetProcessingState = useCallback(
     (total: number) => {
+      cancelRequestedRef.current = false;
+      setIsCancelling(false);
       dispatch({ type: 'setProcessing', processing: true });
       dispatch({ type: 'setProgress', progress: { current: 0, total, state: total === 0 ? 'idle' : 'processing' } });
     },
@@ -733,8 +883,15 @@ const ElectronAppInner: React.FC = () => {
   );
 
   const finalizeProcessingState = useCallback(() => {
+    cancelRequestedRef.current = false;
+    setIsCancelling(false);
     dispatch({ type: 'setProcessing', processing: false });
   }, [dispatch]);
+
+  const handleCancelProcessing = useCallback(() => {
+    cancelRequestedRef.current = true;
+    setIsCancelling(true);
+  }, []);
 
   const ensureElectronAPI = (): NonNullable<Window['electronAPI']> => {
     if (!window.electronAPI) {
@@ -749,18 +906,21 @@ const ElectronAppInner: React.FC = () => {
     try {
       const electron = ensureElectronAPI();
       const result = await electron.selectFolder();
+
       if (!result.success || !result.folderPath) {
         if (result?.canceled) {
           return false;
         }
         throw new Error(result.error || 'Failed to select folder');
       }
+
       await persistSettings({
         useOriginalOutput: true,
         outputDirectoryPath: result.folderPath,
         createZip: false,
         deletePng: false,
       });
+
       applyStatus({ type: 'success', messageKey: 'common.outputDirectoryReady', durationMs: 4000 });
       return true;
     } catch (error) {
@@ -792,14 +952,17 @@ const ElectronAppInner: React.FC = () => {
       if (!isFixedOutputActive || !normalizedOutputDirectoryPath) {
         throw new Error('Output directory is not configured');
       }
+
       const safeRelative = sanitizeRelativeOutputPath(relativePath) || sanitizeRelativeOutputPath(relativePath.split(/[\\/]/).pop() ?? relativePath);
       if (!safeRelative) {
         throw new Error('Invalid output filename');
       }
+
       const electron = ensureElectronAPI();
       if (!electron.writeFileInDirectory) {
         throw new Error('writeFileInDirectory is unavailable');
       }
+
       const writeResult = await electron.writeFileInDirectory(normalizedOutputDirectoryPath, safeRelative, data);
       if (!writeResult.success) {
         applyStatus({ type: 'error', messageKey: 'common.outputDirectoryWriteFailed', durationMs: 5000, params: { path: normalizedOutputDirectoryPath } });
@@ -810,19 +973,25 @@ const ElectronAppInner: React.FC = () => {
   );
 
   const convertPngBytes = useCallback(
-    async (pngData: Uint8Array): Promise<Uint8Array> => {
-      const Module = await ensureModule();
+    async (pngData: Uint8Array): Promise<{ result: Uint8Array; conversionTimeMs: number }> => {
+      const workerClient = await ensureWorkerClient();
       const format = getFormat(state.activeFormatId) ?? getDefaultFormat();
       const options = normalizeFormatOptions(format, formatConfigs[format.id]);
-      return format.convert({ Module, inputBytes: pngData, options });
+      const startTime = performance.now();
+      const { outputBytes } = await workerClient.convert(format.id, options, pngData);
+      const endTime = performance.now();
+      const conversionTimeMs = Math.round(endTime - startTime);
+
+      return { result: outputBytes, conversionTimeMs };
     },
-    [ensureModule, formatConfigs, state.activeFormatId]
+    [ensureWorkerClient, formatConfigs, state.activeFormatId]
   );
 
   const downloadZipFile = useCallback(
     async (files: ConversionOutcome[]) => {
       const electron = ensureElectronAPI();
       const zipDialog = await electron.saveZipDialog?.(`colopresso-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.zip`);
+
       if (!zipDialog || !zipDialog.success || !zipDialog.filePath) {
         if (zipDialog?.canceled) {
           applyStatus({ type: 'info', messageKey: 'common.saveDialogCanceled', durationMs: 3000 });
@@ -834,12 +1003,14 @@ const ElectronAppInner: React.FC = () => {
       files.forEach((file) => {
         zip.addFile(file.filename, file.data);
       });
+
       const zipData = zip.generate();
       const writeResult = await electron.writeFile(zipDialog.filePath, zipData);
       if (!writeResult.success) {
         applyStatus({ type: 'error', messageKey: 'common.zipWriteFailed', durationMs: 5000, params: { path: zipDialog.filePath } });
         throw new Error(writeResult.error || 'Failed to write ZIP');
       }
+
       applyStatus({ type: 'success', messageKey: 'common.zipCreated', durationMs: 4000 });
     },
     [applyStatus]
@@ -861,11 +1032,13 @@ const ElectronAppInner: React.FC = () => {
         }
         return { success: false as const };
       }
+
       const writeResult = await electron.writeFile(dialogResult.filePath, data);
       if (!writeResult.success) {
         applyStatus({ type: 'error', messageKey: 'common.fileWriteFailed', durationMs: 5000, params: { path: dialogResult.filePath } });
         throw new Error(writeResult.error || 'Failed to write file');
       }
+
       return { success: true as const };
     },
     [applyStatus, ensureElectronAPI, isFixedOutputActive, writeToFixedDirectory]
@@ -943,6 +1116,14 @@ const ElectronAppInner: React.FC = () => {
       const format = getFormat(state.activeFormatId) ?? getDefaultFormat();
 
       for (let index = 0; index < pngFiles.length; index += 1) {
+        if (cancelRequestedRef.current) {
+          dispatch({ type: 'setFileEntries', entries: [] });
+          dispatch({ type: 'setProgress', progress: { current: 0, total: 0, state: 'idle' } });
+          applyStatus({ type: 'info', messageKey: 'common.conversionCanceled', durationMs: 4000 });
+          finalizeProcessingState();
+          return;
+        }
+
         const file = pngFiles[index];
         const entry = entries[index];
         patchFileEntry(entry.id, { status: 'processing' });
@@ -952,11 +1133,12 @@ const ElectronAppInner: React.FC = () => {
         try {
           const arrayBuffer = await readFileAsArrayBuffer(file);
           const pngData = new Uint8Array(arrayBuffer);
-          originalSize = pngData.length;
-          const result = await convertPngBytes(pngData);
+          const { result, conversionTimeMs } = await convertPngBytes(pngData);
           const outputName = file.name.replace(/\.png$/i, `.${format.outputExtension}`);
           const relativeCandidate = sanitizeRelativeOutputPath(file.name);
           const targetRelativePath = (relativeCandidate && relativeCandidate.replace(/\.png$/i, `.${format.outputExtension}`)) || outputName;
+
+          originalSize = pngData.length;
 
           if (shouldCreateZip) {
             zipCandidates.push({ filename: outputName, data: result, originalSize: pngData.length, convertedSize: result.length });
@@ -972,12 +1154,14 @@ const ElectronAppInner: React.FC = () => {
             status: 'success',
             originalSize: pngData.length,
             convertedSize: result.length,
+            conversionTimeMs,
           });
         } catch (error) {
           const failure = error as Error & { code?: string };
           const errorInfo = resolveConversionError(failure, format, originalSize);
           const entryOriginalSize = typeof errorInfo.inputSize === 'number' ? errorInfo.inputSize : typeof originalSize === 'number' && Number.isFinite(originalSize) ? originalSize : undefined;
           const entryConvertedSize = typeof errorInfo.outputSize === 'number' ? errorInfo.outputSize : undefined;
+
           patchFileEntry(entry.id, {
             status: 'error',
             errorMessageKey: errorInfo.errorMessageKey,
@@ -987,6 +1171,7 @@ const ElectronAppInner: React.FC = () => {
             originalSize: entryOriginalSize,
             convertedSize: entryConvertedSize,
           });
+
           applyStatus({ type: 'error', messageKey: errorInfo.errorMessageKey, durationMs: 5000, params: errorInfo.errorParams });
         }
 
@@ -997,6 +1182,7 @@ const ElectronAppInner: React.FC = () => {
         await downloadZipFile(zipCandidates);
       } else if (!shouldCreateZip && successCount > 0) {
         const messageKey = successCount === 1 ? 'common.filesConvertedOne' : 'common.filesConvertedMany';
+
         applyStatus({ type: 'success', messageKey, durationMs: 4000, params: successCount === 1 ? {} : { count: successCount } });
       }
 
@@ -1027,6 +1213,7 @@ const ElectronAppInner: React.FC = () => {
       }
 
       const electron = ensureElectronAPI();
+
       resetProcessingState(0);
       applyStatus({ type: 'info', messageKey: 'common.folderLoading', durationMs: 0 });
 
@@ -1051,6 +1238,7 @@ const ElectronAppInner: React.FC = () => {
         }
 
         const entries = registerFileEntries(files.map((file) => file.name));
+
         dispatch({ type: 'setProcessing', processing: true });
         updateProgress(0, files.length);
         applyStatus({ type: 'info', messageKey: 'common.conversionRunning', durationMs: 0 });
@@ -1059,6 +1247,14 @@ const ElectronAppInner: React.FC = () => {
         const overwriteOriginalForPngx = deleteOriginal && format.id === 'pngx';
 
         for (let index = 0; index < files.length; index += 1) {
+          if (cancelRequestedRef.current) {
+            dispatch({ type: 'setFileEntries', entries: [] });
+            dispatch({ type: 'setProgress', progress: { current: 0, total: 0, state: 'idle' } });
+            applyStatus({ type: 'info', messageKey: 'common.conversionCanceled', durationMs: 4000 });
+            finalizeProcessingState();
+            return;
+          }
+
           const file = files[index];
           const entry = entries[index];
           patchFileEntry(entry.id, { status: 'processing' });
@@ -1066,12 +1262,13 @@ const ElectronAppInner: React.FC = () => {
           const originalSize = file.data.length;
 
           try {
-            const resultBytes = await convertPngBytes(file.data);
+            const { result: resultBytes, conversionTimeMs } = await convertPngBytes(file.data);
             let outputPath: string | null = null;
 
             if (isFixedOutputActive) {
               const relativeCandidate = sanitizeRelativeOutputPath(file.name);
               const relativePath = (relativeCandidate && relativeCandidate.replace(/\.png$/i, `.${format.outputExtension}`)) || file.name.replace(/\.png$/i, `.${format.outputExtension}`);
+
               await writeToFixedDirectory(relativePath, resultBytes);
             } else {
               if (format.id === 'pngx' && !overwriteOriginalForPngx) {
@@ -1099,12 +1296,14 @@ const ElectronAppInner: React.FC = () => {
               status: 'success',
               originalSize: file.data.length,
               convertedSize: resultBytes.length,
+              conversionTimeMs,
             });
           } catch (error) {
             const failure = error as Error & { code?: string };
             const errorInfo = resolveConversionError(failure, format, originalSize);
             const entryOriginalSize = typeof errorInfo.inputSize === 'number' ? errorInfo.inputSize : typeof originalSize === 'number' && Number.isFinite(originalSize) ? originalSize : undefined;
             const entryConvertedSize = typeof errorInfo.outputSize === 'number' ? errorInfo.outputSize : undefined;
+
             patchFileEntry(entry.id, {
               status: 'error',
               errorMessageKey: errorInfo.errorMessageKey,
@@ -1114,6 +1313,7 @@ const ElectronAppInner: React.FC = () => {
               originalSize: entryOriginalSize,
               convertedSize: entryConvertedSize,
             });
+
             applyStatus({ type: 'error', messageKey: errorInfo.errorMessageKey, durationMs: 5000, params: errorInfo.errorParams });
           }
 
@@ -1121,6 +1321,7 @@ const ElectronAppInner: React.FC = () => {
         }
 
         const messageKey = files.length === 1 ? 'common.filesConvertedOne' : 'common.filesConvertedMany';
+
         applyStatus({ type: 'success', messageKey, durationMs: 4000, params: files.length === 1 ? {} : { count: files.length } });
       } catch (error) {
         applyStatus({ type: 'error', messageKey: 'common.errorPrefix', durationMs: 5000, params: { message: (error as Error).message ?? t('common.unknownError') } });
@@ -1161,12 +1362,14 @@ const ElectronAppInner: React.FC = () => {
     try {
       const electron = ensureElectronAPI();
       const result = await electron.selectFolder();
+
       if (!result.success || !result.folderPath) {
         if (result?.canceled) {
           return;
         }
         throw new Error(result.error || 'Failed to select folder');
       }
+
       await processFolder(result.folderPath);
     } catch (error) {
       applyStatus({ type: 'error', messageKey: 'common.folderSelectFailed', durationMs: 5000, params: { error: (error as Error).message ?? t('common.unknownError') } });
@@ -1176,6 +1379,7 @@ const ElectronAppInner: React.FC = () => {
   const handleLanguageChange = useCallback(
     async (event: React.ChangeEvent<HTMLSelectElement>) => {
       const next = event.target.value;
+
       await setLanguage(next as typeof language);
     },
     [setLanguage]
@@ -1199,166 +1403,108 @@ const ElectronAppInner: React.FC = () => {
     [t]
   );
 
-  const renderStatusMessage = () => {
+  const statusMessage = useMemo(() => {
     if (!state.status) {
       return null;
     }
-    const statusClass = state.status.type === 'success' ? styles.statusMessageSuccess : state.status.type === 'error' ? styles.statusMessageError : styles.statusMessageInfo;
-    const message = t(state.status.messageKey, state.status.params);
-    const isCopyable = state.status.messageKey === 'updater.toast.downloadFailed';
-    return (
-      <div className={`${styles.statusMessage} ${statusClass}`}>
-        <div className={styles.statusMessageContent}>
-          <span className={styles.statusMessageText}>{message}</span>
-          {isCopyable ? (
-            <button
-              type="button"
-              className={styles.statusMessageButton}
-              title={t('errors.copyHint')}
-              onClick={() => {
-                void handleCopyStatusMessage(message, state.status);
-              }}
-            >
-              {t('errors.copyAction')}
-            </button>
-          ) : null}
-        </div>
-      </div>
-    );
-  };
 
-  const renderFileList = () => {
-    if (state.fileEntries.length === 0) {
-      return null;
+    return t(state.status.messageKey, state.status.params);
+  }, [state.status, t]);
+
+  const statusAction = useMemo(() => {
+    if (!state.status || state.status.messageKey !== 'updater.toast.downloadFailed') {
+      return undefined;
     }
-    return (
-      <div className={styles.fileList}>
-        {state.fileEntries.map((entry) => {
-          const fileStatusClass =
-            entry.status === 'success'
-              ? styles.fileStatusSuccess
-              : entry.status === 'processing'
-                ? styles.fileStatusProcessing
-                : entry.status === 'error'
-                  ? styles.fileStatusError
-                  : styles.fileStatusPending;
-          const isError = entry.status === 'error';
-          const errorTooltip = isError ? getErrorMessageForEntry(entry) : undefined;
-          return (
-            <div className={styles.fileItem} key={entry.id}>
-              <div className={styles.fileItemHeader}>
-                <span className={styles.fileName} title={entry.name}>
-                  {entry.name}
-                </span>
-                {isError ? (
-                  <button
-                    type="button"
-                    className={`${styles.fileStatus} ${fileStatusClass} ${styles.fileStatusInteractive}`}
-                    onClick={() => {
-                      void handleCopyErrorMessage(entry);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        void handleCopyErrorMessage(entry);
-                      }
-                    }}
-                  >
-                    {formatStatusText(entry)}
-                    <div className={styles.fileStatusTooltip} role="tooltip">
-                      <div className={styles.fileStatusTooltipMessage}>{errorTooltip}</div>
-                      <div className={styles.fileStatusTooltipHint}>{t('errors.copyHint')}</div>
-                    </div>
+
+    const message = t(state.status.messageKey, state.status.params);
+
+    return {
+      label: t('errors.copyAction'),
+      title: t('errors.copyHint'),
+      onClick: () => {
+        void handleCopyStatusMessage(message, state.status);
+      },
+    };
+  }, [state.status, t, handleCopyStatusMessage]);
+
+  const progressText = useMemo(() => {
+    if (state.progress.total === 0) {
+      return '';
+    }
+
+    return state.progress.state === 'done' ? t('utils.progressDone') : t('utils.progressProcessing', { current: state.progress.current, total: state.progress.total });
+  }, [state.progress.current, state.progress.total, state.progress.state, t]);
+
+  const settingsItems: SettingItemConfig[] = useMemo(
+    () => [
+      {
+        id: 'outputDirectoryCheckbox',
+        type: 'custom',
+        labelKey: 'common.outputDirectory.label',
+        customContent: (
+          <>
+            <label htmlFor="outputDirectoryCheckbox">
+              <input
+                id="outputDirectoryCheckbox"
+                type="checkbox"
+                checked={isFixedOutputActive}
+                disabled={isSelectingOutputDirectory || state.isProcessing}
+                onChange={(event) => {
+                  void handleOutputModeToggle(event.target.checked);
+                }}
+              />
+              <span>{t('common.outputDirectory.label')}</span>
+            </label>
+            <div className={styles.settingsDescription}>
+              <div>{t(isFixedOutputActive ? 'common.outputDirectory.descriptionFixed' : 'common.outputDirectory.descriptionDefault')}</div>
+              {isFixedOutputActive && (
+                <div className={styles.outputDirectoryRow}>
+                  <span className={styles.outputDirectoryPath}>{normalizedOutputDirectoryPath || t('common.outputDirectory.missingPath')}</span>
+                  <button type="button" className={styles.outputDirectoryButton} disabled={isSelectingOutputDirectory || state.isProcessing} onClick={() => void handleOutputDirectoryReselect()}>
+                    {t('common.outputDirectory.changeButton')}
                   </button>
-                ) : (
-                  <span className={`${styles.fileStatus} ${fileStatusClass}`}>{formatStatusText(entry)}</span>
-                )}
-              </div>
-              {entry.originalSize !== undefined && entry.convertedSize !== undefined && (
-                <div className={styles.fileSizeInfo}>{`${formatBytes(entry.originalSize)} → ${formatBytes(entry.convertedSize)}`}</div>
+                </div>
               )}
             </div>
-          );
-        })}
-      </div>
-    );
-  };
-
-  const renderProgress = () => {
-    if (state.progress.total === 0) {
-      return null;
-    }
-    const percent = state.progress.total === 0 ? 0 : Math.round((state.progress.current / state.progress.total) * 100);
-    const progressText = state.progress.state === 'done' ? t('utils.progressDone') : t('utils.progressProcessing', { current: state.progress.current, total: state.progress.total });
-    return (
-      <div className={styles.progressContainer}>
-        <div className={styles.progressBar}>
-          <div className={styles.progressFill} style={{ width: `${percent}%` }} />
-        </div>
-        <div className={styles.progressText}>{progressText}</div>
-      </div>
-    );
-  };
-
-  const renderSettingsPanel = () => {
-    return (
-      <div id="settingsMenu" className={styles.settingsMenu}>
-        <div className={styles.settingsItem}>
-          <label htmlFor="outputDirectoryCheckbox">
-            <input
-              id="outputDirectoryCheckbox"
-              type="checkbox"
-              checked={isFixedOutputActive}
-              disabled={isSelectingOutputDirectory || state.isProcessing}
-              onChange={(event) => {
-                void handleOutputModeToggle(event.target.checked);
-              }}
-            />
-            <span>{t('common.outputDirectory.label')}</span>
-          </label>
-          <div className={styles.settingsDescription}>
-            <div>{t(isFixedOutputActive ? 'common.outputDirectory.descriptionFixed' : 'common.outputDirectory.descriptionDefault')}</div>
-            {isFixedOutputActive && (
-              <div className={styles.outputDirectoryRow}>
-                <span className={styles.outputDirectoryPath}>{normalizedOutputDirectoryPath || t('common.outputDirectory.missingPath')}</span>
-                <button type="button" className={styles.outputDirectoryButton} disabled={isSelectingOutputDirectory || state.isProcessing} onClick={() => void handleOutputDirectoryReselect()}>
-                  {t('common.outputDirectory.changeButton')}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className={styles.settingsItem}>
-          <label htmlFor="deletePngCheckbox">
-            <input
-              id="deletePngCheckbox"
-              type="checkbox"
-              checked={Boolean(state.settings.deletePng) && !isFixedOutputActive}
-              disabled={isFixedOutputActive}
-              onChange={(event) => handleSettingToggle('deletePng', event.target.checked)}
-            />
-            <span>{t('electron.settings.deletePngLabel')}</span>
-          </label>
-          <div className={styles.settingsDescription}>{t('electron.settings.deletePngDescription')}</div>
-          {isFixedOutputActive && <div className={styles.settingLockedNote}>{t('common.outputDirectory.lockedOptionNote')}</div>}
-        </div>
-        <div className={styles.settingsItem}>
-          <label htmlFor="createZipCheckbox">
-            <input
-              id="createZipCheckbox"
-              type="checkbox"
-              checked={Boolean(state.settings.createZip) && !isFixedOutputActive}
-              disabled={isFixedOutputActive}
-              onChange={(event) => handleSettingToggle('createZip', event.target.checked)}
-            />
-            <span>{t('electron.settings.createZipLabel')}</span>
-          </label>
-          <div className={styles.settingsDescription}>{t('electron.settings.createZipDescription')}</div>
-          {isFixedOutputActive && <div className={styles.settingLockedNote}>{t('common.outputDirectory.lockedOptionNote')}</div>}
-        </div>
-      </div>
-    );
-  };
+          </>
+        ),
+      },
+      {
+        id: 'deletePngCheckbox',
+        type: 'checkbox',
+        labelKey: 'electron.settings.deletePngLabel',
+        descriptionKey: 'electron.settings.deletePngDescription',
+        value: Boolean(state.settings.deletePng) && !isFixedOutputActive,
+        disabled: isFixedOutputActive,
+        locked: isFixedOutputActive,
+        lockedNoteKey: 'common.outputDirectory.lockedOptionNote',
+        onChange: (value) => handleSettingToggle('deletePng', value as boolean),
+      },
+      {
+        id: 'createZipCheckbox',
+        type: 'checkbox',
+        labelKey: 'electron.settings.createZipLabel',
+        descriptionKey: 'electron.settings.createZipDescription',
+        value: Boolean(state.settings.createZip) && !isFixedOutputActive,
+        disabled: isFixedOutputActive,
+        locked: isFixedOutputActive,
+        lockedNoteKey: 'common.outputDirectory.lockedOptionNote',
+        onChange: (value) => handleSettingToggle('createZip', value as boolean),
+      },
+    ],
+    [
+      isFixedOutputActive,
+      isSelectingOutputDirectory,
+      state.isProcessing,
+      state.settings.deletePng,
+      state.settings.createZip,
+      normalizedOutputDirectoryPath,
+      handleOutputModeToggle,
+      handleOutputDirectoryReselect,
+      handleSettingToggle,
+      t,
+    ]
+  );
 
   const renderResetButton = () => {
     return (
@@ -1379,50 +1525,23 @@ const ElectronAppInner: React.FC = () => {
   }
 
   const activeFormatId = currentFormat.id;
-  const dropZoneClassName = [styles.dropZone, state.isProcessing ? styles.dropZoneProcessing : '', isDragOver ? styles.dropZoneDragOver : ''].filter(Boolean).join(' ');
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <h1 className={styles.title}>{t('electron.title')}</h1>
-        <div className={styles.headerActions}>
-          <div className={styles.formatTabs}>
-            {formats.map((format) => (
-              <button
-                key={format.id}
-                type="button"
-                className={[styles.formatTab, format.id === activeFormatId ? styles.formatTabActive : '', format.id === activeFormatId && format.id === 'pngx' ? styles.formatTabPngxActive : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                data-format-id={format.id}
-                onClick={() => handleFormatChange(format.id)}
-              >
-                {t(format.labelKey)}
-              </button>
-            ))}
-          </div>
-          <select className={styles.languageSelect} value={language} onChange={handleLanguageChange} aria-label={t('header.languageSelect.aria')}>
-            {availableLanguages.map((langItem) => (
-              <option key={langItem.code} value={langItem.code} title={langItem.label}>
-                {langItem.flag}
-              </option>
-            ))}
-          </select>
-          <button type="button" className={styles.themeToggleButton} onClick={handleThemeToggle} title={t('header.themeToggle.title')}>
-            {state.theme === 'dark' ? '☀️' : '🌙'}
-          </button>
-          <button
-            type="button"
-            className={styles.settingsButton}
-            onClick={handleAdvancedSettingsClick}
-            aria-haspopup="dialog"
-            aria-label={t('settingsMenu.advancedSettings')}
-            title={t('settingsMenu.advancedSettings')}
-          >
-            ⚙️
-          </button>
-        </div>
-      </div>
+      <AppHeader
+        title={t('electron.title')}
+        formats={formats}
+        activeFormatId={activeFormatId}
+        language={language}
+        availableLanguages={availableLanguages}
+        theme={state.theme}
+        isProcessing={state.isProcessing}
+        onFormatChange={handleFormatChange}
+        onLanguageChange={handleLanguageChange}
+        onThemeToggle={handleThemeToggle}
+        onAdvancedSettingsClick={handleAdvancedSettingsClick}
+        t={t}
+      />
 
       {(deferredUpdateVersion !== null || deferredDownloadVersion !== null) && (
         <div className={styles.dropZoneUpdateCta}>
@@ -1445,8 +1564,12 @@ const ElectronAppInner: React.FC = () => {
         </div>
       )}
 
-      <div
-        className={dropZoneClassName}
+      <DropZone
+        iconEmoji="📁"
+        text={t('electron.dropzone.text')}
+        hint={t('electron.dropzone.hint')}
+        isProcessing={state.isProcessing}
+        isDragOver={isDragOver}
         onDragOver={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -1473,17 +1596,17 @@ const ElectronAppInner: React.FC = () => {
             void handleSelectFolder();
           }
         }}
-      >
-        <div className={styles.dropZoneIcon}>📁</div>
-        <div className={styles.dropZoneText}>{t('electron.dropzone.text')}</div>
-        <div className={styles.dropZoneHint}>{t('electron.dropzone.hint')}</div>
-      </div>
+        onCancel={handleCancelProcessing}
+        cancelButtonLabel={t('common.cancelButton')}
+        isCancelling={isCancelling}
+        cancellingButtonLabel={t('common.cancellingButton')}
+      />
 
-      {renderSettingsPanel()}
+      <SettingsPanel items={settingsItems} isProcessing={state.isProcessing} t={t} />
 
-      {renderProgress()}
-      {renderFileList()}
-      {renderStatusMessage()}
+      <ProgressBar current={state.progress.current} total={state.progress.total} isVisible={state.progress.total > 0} progressText={progressText} />
+      <FileList entries={state.fileEntries} formatStatusText={formatStatusText} getErrorMessage={getErrorMessageForEntry} onCopyError={handleCopyErrorMessage} formatBytes={formatBytes} t={t} />
+      <StatusMessageComponent message={statusMessage} type={state.status?.type ?? 'info'} action={statusAction} />
       {renderBuildInfo()}
       {renderResetButton()}
     </div>

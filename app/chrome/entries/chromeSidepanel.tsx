@@ -16,7 +16,7 @@ import ChromeApp from '../app/ChromeApp';
 function mountApp(): void {
   const container = document.getElementById('root');
   if (!container) {
-    console.error('Root container not found');
+    console.error('[React] Root container not found');
     return;
   }
 

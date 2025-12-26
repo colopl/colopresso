@@ -76,6 +76,73 @@ void test_pngx_last_error(void) {
   TEST_ASSERT_EQUAL(5678, pngx_get_last_error());
 }
 
+void test_pngx_estimate_bitdepth_dither_level_with_null(void) {
+  float dither = estimate_bitdepth_dither_level(NULL, 0, 0, 8);
+
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, COLOPRESSO_PNGX_DEFAULT_LOSSY_DITHER_LEVEL, dither);
+}
+
+void test_pngx_estimate_bitdepth_dither_level_with_zero_dimensions(void) {
+  const uint8_t rgba[16] = {0};
+  float dither = estimate_bitdepth_dither_level(rgba, 0, 0, 8);
+
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, COLOPRESSO_PNGX_DEFAULT_LOSSY_DITHER_LEVEL, dither);
+}
+
+void test_pngx_estimate_bitdepth_dither_level_uniform_black(void) {
+  const uint8_t rgba[64] = {
+      0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255,
+      0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255,
+  };
+  float dither = estimate_bitdepth_dither_level(rgba, 4, 4, 8);
+
+  TEST_ASSERT_TRUE(dither >= 0.0f && dither <= 1.0f);
+}
+
+void test_pngx_estimate_bitdepth_dither_level_gradient(void) {
+  uint8_t rgba[256];
+  uint32_t i;
+  float dither;
+
+  for (i = 0; i < 64; ++i) {
+    rgba[i * 4 + 0] = (uint8_t)(i * 4);
+    rgba[i * 4 + 1] = (uint8_t)(i * 4);
+    rgba[i * 4 + 2] = (uint8_t)(i * 4);
+    rgba[i * 4 + 3] = 255;
+  }
+
+  dither = estimate_bitdepth_dither_level(rgba, 8, 8, 8);
+
+  TEST_ASSERT_TRUE(dither >= 0.0f && dither <= 1.0f);
+}
+
+void test_pngx_estimate_bitdepth_dither_level_low_bits(void) {
+  const uint8_t rgba[64] = {
+      128, 64, 32, 255, 200, 100, 50, 255, 64, 128, 192, 255, 255, 128, 0, 255, 128, 64, 32, 255, 200, 100, 50, 255, 64, 128, 192, 255, 255, 128, 0, 255,
+      128, 64, 32, 255, 200, 100, 50, 255, 64, 128, 192, 255, 255, 128, 0, 255, 128, 64, 32, 255, 200, 100, 50, 255, 64, 128, 192, 255, 255, 128, 0, 255,
+  };
+  float dither = estimate_bitdepth_dither_level(rgba, 4, 4, 2);
+
+  TEST_ASSERT_TRUE(dither >= 0.0f && dither <= 1.0f);
+}
+
+void test_pngx_estimate_bitdepth_dither_level_translucent(void) {
+  const uint8_t rgba[64] = {
+      255, 0, 0, 128, 0, 255, 0, 64, 0, 0, 255, 32, 255, 255, 0, 96, 255, 0, 0, 128, 0, 255, 0, 64, 0, 0, 255, 32, 255, 255, 0, 96,
+      255, 0, 0, 128, 0, 255, 0, 64, 0, 0, 255, 32, 255, 255, 0, 96, 255, 0, 0, 128, 0, 255, 0, 64, 0, 0, 255, 32, 255, 255, 0, 96,
+  };
+  float dither = estimate_bitdepth_dither_level(rgba, 4, 4, 8);
+
+  TEST_ASSERT_TRUE(dither >= 0.0f && dither <= 1.0f);
+}
+
+void test_pngx_estimate_bitdepth_dither_level_single_pixel(void) {
+  const uint8_t rgba[4] = {255, 128, 64, 255};
+  float dither = estimate_bitdepth_dither_level(rgba, 1, 1, 8);
+
+  TEST_ASSERT_TRUE(dither >= 0.0f && dither <= 1.0f);
+}
+
 int main(void) {
   UNITY_BEGIN();
 
@@ -84,6 +151,13 @@ int main(void) {
   RUN_TEST(test_pngx_free_with_null);
   RUN_TEST(test_pngx_free_with_valid_pointer);
   RUN_TEST(test_pngx_last_error);
+  RUN_TEST(test_pngx_estimate_bitdepth_dither_level_with_null);
+  RUN_TEST(test_pngx_estimate_bitdepth_dither_level_with_zero_dimensions);
+  RUN_TEST(test_pngx_estimate_bitdepth_dither_level_uniform_black);
+  RUN_TEST(test_pngx_estimate_bitdepth_dither_level_gradient);
+  RUN_TEST(test_pngx_estimate_bitdepth_dither_level_low_bits);
+  RUN_TEST(test_pngx_estimate_bitdepth_dither_level_translucent);
+  RUN_TEST(test_pngx_estimate_bitdepth_dither_level_single_pixel);
 
   return UNITY_END();
 }

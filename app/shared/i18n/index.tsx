@@ -59,7 +59,9 @@ export function addLanguageChangeListener(listener: LanguageListener): () => voi
   if (typeof listener !== 'function') {
     return () => undefined;
   }
+
   languageListeners.add(listener);
+
   return () => {
     languageListeners.delete(listener);
   };
@@ -71,9 +73,11 @@ export function t(key: string, params?: TranslationParams): string {
 
 function getDefaultLanguage(): LanguageCode {
   const navigatorLang = typeof navigator !== 'undefined' ? navigator.language.toLowerCase() : '';
+
   if (navigatorLang.startsWith('ja')) {
     return 'ja-jp';
   }
+
   return 'en-us';
 }
 
@@ -131,20 +135,24 @@ export function useI18n(): I18nContextValue {
   if (!ctx) {
     throw new Error('useI18n must be used within I18nProvider');
   }
+
   return ctx;
 }
 
 export function useTranslation(): (key: string, params?: TranslationParams) => string {
   const { t } = useI18n();
+
   return t;
 }
 
 export function useAvailableLanguages(): LanguageInfo[] {
   const { availableLanguages } = useI18n();
+
   return availableLanguages;
 }
 
 export function useCurrentLanguage(): LanguageCode {
   const { language } = useI18n();
+
   return language;
 }

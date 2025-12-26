@@ -104,6 +104,7 @@ export function useAppState(): AppState {
   if (!state) {
     throw new Error('useAppState must be used within AppStateProvider');
   }
+
   return state;
 }
 
@@ -112,5 +113,6 @@ export function useAppDispatch(): React.Dispatch<AppAction> {
   if (!dispatch) {
     throw new Error('useAppDispatch must be used within AppStateProvider');
   }
+
   return dispatch;
 }

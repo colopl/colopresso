@@ -9,7 +9,7 @@
  * Developed with AI (LLM) code assistance. See `NOTICE` for details.
  */
 
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, net, protocol, session } from 'electron';
 import type { FileFilter, IpcMainInvokeEvent, MessageBoxOptions, MessageBoxReturnValue } from 'electron';
 import { autoUpdater, UpdateDownloadedEvent, UpdateInfo } from 'electron-updater';
 import path from 'node:path';
@@ -18,6 +18,7 @@ import packageJson from '../../package.json';
 import { bundles as languageBundles, translateForLanguage as translateForLanguageCore } from '../shared/i18n/core';
 import { LanguageCode, TranslationParams } from '../shared/types';
 
+const CUSTOM_SCHEME = 'colopresso';
 const PNG_EXTENSION = '.png';
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const shouldSkipAutoUpdate = process.env.COLOPRESSO_DISABLE_UPDATER === '1';
@@ -28,6 +29,22 @@ let updateCheckTimer: ReturnType<typeof setInterval> | null = null;
 let quittingForUpdate = false;
 let pendingUpdateEvent: UpdateDownloadedEvent | null = null;
 let pendingAvailableUpdateInfo: UpdateInfo | null = null;
+
+app.commandLine.appendSwitch('enable-features', 'SharedArrayBuffer');
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: CUSTOM_SCHEME,
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+      stream: true,
+      allowServiceWorkers: true,
+    },
+  },
+]);
 
 function sendUpdateIpc(channel: string, payload?: unknown): void {
   if (!mainWindow || mainWindow.isDestroyed()) {
@@ -381,7 +398,7 @@ function createWindow(): void {
     width: 540,
     minWidth: 540,
     height: 1000,
-    minHeight: 900,
+    minHeight: 1000,
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
@@ -393,7 +410,26 @@ function createWindow(): void {
 
   mainWindow = new BrowserWindow(windowOptions);
 
-  void mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (!mainWindow) {
+      return;
+    }
+    void mainWindow.webContents
+      .executeJavaScript(
+        `({
+          crossOriginIsolated: globalThis.crossOriginIsolated === true,
+          sharedArrayBuffer: typeof globalThis.SharedArrayBuffer !== 'undefined',
+          origin: globalThis.location?.origin,
+        })`,
+        true
+      )
+      .catch((error) => {
+        console.warn('[renderer] unable to query cross-origin isolation status', error);
+      });
+  });
+
+  const indexPath = path.join(__dirname, 'index.html');
+  void mainWindow.loadURL(`${CUSTOM_SCHEME}://app${indexPath}`);
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -623,6 +659,24 @@ function registerIpcHandlers(): void {
   ipcMain.handle('save-json-dialog', handleSaveJsonDialog);
   ipcMain.handle('get-update-channel', () => getUpdateChannel());
   ipcMain.handle('get-architecture', () => process.arch);
+  ipcMain.handle('check-for-updates', async () => {
+    if (!autoUpdateInitialized || !app.isPackaged || process.platform === 'linux') {
+      return { success: false, error: 'Auto update is not available' };
+    }
+
+    try {
+      await autoUpdater.checkForUpdates();
+      return { success: true };
+    } catch (error) {
+      console.error('check-for-updates failed', error);
+      return { success: false, error: extractErrorMessage(error) };
+    }
+  });
+  ipcMain.handle('get-pngx-bridge-url', () => {
+    const pngxBridgeDir = __dirname.replace(/\\/g, '/');
+    const customUrl = `${CUSTOM_SCHEME}://app${pngxBridgeDir}/`;
+    return customUrl;
+  });
   ipcMain.handle('install-update-now', () => {
     if (!pendingUpdateEvent) {
       return { success: false, error: 'No update is ready to install' };
@@ -663,19 +717,73 @@ function registerIpcHandlers(): void {
       selectWindowsUpdateFileForCurrentArch(pendingAvailableUpdateInfo);
       sendUpdateIpc('update-download-start', { version: pendingAvailableUpdateInfo.version, releaseName: pendingAvailableUpdateInfo.releaseName });
       const result = await autoUpdater.downloadUpdate();
+
       pendingAvailableUpdateInfo = null;
+
       return { success: true, result };
     } catch (error) {
       if (mainWindow) {
         mainWindow.setProgressBar(-1);
       }
+
       sendUpdateIpc('update-download-error', { message: extractErrorMessage(error) });
+
       return { success: false, error: extractErrorMessage(error) };
     }
   });
 }
 
+function setupCrossOriginIsolation(): void {
+  protocol.handle(CUSTOM_SCHEME, async (request) => {
+    const url = new URL(request.url);
+    let filePath = decodeURIComponent(url.pathname);
+    if (process.platform === 'win32' && filePath.startsWith('/')) {
+      filePath = filePath.slice(1);
+    }
+
+    const unpackedPatterns = ['/pngx_bridge.js', '/pngx_bridge_bg.wasm'];
+    const shouldUseUnpacked = unpackedPatterns.some((pattern) => filePath.includes(pattern));
+
+    if (shouldUseUnpacked && filePath.includes('app.asar')) {
+      filePath = filePath.replace('app.asar', 'app.asar.unpacked');
+    }
+
+    const fileUrl = `file://${process.platform === 'win32' ? '/' : ''}${filePath}`;
+    const response = await net.fetch(fileUrl);
+    const body = await response.arrayBuffer();
+    const headers = new Headers(response.headers);
+
+    headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+    headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
+
+    return new Response(body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  });
+
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const headers = { ...details.responseHeaders };
+    const hasHeader = (name: string): boolean => {
+      const needle = name.toLowerCase();
+      return Object.keys(headers).some((key) => key.toLowerCase() === needle);
+    };
+
+    if (!hasHeader('Cross-Origin-Opener-Policy')) {
+      headers['Cross-Origin-Opener-Policy'] = ['same-origin'];
+    }
+
+    if (!hasHeader('Cross-Origin-Embedder-Policy')) {
+      headers['Cross-Origin-Embedder-Policy'] = ['require-corp'];
+    }
+
+    callback({ responseHeaders: headers });
+  });
+}
+
 app.whenReady().then(() => {
+  setupCrossOriginIsolation();
   createWindow();
   registerIpcHandlers();
   setupAutoUpdate();

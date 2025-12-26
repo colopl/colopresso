@@ -224,4 +224,135 @@
    fun:*crossbeam_channel*context*Context*new*
    ...
    fun:*crossbeam_channel*context*Context*with*
- }
+}
+
+{
+   rayon_threadpool_arc_new
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   ...
+   fun:*alloc*sync*Arc*new*
+   ...
+   fun:pngx_bridge_init_threads
+}
+
+{
+   hashbrown_hashmap_resize_threadpool
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   ...
+   fun:*hashbrown*raw*RawTableInner*
+   ...
+   fun:pngx_bridge_init_threads
+}
+
+{
+   crossbeam_epoch_global_collector
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:posix_memalign
+   ...
+   fun:*crossbeam_epoch*collector*Collector*
+}
+
+{
+   crossbeam_epoch_global_collector_malloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:*crossbeam_epoch*collector*Collector*
+}
+
+{
+   crossbeam_epoch_queue
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:*crossbeam_epoch*sync*queue*Queue*new*
+}
+
+{
+   crossbeam_epoch_local
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:posix_memalign
+   ...
+   fun:*crossbeam_epoch*internal*Local*register*
+}
+
+{
+   crossbeam_epoch_handle_thread_local
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:posix_memalign
+   ...
+   fun:*crossbeam_epoch*default*HANDLE*
+}
+
+{
+   crossbeam_epoch_handle_thread_local_malloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:*crossbeam_epoch*default*HANDLE*
+}
+
+{
+   thread_local_id_manager_free
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:*thread_local*thread_id*ThreadIdManager*free*
+}
+
+{
+   thread_local_thread_guard_drop
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:*thread_local*thread_id*ThreadGuard*drop*
+}
+
+{
+   crossbeam_channel_context_reachable
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:*crossbeam_channel*context*Context*new*
+}
+
+{
+   rust_std_lazy_init
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:*std*sys*thread_local*native*lazy*Storage*get_or_init*
+}
+
+{
+   rust_std_lazy_init_posix
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:posix_memalign
+   ...
+   fun:*std*sys*thread_local*native*lazy*Storage*get_or_init*
+}
+
+{
+   unity_stdout_buffer
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:_IO_file_doallocate
+   ...
+   fun:*Unity*
+}

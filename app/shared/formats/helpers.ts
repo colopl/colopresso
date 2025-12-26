@@ -33,16 +33,17 @@ export function buildDefaultOptions(sections: FormatSection[]): FormatOptions {
       if (!field.id) {
         return;
       }
+
       const value = fieldDefault(field);
       if (value !== undefined) {
         defaults[field.id] = value;
       }
     });
   });
+
   return defaults;
 }
 
 export function normalizeOptionsWithSchema(sections: FormatSection[], raw: FormatOptions | undefined): FormatOptions {
-  const defaults = buildDefaultOptions(sections);
-  return { ...defaults, ...(raw ?? {}) };
+  return { ...buildDefaultOptions(sections), ...(raw ?? {}) };
 }

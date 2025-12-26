@@ -16,6 +16,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       emsdk_version: ${{ steps.get_emsdk_version.outputs.emsdk_version }}
+      rust_stable: ${{ steps.get_rust_versions.outputs.rust_stable }}
+      rust_nightly: ${{ steps.get_rust_versions.outputs.rust_nightly }}
+      wasm_pack_version: ${{ steps.get_rust_versions.outputs.wasm_pack_version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -28,6 +31,15 @@ jobs:
         run: |
           git fetch --tags
           echo "emsdk_version=$(git describe --tags --abbrev=0)" >> "${GITHUB_OUTPUT}"
+      - name: Get Rust versions from rust-toolchain.toml
+        id: get_rust_versions
+        run: |
+          RUST_STABLE=$(grep -E '^channel\s*=' rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')
+          RUST_NIGHTLY=$(grep -E '^nightly\s*=' rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')
+          WASM_PACK=$(grep -E '^wasm-pack\s*=' rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')
+          echo "rust_stable=${RUST_STABLE}" >> "${GITHUB_OUTPUT}"
+          echo "rust_nightly=${RUST_NIGHTLY}" >> "${GITHUB_OUTPUT}"
+          echo "wasm_pack_version=${WASM_PACK}" >> "${GITHUB_OUTPUT}"
       - name: Dummy versioning
         run: |
           sed -i "s|/\* COLOPL_VERSION_START \*/.*/\* COLOPL_VERSION_END \*/|999999998|" "library/include/colopresso.h"
@@ -97,9 +109,6 @@ jobs:
               cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
               ctest --test-dir "build" --output-on-failure --parallel
 
-              rustup toolchain install nightly
-              rustup component add rust-src --toolchain nightly
-
               if type "valgrind" &> /dev/null; then
                 rm -rf "build"
                 cmake -B "build" \
@@ -166,8 +175,11 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
-          toolchain: stable
-          targets: wasm32-unknown-emscripten
+          toolchain: ${{ needs.Prepare.outputs.rust_nightly }}
+          targets: wasm32-unknown-emscripten,wasm32-unknown-unknown
+          components: rust-src
+      - name: Setup wasm-pack
+        run: cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
       - name: Setup emsdk
         shell: pwsh
         working-directory: "third_party/emsdk"
@@ -202,6 +214,8 @@ jobs:
         run: |
           tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
           rm -rf "dummy-versioned-code.tar.gz"
+      - name: Install LLVM (for wasm32 targets)
+        run: brew install "llvm"
       - name: Setup pnpm
         uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
         with:
@@ -214,8 +228,11 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
-          toolchain: stable
-          targets: wasm32-unknown-emscripten
+          toolchain: ${{ needs.Prepare.outputs.rust_nightly }}
+          targets: wasm32-unknown-emscripten,wasm32-unknown-unknown
+          components: rust-src
+      - name: Setup wasm-pack
+        run: cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
       - name: Setup emsdk
         working-directory: "third_party/emsdk"
         run: |
@@ -246,10 +263,6 @@ jobs:
         run: |
           tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
           Remove-Item "dummy-versioned-code.tar.gz" -Force
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
-        with:
-          toolchain: stable
       - name: Configure CMake
         run: cmake -B build -DCMAKE_BUILD_TYPE="Release" -DCOLOPRESSO_USE_CLI=ON -DCOLOPRESSO_USE_TESTS=ON
       - name: Build
@@ -280,11 +293,6 @@ jobs:
         run: |
           tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
           rm -rf "dummy-versioned-code.tar.gz"
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
-        with:
-          toolchain: stable
-          targets: ${{ matrix.arch.rust_target }}
       - name: Configure CMake
         run: |
           cmake -B build \

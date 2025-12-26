@@ -84,6 +84,8 @@ interface ElectronAPI {
   installUpdateNow?: () => Promise<ElectronInstallUpdateResult>;
   getUpdateChannel?: () => Promise<string | undefined>;
   getArchitecture?: () => Promise<string | undefined>;
+  getPngxBridgeUrl?: () => Promise<string | undefined>;
+  checkForUpdates?: () => Promise<{ success: boolean; error?: string }>;
 }
 
 declare global {
