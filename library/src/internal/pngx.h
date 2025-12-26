@@ -417,6 +417,7 @@ PngxBridgeQuantStatus pngx_bridge_quantize(const cpres_rgba_color_t *pixels, siz
 void pngx_bridge_free(uint8_t *ptr);
 uint32_t pngx_bridge_oxipng_version(void);
 uint32_t pngx_bridge_libimagequant_version(void);
+const char *pngx_bridge_rust_version_string(void);
 bool pngx_bridge_init_threads(int num_threads);
 
 #define PNGX_DEFINE_CLAMP(type)                                                                                                                                                                        \

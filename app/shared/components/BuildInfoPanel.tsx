@@ -12,7 +12,16 @@
 import React from 'react';
 import styles from '../styles/App.module.css';
 import { BuildInfoState, TranslationParams } from '../types';
-import { formatVersion, formatWebpVersion, formatLibpngVersion, formatLibavifVersion, formatOxipngVersion, formatLibimagequantVersion, formatBuildtime } from '../core/formatting';
+import {
+  formatVersion,
+  formatWebpVersion,
+  formatLibpngVersion,
+  formatLibavifVersion,
+  formatOxipngVersion,
+  formatLibimagequantVersion,
+  formatBuildtime,
+  formatRustVersionString,
+} from '../core/formatting';
 
 interface BuildInfoPanelProps {
   title: string;
@@ -29,6 +38,8 @@ const BuildInfoPanel: React.FC<BuildInfoPanelProps> = ({ title, buildInfo, t }) 
     const libavifVersion = formatLibavifVersion(payload.libavifVersion);
     const oxipngVersion = formatOxipngVersion(payload.pngxOxipngVersion);
     const libimagequantVersion = formatLibimagequantVersion(payload.pngxLibimagequantVersion);
+    const compilerVersion = payload.compilerVersionString ?? 'unknown';
+    const rustVersion = formatRustVersionString(payload.rustVersionString);
     const buildtime = formatBuildtime(payload.buildtime);
     const releaseChannel = (payload.releaseChannel ?? '').trim();
     const architecture = (payload.architecture ?? '').trim();
@@ -36,15 +47,19 @@ const BuildInfoPanel: React.FC<BuildInfoPanelProps> = ({ title, buildInfo, t }) 
     return (
       <div className={styles.buildInfo}>
         <div className={styles.buildInfoTitle}>{title}</div>
-        <div className={styles.buildInfoItem}>- libcolopresso: {libcolopressoVersion}</div>
-        <div className={styles.buildInfoItem}>- libwebp: {libwebpVersion}</div>
-        <div className={styles.buildInfoItem}>- libpng: {libpngVersion}</div>
-        <div className={styles.buildInfoItem}>- libavif: {libavifVersion}</div>
-        <div className={styles.buildInfoItem}>- oxipng: {oxipngVersion}</div>
-        <div className={styles.buildInfoItem}>- libimagequant: {libimagequantVersion}</div>
-        <div className={styles.buildInfoItem}>- buildtime: {buildtime}</div>
-        {releaseChannel && <div className={styles.buildInfoItem}>- Release Channel: {releaseChannel}</div>}
-        {architecture && <div className={styles.buildInfoItem}>- Architecture: {architecture}</div>}
+        <div className={styles.buildInfoContent}>
+          <div className={styles.buildInfoItem}>- libcolopresso: {libcolopressoVersion}</div>
+          <div className={styles.buildInfoItem}>- libwebp: {libwebpVersion}</div>
+          <div className={styles.buildInfoItem}>- libpng: {libpngVersion}</div>
+          <div className={styles.buildInfoItem}>- libavif: {libavifVersion}</div>
+          <div className={styles.buildInfoItem}>- oxipng: {oxipngVersion}</div>
+          <div className={styles.buildInfoItem}>- libimagequant: {libimagequantVersion}</div>
+          <div className={styles.buildInfoItem}>- C / C++: {compilerVersion}</div>
+          <div className={styles.buildInfoItem}>- Rust: {rustVersion}</div>
+          {releaseChannel && <div className={styles.buildInfoItem}>- Release Channel: {releaseChannel}</div>}
+          {architecture && <div className={styles.buildInfoItem}>- Architecture: {architecture}</div>}
+          <div className={styles.buildInfoItem}>- Build time: {buildtime}</div>
+        </div>
       </div>
     );
   }

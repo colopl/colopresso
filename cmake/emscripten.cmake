@@ -317,6 +317,8 @@ set(WASM_EXPORTED_FUNCTIONS
   _emscripten_get_libpng_version
   _emscripten_get_libavif_version
   _emscripten_get_buildtime
+  _emscripten_get_compiler_version_string
+  _emscripten_get_rust_version_string
   _emscripten_get_default_thread_count
   _emscripten_get_max_thread_count
   _cpres_free
@@ -431,4 +433,15 @@ if(COLOPRESSO_ELECTRON_APP)
     VERBATIM
   )
   add_dependencies(colopresso_electron_package colopresso_electron)
+endif()
+
+execute_process(
+  COMMAND ${CMAKE_C_COMPILER} --version
+  OUTPUT_VARIABLE COMPILER_VERSION_OUTPUT
+  ERROR_QUIET
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+string(REGEX MATCH "emcc[^)]*[0-9]+\\.[0-9]+\\.[0-9]+" COLOPRESSO_COMPILER_VERSION_STRING "${COMPILER_VERSION_OUTPUT}")
+if(NOT COLOPRESSO_COMPILER_VERSION_STRING)
+  string(REGEX REPLACE "\n.*" "" COLOPRESSO_COMPILER_VERSION_STRING "${COMPILER_VERSION_OUTPUT}")
 endif()

@@ -388,3 +388,19 @@ extern uint32_t cpres_get_buildtime(void) {
   return 0;
 #endif
 }
+
+extern const char *cpres_get_compiler_version_string(void) {
+#ifdef COLOPRESSO_COMPILER_VERSION_STRING
+  return COLOPRESSO_COMPILER_VERSION_STRING;
+#else
+  return "unknown";
+#endif
+}
+
+extern const char *cpres_get_rust_version_string(void) {
+#if !defined(PNGX_BRIDGE_WASM_SEPARATION)
+  return pngx_bridge_rust_version_string();
+#else
+  return "unknown";
+#endif
+}

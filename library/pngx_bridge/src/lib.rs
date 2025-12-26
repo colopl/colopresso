@@ -9,18 +9,14 @@
  * Developed with AI (LLM) code assistance. See `NOTICE` for details.
  */
 
-// Include wasm module for either wasm-bindgen or wasm-bindgen-rayon features
 #[cfg(all(
     target_arch = "wasm32",
     any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
 ))]
 mod wasm;
 
-// Re-export wasm-bindgen-rayon's init_thread_pool for WASM threading support
 #[cfg(all(target_arch = "wasm32", feature = "wasm-bindgen-rayon"))]
 pub use wasm_bindgen_rayon::init_thread_pool;
-
-// malloc/free for WASM threading builds is provided by wasm.rs (wasm_c_alloc module)
 
 use imagequant::{new as iq_new, Error as IqError, RGBA as IqRGBA};
 use oxipng::Options;
@@ -28,25 +24,34 @@ use oxipng::Options;
 use rayon::ThreadPool;
 #[cfg(feature = "rayon")]
 use std::collections::HashMap;
-#[cfg(not(all(target_arch = "wasm32", any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon"))))]
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+)))]
 use std::os::raw::c_int;
-#[cfg(not(all(target_arch = "wasm32", any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon"))))]
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+)))]
 use std::panic::{catch_unwind, AssertUnwindSafe};
-#[cfg(not(all(target_arch = "wasm32", any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon"))))]
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+)))]
 use std::ptr;
 use std::slice;
 #[cfg(feature = "rayon")]
 use std::sync::{Mutex, OnceLock};
 
-// malloc/free for C FFI builds (native and Emscripten, but not wasm-bindgen)
-// These are provided by the C standard library on all platforms
-#[cfg(not(all(target_arch = "wasm32", any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon"))))]
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+)))]
 extern "C" {
     fn malloc(size: usize) -> *mut std::ffi::c_void;
     fn free(ptr: *mut std::ffi::c_void);
 }
 
-// Thread pool cache for dynamic thread count changes (native builds only)
 #[cfg(all(feature = "rayon", not(target_arch = "wasm32")))]
 static THREAD_POOL_CACHE: OnceLock<Mutex<HashMap<usize, std::sync::Arc<ThreadPool>>>> =
     OnceLock::new();
@@ -122,7 +127,10 @@ pub(crate) fn convert_lossless_options(opts: &PngxBridgeLosslessOptions) -> Opti
     options
 }
 
-#[cfg(not(all(target_arch = "wasm32", any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon"))))]
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+)))]
 fn allocate_copy<T: Copy>(slice: &[T]) -> Result<*mut T, String> {
     if slice.is_empty() {
         return Ok(ptr::null_mut());
@@ -287,7 +295,10 @@ pub(crate) fn quantize_image(
     })
 }
 
-#[cfg(not(all(target_arch = "wasm32", any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon"))))]
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+)))]
 #[no_mangle]
 pub unsafe extern "C" fn pngx_bridge_optimize_lossless(
     input_data: *const u8,
@@ -357,7 +368,10 @@ pub unsafe extern "C" fn pngx_bridge_optimize_lossless(
     PngxResult::Success
 }
 
-#[cfg(not(all(target_arch = "wasm32", any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon"))))]
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+)))]
 #[no_mangle]
 pub unsafe extern "C" fn pngx_bridge_quantize(
     pixels: *const RgbaColor,
@@ -464,7 +478,10 @@ pub unsafe extern "C" fn pngx_bridge_quantize(
     }
 }
 
-#[cfg(not(all(target_arch = "wasm32", any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon"))))]
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+)))]
 #[no_mangle]
 pub unsafe extern "C" fn pngx_bridge_free(ptr: *mut u8) {
     if !ptr.is_null() {
@@ -509,9 +526,16 @@ pub extern "C" fn pngx_bridge_libimagequant_version() -> u32 {
     parse_version_env!("PNGX_BRIDGE_IMAGEQUANT_VERSION", 0)
 }
 
-// pngx_bridge_init_threads is only for native builds where we manage thread pools.
-// For WASM builds (wasm-bindgen), Rayon uses web workers via wasm-bindgen-rayon.
-#[cfg(not(all(target_arch = "wasm32", any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon"))))]
+#[no_mangle]
+pub extern "C" fn pngx_bridge_rust_version_string() -> *const std::os::raw::c_char {
+    static VERSION: &str = concat!(env!("PNGX_BRIDGE_RUST_VERSION_STRING"), "\0");
+    VERSION.as_ptr() as *const std::os::raw::c_char
+}
+
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+)))]
 #[no_mangle]
 pub extern "C" fn pngx_bridge_init_threads(num_threads: c_int) -> bool {
     #[cfg(not(feature = "rayon"))]
@@ -556,7 +580,6 @@ pub extern "C" fn pngx_bridge_init_threads(num_threads: c_int) -> bool {
         true
     }
 
-    // For wasm32 without wasm-bindgen (e.g., Emscripten staticlib), Rayon is not used
     #[cfg(all(feature = "rayon", target_arch = "wasm32"))]
     {
         let _ = num_threads;

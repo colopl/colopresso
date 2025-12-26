@@ -40,11 +40,22 @@ fn extract_version_from_lock(lock_content: &str, package_name: &str) -> Option<S
     None
 }
 
+fn extract_toml_string_value(line: &str) -> Option<String> {
+    if let Some(eq_pos) = line.find('=') {
+        let value_part = line[eq_pos + 1..].trim();
+        if value_part.starts_with('"') && value_part.ends_with('"') && value_part.len() >= 2 {
+            return Some(value_part[1..value_part.len() - 1].to_string());
+        }
+    }
+    None
+}
+
 fn main() {
     println!("cargo:rustc-check-cfg=cfg(pngx_bridge_msan)");
     println!("cargo:rerun-if-changed=src/lib.rs");
     println!("cargo:rerun-if-changed=cbindgen.toml");
     println!("cargo:rerun-if-changed=Cargo.lock");
+    println!("cargo:rerun-if-changed=../../rust-toolchain.toml");
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let crate_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
@@ -60,6 +71,29 @@ fn main() {
             println!("cargo:rustc-env=PNGX_BRIDGE_IMAGEQUANT_VERSION={}", ver_u32);
         }
     }
+
+    let toolchain_path = crate_dir.join("../../rust-toolchain.toml");
+    let mut rust_stable = String::from("unknown");
+    let mut rust_nightly = String::from("unknown");
+    if let Ok(content) = fs::read_to_string(&toolchain_path) {
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("channel") {
+                if let Some(val) = extract_toml_string_value(trimmed) {
+                    rust_stable = val;
+                }
+            } else if trimmed.starts_with("nightly") {
+                if let Some(val) = extract_toml_string_value(trimmed) {
+                    rust_nightly = val;
+                }
+            }
+        }
+    }
+    let rust_version_string = format!("{} / {}", rust_stable, rust_nightly);
+    println!(
+        "cargo:rustc-env=PNGX_BRIDGE_RUST_VERSION_STRING={}",
+        rust_version_string
+    );
 
     let header_path = out_dir.join("pngx_bridge.h");
 

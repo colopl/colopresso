@@ -175,6 +175,9 @@ const ADVANCED_SETTINGS_STYLES = `
   color: #c53030;
   font-size: 12px;
   margin-top: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .reload-required-section .config-item {
@@ -1188,8 +1191,11 @@ function buildFieldHTML(field: FormatField, value: unknown): string {
   const fallbackValue = value ?? fieldDefaultValue(field) ?? '';
 
   switch (field.type) {
-    case 'number':
-      return `<div class="config-item" data-wrapper="${field.id}"><label for="field_${field.id}">${labelText ? `${labelText}: ` : ''}</label><input type="number" ${common} value="${fallbackValue ?? ''}" ${field.min !== undefined ? `min='${field.min}'` : ''} ${field.max !== undefined ? `max='${field.max}'` : ''} ${field.step !== undefined ? `step='${field.step}'` : ''}>${noteText ? `<div class="field-note">${noteText}</div>` : ''}<div class="field-error" id="err_${field.id}" aria-live="polite"></div></div>`;
+    case 'number': {
+      const hardwareConcurrency = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : 64;
+      const maxValue = field.maxIsHardwareConcurrency ? Math.min(field.max ?? hardwareConcurrency, hardwareConcurrency) : field.max;
+      return `<div class="config-item" data-wrapper="${field.id}"><label for="field_${field.id}">${labelText ? `${labelText}: ` : ''}</label><input type="number" ${common} value="${fallbackValue ?? ''}" ${field.min !== undefined ? `min='${field.min}'` : ''} ${maxValue !== undefined ? `max='${maxValue}'` : ''} ${field.step !== undefined ? `step='${field.step}'` : ''}>${noteText ? `<div class="field-note">${noteText}</div>` : ''}<div class="field-error" id="err_${field.id}" aria-live="polite"></div></div>`;
+    }
     case 'checkbox': {
       const inlineAttr = field.id === 'pngx_lossy_dither_auto' ? ` data-inline-for='pngx_lossy_dither_level'` : '';
       const wrapperClass = field.id === 'pngx_lossy_dither_auto' ? 'config-item range-inline-checkbox' : 'config-item';
@@ -1259,8 +1265,8 @@ function buildModalHTML(format: FormatDefinition, config: FormatOptions): string
     reloadRequiredSectionHTML = `
         <div class="reload-required-section">
           <h3>${t('settingsModal.environmentSettings')}</h3>
-          ${fieldsHTML}
           <div class="reload-warning">${t('settingsModal.alerts.reloadRequiredWarning')}</div>
+          ${fieldsHTML}
         </div>`;
   }
 
@@ -1631,6 +1637,7 @@ function validateConfig(format: FormatDefinition, config: FormatOptions): Record
   const errors: Record<string, string> = {};
   const configRecord = config as Record<string, unknown>;
   const ditherAutoEnabled = Boolean(configRecord['pngx_lossy_dither_auto']);
+  const hardwareConcurrency = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : 64;
   (format.optionsSchema || []).forEach((section) =>
     section.fields.forEach((field) => {
       if (!field.id) {
@@ -1646,7 +1653,12 @@ function validateConfig(format: FormatDefinition, config: FormatOptions): Record
         if (field.min !== undefined && value < field.min && !skipMinValidation) {
           errors[field.id] = t('settingsModal.validation.min', { min: field.min });
         }
-        if (!errors[field.id] && field.max !== undefined && value > field.max) {
+        if (!errors[field.id] && field.type === 'number') {
+          const effectiveMax = field.maxIsHardwareConcurrency ? Math.min(field.max ?? hardwareConcurrency, hardwareConcurrency) : field.max;
+          if (effectiveMax !== undefined && value > effectiveMax) {
+            errors[field.id] = t('settingsModal.validation.max', { max: effectiveMax });
+          }
+        } else if (!errors[field.id] && field.max !== undefined && value > field.max) {
           errors[field.id] = t('settingsModal.validation.max', { max: field.max });
         }
       }
@@ -1873,6 +1885,21 @@ function openModalWithFocusTrap(modal: HTMLElement): void {
         return;
       }
       closeModal(modal);
+    }
+    if (event.key === 'Enter') {
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName?.toLowerCase();
+      if (tagName === 'button' || tagName === 'select') {
+        return;
+      }
+      if (document.getElementById('namePromptOverlay')) {
+        return;
+      }
+      const btnApply = document.getElementById('advancedApplyBtn') as HTMLButtonElement | null;
+      if (btnApply) {
+        event.preventDefault();
+        btnApply.click();
+      }
     }
     if (event.key === 'Tab') {
       if (focusables.length === 0) {

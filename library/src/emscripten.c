@@ -768,6 +768,12 @@ EMSCRIPTEN_KEEPALIVE
 uint32_t emscripten_get_buildtime(void) { return cpres_get_buildtime(); }
 
 EMSCRIPTEN_KEEPALIVE
+const char *emscripten_get_compiler_version_string(void) { return cpres_get_compiler_version_string(); }
+
+EMSCRIPTEN_KEEPALIVE
+const char *emscripten_get_rust_version_string(void) { return cpres_get_rust_version_string(); }
+
+EMSCRIPTEN_KEEPALIVE
 uint8_t *emscripten_decode_png_to_rgba(const uint8_t *png_data, size_t png_size, uint32_t *out_width, uint32_t *out_height) {
   cpres_error_t result;
   uint8_t *rgba_data = NULL;

@@ -14,6 +14,10 @@ project(colopresso
   DESCRIPTION "PNG compressor and converter"
 )
 
+# ==============================================================================
+# C Standard Configuration
+# ==============================================================================
+
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -21,22 +25,37 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include(GNUInstallDirs)
 include(FetchContent)
 
-option(COLOPRESSO_USE_TESTS "Build tests" OFF)
-option(COLOPRESSO_USE_UTILS "Build utility programs" OFF)
-option(COLOPRESSO_USE_CLI "Build unified CLI application" OFF)
-option(COLOPRESSO_WITH_FILE_OPS "Enable file operation functions (fopen, fwrite, etc.)" ON)
-option(COLOPRESSO_ENABLE_THREADS "Enable threads support" ON)
-option(COLOPRESSO_ENABLE_SIMD "Enable SIMD optimizations" ON)
+# ==============================================================================
+# Options and Build Configuration
+# ==============================================================================
 
-if(EMSCRIPTEN)
-  option(COLOPRESSO_CHROME_EXTENSION "Build for Chrome Extension" OFF)
-  option(COLOPRESSO_ELECTRON_APP "Build for Electron" OFF)
-  option(COLOPRESSO_NODE_BUILD "Build for Node.js" ON)
-  option(COLOPRESSO_ENABLE_WASM_SIMD "Enable WASM SIMD128 optimizations" ON)
-  set(COLOPRESSO_ELECTRON_TARGETS "" CACHE STRING "Comma-separated electron-builder targets (e.g. --mac,--win)")
-  set(AOM_TARGET_CPU "generic" CACHE STRING "Target CPU for libaom" FORCE)
-  set(ENABLE_NASM OFF CACHE BOOL "Disable NASM for libaom" FORCE)
+include(cmake/options.cmake)
+include(cmake/compiler.cmake)
+
+# Configure threads (may disable COLOPRESSO_ENABLE_THREADS based on target)
+colopresso_configure_threads()
+colopresso_apply_global_threads_compile_options()
+
+# Configure debug/sanitizer settings
+colopresso_configure_debug()
+
+# Configure SIMD
+colopresso_configure_simd()
+if(COLOPRESSO_SIMD_TYPE)
+  message(STATUS "SIMD optimization enabled: ${COLOPRESSO_SIMD_TYPE}")
+elseif(COLOPRESSO_ENABLE_SIMD)
+  message(STATUS "SIMD optimization enabled but no supported SIMD detected")
 endif()
+
+# ==============================================================================
+# Third-Party Dependencies
+# ==============================================================================
+
+include(cmake/thirdparty.cmake)
+
+# ==============================================================================
+# Source Files
+# ==============================================================================
 
 file(GLOB_RECURSE COLOPRESSO_SOURCES "library/src/*.c")
 
@@ -45,58 +64,13 @@ if(NOT COLOPRESSO_WITH_FILE_OPS)
   list(REMOVE_ITEM COLOPRESSO_SOURCES "${COLOPRESSO_FILE_SOURCE}")
 endif()
 
-include(cmake/buildtime.cmake)
-
-if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT EMSCRIPTEN AND NOT MSVC)
-  include(cmake/debug.cmake)
-endif()
-
-include(cmake/threads.cmake)
-colopresso_apply_global_threads_compile_options()
-
-if(COLOPRESSO_ENABLE_SIMD)
-  if(EMSCRIPTEN)
-    if(COLOPRESSO_ENABLE_WASM_SIMD)
-      set(COLOPRESSO_SIMD_FLAGS "-msimd128")
-      set(COLOPRESSO_SIMD_TYPE "WASM_SIMD128")
-    endif()
-  elseif(MSVC)
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
-      set(COLOPRESSO_HAS_NEON ON)
-      set(COLOPRESSO_SIMD_TYPE "NEON")
-    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|x86_64|x86")
-      set(COLOPRESSO_SIMD_TYPE "SSE4.1")
-    endif()
-  else()
-    include(CheckCCompilerFlag)
-    check_c_compiler_flag("-mfpu=neon" COLOPRESSO_HAS_NEON_FLAG)
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
-      set(COLOPRESSO_HAS_NEON ON)
-      set(COLOPRESSO_SIMD_TYPE "NEON")
-    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm" AND COLOPRESSO_HAS_NEON_FLAG)
-      set(COLOPRESSO_HAS_NEON ON)
-      set(COLOPRESSO_SIMD_FLAGS "-mfpu=neon")
-      set(COLOPRESSO_SIMD_TYPE "NEON")
-    endif()
-    if(NOT COLOPRESSO_HAS_NEON)
-      check_c_compiler_flag("-msse4.1" COLOPRESSO_HAS_SSE41)
-      if(COLOPRESSO_HAS_SSE41)
-        set(COLOPRESSO_SIMD_FLAGS "-msse4.1")
-        set(COLOPRESSO_SIMD_TYPE "SSE4.1")
-      endif()
-    endif()
-  endif()
-  if(COLOPRESSO_SIMD_TYPE)
-    message(STATUS "SIMD optimization enabled: ${COLOPRESSO_SIMD_TYPE}")
-  else()
-    message(STATUS "SIMD optimization enabled but no supported SIMD detected")
-  endif()
-endif()
-
-include(cmake/dependencies.cmake)
+# ==============================================================================
+# Main Library Target
+# ==============================================================================
 
 add_library(colopresso STATIC ${COLOPRESSO_SOURCES})
 
+# SIMD configuration
 if(COLOPRESSO_ENABLE_SIMD)
   target_compile_definitions(colopresso PRIVATE CPRES_USE_SIMD=1)
   if(COLOPRESSO_SIMD_FLAGS)
@@ -104,55 +78,63 @@ if(COLOPRESSO_ENABLE_SIMD)
   endif()
 endif()
 
+# Coverage configuration
 if(COLOPRESSO_ENABLE_COVERAGE)
   target_compile_options(colopresso PRIVATE "--coverage")
   target_link_options(colopresso PRIVATE "--coverage")
 endif()
 
+# ==============================================================================
+# pngx_bridge (Rust Library)
+# ==============================================================================
+
 include(cmake/pngx_bridge.cmake)
+
+# ==============================================================================
+# Compiler Version String
+# ==============================================================================
+
+colopresso_get_compiler_version_string(COLOPRESSO_COMPILER_VERSION_STRING)
+add_definitions(-DCOLOPRESSO_COMPILER_VERSION_STRING="${COLOPRESSO_COMPILER_VERSION_STRING}")
+
+# ==============================================================================
+# Emscripten Configuration
+# ==============================================================================
 
 if(EMSCRIPTEN)
   include(cmake/emscripten.cmake)
 endif()
 
-colopresso_apply_threads_link_options()
+# ==============================================================================
+# Thread Linking
+# ==============================================================================
 
-set(_colopresso_public_libs
+colopresso_apply_threads_link_options(colopresso)
+
+# ==============================================================================
+# Link Libraries
+# ==============================================================================
+
+target_link_libraries(colopresso PUBLIC
   png_static
   zlibstatic
   webp
   avif_static
   pngx_bridge
 )
-target_link_libraries(colopresso PUBLIC ${_colopresso_public_libs})
 
-set(_colopresso_platform_libs)
+# Platform-specific libraries
 if(APPLE)
-  list(APPEND _colopresso_platform_libs "-framework Accelerate")
+  target_link_libraries(colopresso PUBLIC "-framework Accelerate")
 elseif(UNIX)
-  list(APPEND _colopresso_platform_libs m)
+  target_link_libraries(colopresso PUBLIC m)
 elseif(WIN32)
-  list(APPEND _colopresso_platform_libs userenv ntdll ws2_32)
-endif()
-if(_colopresso_platform_libs)
-  target_link_libraries(colopresso PUBLIC ${_colopresso_platform_libs})
+  target_link_libraries(colopresso PUBLIC userenv ntdll ws2_32)
 endif()
 
-function(colopresso_sync_file_ops)
-  if(COLOPRESSO_DISABLE_FILE_OPS AND COLOPRESSO_WITH_FILE_OPS)
-    message(STATUS "COLOPRESSO_DISABLE_FILE_OPS=ON -> forcing COLOPRESSO_WITH_FILE_OPS=OFF")
-    set(COLOPRESSO_WITH_FILE_OPS OFF CACHE BOOL "Enable file operation functions (fopen, fwrite, etc.)" FORCE)
-  endif()
-
-  if(COLOPRESSO_WITH_FILE_OPS)
-    set(_file_ops_disable OFF)
-  else()
-    set(_file_ops_disable ON)
-  endif()
-
-  set(COLOPRESSO_WITH_FILE_OPS ${COLOPRESSO_WITH_FILE_OPS} PARENT_SCOPE)
-  set(COLOPRESSO_DISABLE_FILE_OPS ${_file_ops_disable} PARENT_SCOPE)
-endfunction()
+# ==============================================================================
+# Header Configuration
+# ==============================================================================
 
 colopresso_sync_file_ops()
 
@@ -199,36 +181,45 @@ target_include_directories(colopresso PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/library/src
 )
 
+# ==============================================================================
+# Optional Components
+# ==============================================================================
+
+# Utility programs
 if(COLOPRESSO_USE_UTILS)
-  include(cmake/utils.cmake)
+  if(COLOPRESSO_DISABLE_FILE_OPS)
+    message(WARNING "Skipping utils build (COLOPRESSO_DISABLE_FILE_OPS=ON)")
+  else()
+    file(GLOB UTIL_SOURCES "library/utils/*.c")
+    foreach(UTIL_SOURCE ${UTIL_SOURCES})
+      get_filename_component(UTIL_NAME ${UTIL_SOURCE} NAME_WE)
+      set(UTIL_TARGET "util_${UTIL_NAME}")
+      add_executable(${UTIL_TARGET} ${UTIL_SOURCE})
+      target_link_libraries(${UTIL_TARGET} PRIVATE colopresso)
+      set(_util_properties
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/utils
+        OUTPUT_NAME ${UTIL_NAME}
+      )
+      if(EMSCRIPTEN)
+        list(APPEND _util_properties SUFFIX ".js")
+      endif()
+      set_target_properties(${UTIL_TARGET} PROPERTIES ${_util_properties})
+    endforeach()
+  endif()
 endif()
 
+# CLI application
 if(COLOPRESSO_USE_CLI)
   add_subdirectory(cli)
 endif()
 
+# Tests
 if(COLOPRESSO_USE_TESTS)
-  include(cmake/test.cmake)
+  include(cmake/testing.cmake)
 endif()
 
-install(TARGETS colopresso
-  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
+# ==============================================================================
+# Installation
+# ==============================================================================
 
-install(DIRECTORY library/include/
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-  FILES_MATCHING PATTERN "*.h"
-  PATTERN "*.in" EXCLUDE
-)
-
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/include/colopresso_config.h"
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
-
-if(COLOPRESSO_WITH_FILE_OPS)
-  install(FILES "${COLOPRESSO_GENERATED_FILE_HEADER}"
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/colopresso
-  )
-endif()
+include(cmake/install.cmake)

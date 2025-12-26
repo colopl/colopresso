@@ -114,6 +114,8 @@ export type ModuleWithHelpers = ColopressoModule & {
   _emscripten_get_pngx_oxipng_version?(): number;
   _emscripten_get_pngx_libimagequant_version?(): number;
   _emscripten_get_buildtime?(): number;
+  _emscripten_get_compiler_version_string?(): number;
+  _emscripten_get_rust_version_string?(): number;
   _emscripten_is_threads_enabled?(): number;
   _emscripten_is_pngx_bridge_integrated?(): number;
   _emscripten_get_default_thread_count?(): number;
@@ -498,11 +500,29 @@ export function convertPngToPngx(Module: ColopressoModule, pngData: Uint8Array, 
 export function getVersionInfo(Module: ColopressoModule) {
   const mod = Module as ModuleWithHelpers;
 
+  let compilerVersionString: string | undefined;
+  if (mod._emscripten_get_compiler_version_string && mod.UTF8ToString) {
+    const ptr = mod._emscripten_get_compiler_version_string();
+    if (ptr) {
+      compilerVersionString = mod.UTF8ToString(ptr);
+    }
+  }
+
+  let rustVersionString: string | undefined;
+  if (mod._emscripten_get_rust_version_string && mod.UTF8ToString) {
+    const ptr = mod._emscripten_get_rust_version_string();
+    if (ptr) {
+      rustVersionString = mod.UTF8ToString(ptr);
+    }
+  }
+
   return {
     version: mod._emscripten_get_version ? mod._emscripten_get_version() : undefined,
     libwebpVersion: mod._emscripten_get_libwebp_version ? mod._emscripten_get_libwebp_version() : undefined,
     libpngVersion: mod._emscripten_get_libpng_version ? mod._emscripten_get_libpng_version() : undefined,
     libavifVersion: mod._emscripten_get_libavif_version ? mod._emscripten_get_libavif_version() : undefined,
+    compilerVersionString,
+    rustVersionString,
     buildtime: mod._emscripten_get_buildtime ? mod._emscripten_get_buildtime() : undefined,
   };
 }

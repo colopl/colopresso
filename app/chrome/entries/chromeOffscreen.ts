@@ -10,7 +10,7 @@
  */
 
 import { initializeModule, getVersionInfo, isThreadsEnabled, ModuleWithHelpers } from '../../shared/core/converter';
-import { initPngxBridge, isPngxBridgeInitialized } from '../../shared/core/pngxBridge';
+import { initPngxBridge, isPngxBridgeInitialized, pngxOxipngVersion, pngxLibimagequantVersion, pngxRustVersionString } from '../../shared/core/pngxBridge';
 import { loadFormatConfig } from '../../shared/core/configStore';
 import { getDefaultFormat, getFormat, normalizeFormatOptions } from '../../shared/formats';
 import { FormatDefinition, FormatOptions } from '../../shared/types';
@@ -45,20 +45,13 @@ async function ensureModule(): Promise<ModuleWithHelpers> {
           if (pngxFormat) {
             const pngxConfig = await loadFormatConfig(pngxFormat);
             pngxThreads = typeof pngxConfig.pngx_threads === 'number' ? pngxConfig.pngx_threads : undefined;
-            console.log('[chromeOffscreen] pngxThreads from config:', pngxThreads);
           }
-        } catch (e) {
-          console.warn('[chromeOffscreen] Failed to load pngx_threads config:', e);
-        }
+        } catch { /* NOP */ }
 
         await initPngxBridge(pngxBridgeBaseUrl, pngxThreads);
         pngxBridgeInitialized = isPngxBridgeInitialized();
-        if (pngxBridgeInitialized) {
-          console.log('[chromeOffscreen] pngx_bridge WASM initialized');
-        }
-      } catch (error) {
-        console.warn('[chromeOffscreen] pngx_bridge WASM init failed, PNGX format may have limited functionality:', error);
-        pngxBridgeInitialized = false;
+      } catch {
+        throw Error('pngx_bridge WASM init failed.');
       }
 
       return Module;
@@ -250,7 +243,25 @@ chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse) => {
         const Module = await ensureModule();
         const info = getVersionInfo(Module);
         const threadsEnabled = isThreadsEnabled(Module);
-        sendResponse({ success: true, ...info, isThreadsEnabled: threadsEnabled });
+        const pngxOxipng = pngxBridgeInitialized ? pngxOxipngVersion() : undefined;
+        const pngxLibiq = pngxBridgeInitialized ? pngxLibimagequantVersion() : undefined;
+        let rustVersion = info.rustVersionString;
+        if (pngxBridgeInitialized && (!rustVersion || rustVersion === 'unknown')) {
+          try {
+            rustVersion = pngxRustVersionString();
+          } catch {
+            /* NOP */
+          }
+        }
+
+        sendResponse({
+          success: true,
+          ...info,
+          pngxOxipngVersion: pngxOxipng,
+          pngxLibimagequantVersion: pngxLibiq,
+          rustVersionString: rustVersion,
+          isThreadsEnabled: threadsEnabled,
+        });
       } catch (error) {
         sendResponse({ success: false, error: (error as Error).message ?? 'Failed to get version info' });
       }

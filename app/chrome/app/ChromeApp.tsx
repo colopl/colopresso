@@ -167,6 +167,8 @@ async function fetchBuildInfo(): Promise<{ buildInfo: BuildInfoPayload | null; i
           libavifVersion?: number;
           pngxOxipngVersion?: number;
           pngxLibimagequantVersion?: number;
+          compilerVersionString?: string;
+          rustVersionString?: string;
           buildtime?: number;
           isThreadsEnabled?: boolean;
         }
@@ -184,6 +186,8 @@ async function fetchBuildInfo(): Promise<{ buildInfo: BuildInfoPayload | null; i
           libavifVersion: response.libavifVersion,
           pngxOxipngVersion: response.pngxOxipngVersion,
           pngxLibimagequantVersion: response.pngxLibimagequantVersion,
+          compilerVersionString: response.compilerVersionString,
+          rustVersionString: response.rustVersionString,
           buildtime: response.buildtime,
         },
         isThreadsEnabled: response.isThreadsEnabled ?? true,

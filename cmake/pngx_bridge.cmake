@@ -10,101 +10,64 @@
 set(PNGX_BRIDGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/library/pngx_bridge")
 set(PNGX_BRIDGE_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/pngx_bridge")
 
-option(PNGX_BRIDGE_ENABLE_RUST_ASAN "Enable AddressSanitizer instrumentation for the Rust pngx_bridge build (requires nightly) (maybe doesn't work)" OFF)
-option(PNGX_BRIDGE_ENABLE_RUST_MSAN "Enable MemorySanitizer instrumentation for the Rust pngx_bridge build (requires nightly + -Zbuild-std)" ON)
-option(PNGX_BRIDGE_ENABLE_RUST_VALGRIND "Enable Valgrind instrumentation for the Rust pngx_bridge build (requires nightly + -Zbuild-std)" ON)
-
 macro(_pngx_bridge_create_wasm_stub)
   set(PNGX_BRIDGE_USE_WASM_SEPARATION ON)
   include(cmake/pngx_bridge_wasm.cmake)
 
-  set(PNGX_BRIDGE_STUB_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/pngx_bridge_stub.c")
-  file(WRITE "${PNGX_BRIDGE_STUB_SOURCE}"
-"/* pngx_bridge stub - actual implementation provided via separate WASM module */
-#include <stddef.h>
-#include <stdint.h>
-#include <stdbool.h>
-
-typedef enum {
-  PNGX_BRIDGE_RESULT_SUCCESS = 0,
-  PNGX_BRIDGE_RESULT_GENERIC_ERROR = 1,
-  PNGX_BRIDGE_RESULT_INVALID_INPUT = 2,
-  PNGX_BRIDGE_RESULT_OPTIMIZATION_FAILED = 3,
-  PNGX_BRIDGE_RESULT_WASM_SEPARATION = 100
-} PngxBridgeResult;
-
-typedef enum {
-  PNGX_BRIDGE_QUANT_OK = 0,
-  PNGX_BRIDGE_QUANT_QUALITY_TOO_LOW = 1,
-  PNGX_BRIDGE_QUANT_ERROR = 2,
-  PNGX_BRIDGE_QUANT_WASM_SEPARATION = 100
-} PngxBridgeQuantStatus;
-
-typedef struct { uint8_t r, g, b, a; } cpres_rgba_color_t;
-typedef struct { int32_t optimization_level; bool strip_safe; bool optimize_alpha; } PngxBridgeLosslessOptions;
-typedef struct { int32_t speed; int32_t quality_min; int32_t quality_max; uint32_t max_colors; int32_t min_posterization; float dithering_level; bool remap; const uint8_t *importance_map; size_t importance_map_len; const cpres_rgba_color_t *fixed_colors; size_t fixed_colors_len; } PngxBridgeQuantParams;
-typedef struct { cpres_rgba_color_t *palette; size_t palette_len; uint8_t *indices; size_t indices_len; int32_t quality; } PngxBridgeQuantOutput;
-
-PngxBridgeResult pngx_bridge_optimize_lossless(const uint8_t *input_data, size_t input_size, uint8_t **output_data, size_t *output_size, const PngxBridgeLosslessOptions *options) {
-  (void)input_data; (void)input_size; (void)options;
-  if (output_data) *output_data = NULL;
-  if (output_size) *output_size = 0;
-  return PNGX_BRIDGE_RESULT_WASM_SEPARATION;
-}
-
-PngxBridgeQuantStatus pngx_bridge_quantize(const cpres_rgba_color_t *pixels, size_t pixel_count, uint32_t width, uint32_t height, const PngxBridgeQuantParams *params, PngxBridgeQuantOutput *output) {
-  (void)pixels; (void)pixel_count; (void)width; (void)height; (void)params;
-  if (output) { output->palette = NULL; output->palette_len = 0; output->indices = NULL; output->indices_len = 0; output->quality = -1; }
-  return PNGX_BRIDGE_QUANT_WASM_SEPARATION;
-}
-
-void pngx_bridge_free(uint8_t *ptr) { (void)ptr; }
-
-uint32_t pngx_bridge_oxipng_version(void) { return 0; }
-
-uint32_t pngx_bridge_libimagequant_version(void) { return 0; }
-
-bool pngx_bridge_init_threads(int num_threads) { (void)num_threads; return true; }
-")
+  set(PNGX_BRIDGE_STUB_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/library/src/wasm.c")
 
   add_library(pngx_bridge STATIC "${PNGX_BRIDGE_STUB_SOURCE}")
   add_dependencies(pngx_bridge pngx_bridge_wasm_build)
 
+  target_compile_definitions(pngx_bridge PRIVATE PNGX_BRIDGE_WASM_SEPARATION=1)
+
   file(MAKE_DIRECTORY "${PNGX_BRIDGE_BUILD_DIR}/generated")
-  file(WRITE "${PNGX_BRIDGE_BUILD_DIR}/generated/pngx_bridge.h"
-    "/* pngx_bridge stub header - implementation via WASM module */\n"
-    "#ifndef PNGX_BRIDGE_H\n"
-    "#define PNGX_BRIDGE_H\n"
-    "#define PNGX_BRIDGE_WASM_SEPARATION 1\n"
-    "#endif\n"
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/library/include/colopresso/pngx_bridge.h.in"
+    "${PNGX_BRIDGE_BUILD_DIR}/generated/pngx_bridge.h"
+    @ONLY
   )
 
   target_include_directories(pngx_bridge PUBLIC "${PNGX_BRIDGE_BUILD_DIR}/generated")
 endmacro()
 
-# For Emscripten builds (Electron, Chrome, Node.js), always use WASM separation mode.
-# pngx_bridge is built as a separate WASM module (wasm32-unknown-unknown) and loaded via wasm-bindgen.
-# This is because wasm32-unknown-emscripten with Rayon threading is not reliable.
 if(EMSCRIPTEN)
-  message(STATUS "pngx_bridge: Using WASM separation mode for Emscripten build")
-  _pngx_bridge_create_wasm_stub()
-  return()
+  if(COLOPRESSO_ELECTRON_APP OR COLOPRESSO_CHROME_EXTENSION)
+    set(COLOPRESSO_NODE_WASM_SEPARATION ON CACHE BOOL "Use WASM separation (forced ON for Electron/Chrome)" FORCE)
+    message(STATUS "pngx_bridge: WASM separation forced ON for Electron/Chrome Extension build")
+  else()
+    option(COLOPRESSO_NODE_WASM_SEPARATION "Use WASM separation for Node.js build (enables separate pngx_bridge WASM module)" OFF)
+  endif()
+
+  if(COLOPRESSO_NODE_WASM_SEPARATION)
+    message(STATUS "pngx_bridge: Using WASM separation mode")
+    _pngx_bridge_create_wasm_stub()
+    return()
+  else()
+    message(STATUS "pngx_bridge: Building pngx_bridge for wasm32-unknown-emscripten (integrated mode, no Rayon)")
+  endif()
 endif()
 
-# Native builds only from here
 set(PNGX_BRIDGE_USE_WASM_SEPARATION OFF)
-set(PNGX_BRIDGE_ENABLE_RAYON ON)
-message(STATUS "pngx_bridge: Rayon multithreading enabled (native build)")
 
 set(_pngx_bridge_artifact libpngx_bridge.a)
-set(_pngx_bridge_target native)
 set(_pngx_bridge_cargo_args)
+
+if(EMSCRIPTEN AND COLOPRESSO_NODE_BUILD)
+  set(_pngx_bridge_target "wasm32-unknown-emscripten")
+  set(PNGX_BRIDGE_ENABLE_RAYON OFF)
+  message(STATUS "pngx_bridge: Building for wasm32-unknown-emscripten (Rayon disabled)")
+else()
+  set(_pngx_bridge_target native)
+  set(PNGX_BRIDGE_ENABLE_RAYON ON)
+  message(STATUS "pngx_bridge: Rayon multithreading enabled (native build)")
+endif()
 
 if(WIN32)
   set(_pngx_bridge_artifact pngx_bridge.lib)
 endif()
 
-# Sanitizer settings (native builds only)
+# Sanitizers
 if(PNGX_BRIDGE_ENABLE_RUST_ASAN AND COLOPRESSO_USE_ASAN)
   set(PNGX_BRIDGE_ENABLE_ASAN ON)
 else()
@@ -138,7 +101,7 @@ set(_pngx_bridge_sanitizer_rustflags "")
 set(_pngx_bridge_sanitizer_cargo_flags "")
 set(_pngx_bridge_needs_nightly OFF)
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32 AND NOT EMSCRIPTEN)
   # MSan builds are intentionally forced to the Rust release profile to keep build/test time practical (especially with -Zbuild-std).
   if(PNGX_BRIDGE_ENABLE_MSAN)
     message(STATUS "pngx_bridge: MemorySanitizer detected, enabling for Rust build")
@@ -196,7 +159,6 @@ if(NOT PNGX_BRIDGE_RUST_TARGET STREQUAL "native")
   list(APPEND PNGX_BRIDGE_CARGO_FLAGS "--target" "${PNGX_BRIDGE_RUST_TARGET}")
 endif()
 
-# Build feature list
 set(_pngx_bridge_features "")
 if(PNGX_BRIDGE_ENABLE_RAYON)
   list(APPEND _pngx_bridge_features "rayon")
@@ -237,6 +199,12 @@ add_custom_command(
 )
 
 set(PNGX_BRIDGE_RUSTFLAGS "-A mismatched_lifetime_syntaxes")
+
+if(EMSCRIPTEN)
+  if(COLOPRESSO_ENABLE_WASM_SIMD)
+    string(APPEND PNGX_BRIDGE_RUSTFLAGS " -C target-feature=+simd128")
+  endif()
+endif()
 
 if(_pngx_bridge_sanitizer_rustflags)
   string(APPEND PNGX_BRIDGE_RUSTFLAGS " ${_pngx_bridge_sanitizer_rustflags}")
@@ -361,11 +329,41 @@ set(_pngx_bridge_build_command
 )
 set(_pngx_bridge_build_comment "Building pngx_bridge (Rust target: ${PNGX_BRIDGE_RUST_TARGET}, flags: ${_pngx_bridge_cargo_flags_str})")
 
+set(_pngx_bridge_cargo_toml "${PNGX_BRIDGE_BUILD_DIR}/Cargo.toml")
+set(_pngx_bridge_cargo_toml_staticlib_only_script "${PNGX_BRIDGE_BUILD_DIR}/set_staticlib_only.cmake")
+file(WRITE "${_pngx_bridge_cargo_toml_staticlib_only_script}"
+"file(READ \"${_pngx_bridge_cargo_toml}\" _content)
+string(REPLACE \"crate-type = [\\\"staticlib\\\", \\\"cdylib\\\"]\" \"crate-type = [\\\"staticlib\\\"]\" _content \"\${_content}\")
+file(WRITE \"${_pngx_bridge_cargo_toml}\" \"\${_content}\")
+")
+
+set(_pngx_bridge_cargo_toml_restore_script "${PNGX_BRIDGE_BUILD_DIR}/restore_crate_type.cmake")
+file(WRITE "${_pngx_bridge_cargo_toml_restore_script}"
+"file(READ \"${_pngx_bridge_cargo_toml}\" _content)
+string(REPLACE \"crate-type = [\\\"staticlib\\\"]\" \"crate-type = [\\\"staticlib\\\", \\\"cdylib\\\"]\" _content \"\${_content}\")
+file(WRITE \"${_pngx_bridge_cargo_toml}\" \"\${_content}\")
+")
+
+if(NOT COLOPRESSO_PNGX_WASM_SEPARATION)
+  set(_pngx_bridge_pre_build_commands
+    COMMAND ${CMAKE_COMMAND} -P "${_pngx_bridge_cargo_toml_staticlib_only_script}"
+  )
+  set(_pngx_bridge_post_build_commands
+    COMMAND ${CMAKE_COMMAND} -P "${_pngx_bridge_cargo_toml_restore_script}"
+  )
+  set(_pngx_bridge_build_comment "Building pngx_bridge (Rust target: ${PNGX_BRIDGE_RUST_TARGET}, crate-type: staticlib only, flags: ${_pngx_bridge_cargo_flags_str})")
+else()
+  set(_pngx_bridge_pre_build_commands)
+  set(_pngx_bridge_post_build_commands)
+endif()
+
 add_custom_command(
   OUTPUT "${PNGX_BRIDGE_LIB_PATH}" "${PNGX_BRIDGE_BUILD_DIR}/generated/pngx_bridge.h"
   COMMAND ${CMAKE_COMMAND} -E echo "Building pngx_bridge (target: ${PNGX_BRIDGE_RUST_TARGET}, profile: ${_pngx_bridge_rust_profile})"
+  ${_pngx_bridge_pre_build_commands}
   COMMAND ${CMAKE_COMMAND} -E env ${_pngx_bridge_cargo_env}
     ${_pngx_bridge_build_command}
+  ${_pngx_bridge_post_build_commands}
   BYPRODUCTS "${PNGX_BRIDGE_BUILD_DIR}/generated/pngx_bridge.h"
   WORKING_DIRECTORY "${PNGX_BRIDGE_BUILD_DIR}"
   DEPENDS

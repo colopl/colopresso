@@ -188,7 +188,6 @@ const ElectronAppInner: React.FC = () => {
 
     const creation = (async () => {
       const pngxBridgeUrl = await window.electronAPI?.getPngxBridgeUrl?.();
-      console.log('[ElectronApp] pngxBridgeUrl from IPC:', pngxBridgeUrl);
       let pngxThreads: number | undefined;
 
       try {
@@ -196,11 +195,8 @@ const ElectronAppInner: React.FC = () => {
         if (pngxFormat) {
           const pngxConfig = await loadFormatConfig(pngxFormat);
           pngxThreads = typeof pngxConfig.pngx_threads === 'number' ? pngxConfig.pngx_threads : undefined;
-          console.log('[ElectronApp] pngxThreads from config:', pngxThreads);
         }
-      } catch (e) {
-        console.warn('[ElectronApp] Failed to load pngx_threads config:', e);
-      }
+      } catch { /* NOP */ }
 
       const client = createConversionWorkerClient(COLOPRESSO_WORKER_URL, COLOPRESSO_MODULE_URL.href, {
         pngxBridgeUrl,
@@ -259,6 +255,8 @@ const ElectronAppInner: React.FC = () => {
         libpngVersion: initResult.libpngVersion,
         pngxOxipngVersion: initResult.pngxOxipngVersion,
         pngxLibimagequantVersion: initResult.pngxLibimagequantVersion,
+        compilerVersionString: initResult.compilerVersionString,
+        rustVersionString: initResult.rustVersionString,
         buildtime: initResult.buildtime,
       };
 

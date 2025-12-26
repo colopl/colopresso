@@ -21,6 +21,8 @@ export interface ConversionWorkerInitResult {
   libavifVersion?: number;
   pngxOxipngVersion?: number;
   pngxLibimagequantVersion?: number;
+  compilerVersionString?: string;
+  rustVersionString?: string;
   buildtime?: number;
 }
 
@@ -110,6 +112,8 @@ export function createConversionWorkerClient(workerUrl: URL, moduleUrl: string, 
         libavifVersion: response.libavifVersion,
         pngxOxipngVersion: response.pngxOxipngVersion,
         pngxLibimagequantVersion: response.pngxLibimagequantVersion,
+        compilerVersionString: response.compilerVersionString,
+        rustVersionString: response.rustVersionString,
         buildtime: response.buildtime,
       };
     },

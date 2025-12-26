@@ -65,6 +65,12 @@ export default defineConfig({
           return '[name][extname]';
         },
       },
+      onwarn(warning, warn) {
+        if (warning.code === 'PLUGIN_WARNING' && warning.message?.includes('has been externalized for browser compatibility')) {
+          return;
+        }
+        warn(warning);
+      },
     },
   },
 });

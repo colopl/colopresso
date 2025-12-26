@@ -1339,8 +1339,65 @@ static inline void print_usage(const char *program_name) {
   printf("                                             Example: --protect-color=FF0000,00FF00,0000FFFF\n");
 }
 
+static inline void format_buildtime(uint32_t buildtime, char *buf, size_t buf_size) {
+  uint32_t year, month, day, hour, minute;
+  int32_t utc_hour, jst_hour, jst_day, jst_month, jst_year;
+  int32_t days_in_month;
+
+  if (buildtime == 0) {
+    snprintf(buf, buf_size, "unknown");
+    return;
+  }
+
+  year = (buildtime >> 20) & 0xfff;
+  month = (buildtime >> 16) & 0xf;
+  day = (buildtime >> 11) & 0x1f;
+  hour = (buildtime >> 6) & 0x1f;
+  minute = buildtime & 0x3f;
+
+  /* Convert UTC to JST (UTC+9) */
+  utc_hour = (int32_t)hour;
+  jst_hour = utc_hour + 9;
+  jst_day = (int32_t)day;
+  jst_month = (int32_t)month;
+  jst_year = (int32_t)year;
+
+  if (jst_hour >= 24) {
+    jst_hour -= 24;
+    jst_day++;
+
+    switch (jst_month) {
+    case 1: case 3: case 5: case 7: case 8: case 10: case 12:
+      days_in_month = 31;
+      break;
+    case 4: case 6: case 9: case 11:
+      days_in_month = 30;
+      break;
+    case 2:
+      days_in_month = ((jst_year % 4 == 0 && jst_year % 100 != 0) || jst_year % 400 == 0) ? 29 : 28;
+      break;
+    default:
+      days_in_month = 31;
+      break;
+    }
+
+    if (jst_day > days_in_month) {
+      jst_day = 1;
+      jst_month++;
+      if (jst_month > 12) {
+        jst_month = 1;
+        jst_year++;
+      }
+    }
+  }
+
+  snprintf(buf, buf_size, "%04d-%02d-%02d %02d:%02d JST", jst_year, jst_month, jst_day, jst_hour, (int)minute);
+}
+
 static inline void print_version(void) {
-  char version_buf[32];
+  char version_buf[32], buildtime_buf[32];
+  const char *compiler_version, *rust_version;
+  uint32_t buildtime;
 
   format_version(cpres_get_version(), version_buf, sizeof(version_buf));
   printf("colopresso CLI v%s\n", version_buf);
@@ -1361,6 +1418,18 @@ static inline void print_version(void) {
 
   format_libpng_version(cpres_get_pngx_libimagequant_version(), version_buf, sizeof(version_buf));
   printf("  libimagequant:   v%s\n", version_buf);
+
+  printf("\nBuild information:\n");
+
+  compiler_version = cpres_get_compiler_version_string();
+  printf("  C / C++:         %s\n", compiler_version ? compiler_version : "unknown");
+
+  rust_version = cpres_get_rust_version_string();
+  printf("  Rust:            %s\n", rust_version ? rust_version : "unknown");
+
+  buildtime = cpres_get_buildtime();
+  format_buildtime(buildtime, buildtime_buf, sizeof(buildtime_buf));
+  printf("  Build time:      %s\n", buildtime_buf);
 }
 
 static inline void init_cli_context(cli_context_t *ctx) {

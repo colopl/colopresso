@@ -11,7 +11,7 @@
 
 import { FormatOptions } from '../types';
 import { initializeModule, prewarmThreadPool, isThreadsEnabled, getVersionInfo, ModuleWithHelpers } from './converter';
-import { initPngxBridge, isPngxBridgeInitialized, pngxOxipngVersion, pngxLibimagequantVersion } from './pngxBridge';
+import { initPngxBridge, isPngxBridgeInitialized, pngxOxipngVersion, pngxLibimagequantVersion, pngxRustVersionString } from './pngxBridge';
 import { getFormat, getDefaultFormat, normalizeFormatOptions } from '../formats';
 
 export interface ConversionWorkerRequest {
@@ -37,6 +37,8 @@ export interface ConversionWorkerResponse {
   libavifVersion?: number;
   pngxOxipngVersion?: number;
   pngxLibimagequantVersion?: number;
+  compilerVersionString?: string;
+  rustVersionString?: string;
   buildtime?: number;
   outputBytes?: ArrayBuffer;
   error?: string;
@@ -58,6 +60,8 @@ let cachedVersionInfo: {
   libavifVersion?: number;
   pngxOxipngVersion?: number;
   pngxLibimagequantVersion?: number;
+  compilerVersionString?: string;
+  rustVersionString?: string;
   buildtime?: number;
 } | null = null;
 
@@ -127,34 +131,31 @@ const handleInit = async (request: ConversionWorkerRequest) => {
     moduleRef = Module;
     modulePromise = null;
     threadsEnabled = isThreadsEnabled(Module);
-    console.log('[conversionWorker] threadsEnabled:', threadsEnabled);
 
     if (threadsEnabled) {
       const hardwareConcurrency = typeof navigator !== 'undefined' && navigator.hardwareConcurrency > 0 ? navigator.hardwareConcurrency : 1;
       prewarmThreadPool(Module, hardwareConcurrency);
     }
 
-    console.log('[conversionWorker] request.pngxBridgeUrl:', request.pngxBridgeUrl);
-
     if (request.pngxBridgeUrl) {
-      console.log('[conversionWorker] Initializing pngx_bridge from URL...');
       try {
         await initPngxBridge(request.pngxBridgeUrl, request.pngxThreads);
         pngxBridgeEnabled = isPngxBridgeInitialized();
-        console.log('[conversionWorker] pngx_bridge from URL result:', pngxBridgeEnabled);
       } catch (pngxError) {
-        console.warn('[conversionWorker] pngx_bridge init failed, PNGX format may not work:', pngxError);
-        pngxBridgeEnabled = false;
+        throw new Error('pngx_bridge init failed.');
       }
-    } else {
-      console.log('[conversionWorker] No pngx_bridge URL provided');
-    }
-
-    console.log('[conversionWorker] Final pngxBridgeEnabled:', pngxBridgeEnabled);
+    } else { /* NOP */ }
 
     const versionInfo = getVersionInfo(Module);
     const pngxOxipng = pngxBridgeEnabled ? pngxOxipngVersion() : undefined;
     const pngxLibiq = pngxBridgeEnabled ? pngxLibimagequantVersion() : undefined;
+    let rustVersion = versionInfo.rustVersionString;
+
+    if (pngxBridgeEnabled && (!rustVersion || rustVersion === 'unknown')) {
+      try {
+        rustVersion = pngxRustVersionString();
+      } catch { /* NOP */ }
+    }
 
     cachedVersionInfo = {
       version: versionInfo.version,
@@ -163,6 +164,8 @@ const handleInit = async (request: ConversionWorkerRequest) => {
       libavifVersion: versionInfo.libavifVersion,
       pngxOxipngVersion: pngxOxipng,
       pngxLibimagequantVersion: pngxLibiq,
+      compilerVersionString: versionInfo.compilerVersionString,
+      rustVersionString: rustVersion,
       buildtime: versionInfo.buildtime,
     };
 

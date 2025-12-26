@@ -42,6 +42,7 @@ export interface FormatFieldBase<T extends FormatFieldType = FormatFieldType> {
 export interface NumberField extends FormatFieldBase<'number'> {
   min?: number;
   max?: number;
+  maxIsHardwareConcurrency?: boolean;
   step?: number;
   defaultValue?: number;
 }
@@ -170,6 +171,8 @@ export interface BuildInfoPayload {
   libavifVersion?: number;
   pngxOxipngVersion?: number;
   pngxLibimagequantVersion?: number;
+  compilerVersionString?: string;
+  rustVersionString?: string;
   buildtime?: number;
   releaseChannel?: string;
   architecture?: string;

@@ -775,9 +775,14 @@
   gap: 4px;
 }
 
+.buildInfoContent {
+  overflow-x: auto;
+}
+
 .buildInfoItem {
   margin-bottom: 3px;
   line-height: 1.4;
+  white-space: nowrap;
 }
 
 .buildInfoItem:last-child {

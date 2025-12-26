@@ -78,6 +78,7 @@ interface PngxBridgeWasmModule {
   pngx_wasm_optimize_lossless(input_data: Uint8Array, options?: WasmLosslessOptions | null): Uint8Array;
   pngx_wasm_last_oxipng_error?(): string;
   pngx_wasm_oxipng_version(): number;
+  pngx_wasm_rust_version_string(): string;
   pngx_wasm_quantize(pixels: Uint8Array, width: number, height: number, params?: WasmQuantParams | null): WasmQuantResult;
   pngx_wasm_quantize_advanced(
     pixels: Uint8Array,
@@ -102,9 +103,6 @@ let wasmExports: WasmExports | null = null;
 let initPromise: Promise<PngxBridgeWasmModule> | null = null;
 let moduleBaseUrl = '';
 let threadingEnabled = false;
-
-const DEBUG_PNGX_BRIDGE = true;
-const logDebug = (...args: unknown[]) => { if (DEBUG_PNGX_BRIDGE) console.log('[pngxBridge]', ...args); };
 
 type PngxBridgeWasmModuleWithInit = PngxBridgeWasmModule & {
   default: (input?: { module_or_path?: RequestInfo | URL | ArrayBuffer | Uint8Array } | RequestInfo | URL | ArrayBuffer | Uint8Array) => Promise<WasmExports>;
@@ -179,17 +177,14 @@ export async function startWorkers(module, memory, builder) {
 }
 
 async function loadPngxBridgeModule(jsUrl: string, wasmUrl: string): Promise<PngxBridgeWasmModuleWithInit> {
-  logDebug('loadPngxBridgeModule: attempting import() with jsUrl:', jsUrl);
+  const isElectronProtocol = jsUrl.startsWith('colopresso://') || jsUrl.startsWith('file://');
 
-  try {
-    const module = await import(/* @vite-ignore */ jsUrl);
-    logDebug('loadPngxBridgeModule: import() succeeded');
-    return module as PngxBridgeWasmModuleWithInit;
-  } catch (importError) {
-    logDebug('loadPngxBridgeModule: import() failed:', importError);
+  if (!isElectronProtocol) {
+    try {
+      const module = await import(/* @vite-ignore */ jsUrl);
+      return module as PngxBridgeWasmModuleWithInit;
+    } catch { /* NOP */ }
   }
-
-  logDebug('loadPngxBridgeModule: falling back to fetch()');
   const response = await fetch(jsUrl);
   if (!response.ok) {
     throw new Error(`Failed to fetch pngx_bridge.js: ${response.status} ${response.statusText}`);
@@ -199,10 +194,7 @@ async function loadPngxBridgeModule(jsUrl: string, wasmUrl: string): Promise<Png
 
   jsSource = jsSource.replace(/new URL\(['"]pngx_bridge_bg\.wasm['"],\s*import\.meta\.url\)/g, JSON.stringify(wasmUrl));
 
-  jsSource = jsSource.replace(
-    /import\s*\{\s*startWorkers\s*\}\s*from\s*['"]\.\/snippets\/[^'"]+['"];?\s*/g,
-    ''
-  );
+  jsSource = jsSource.replace(/import\s*\{\s*startWorkers\s*\}\s*from\s*['"]\.\/snippets\/[^'"]+['"];?\s*/g, '');
 
   const pngxBridgeBlob = new Blob([jsSource], { type: 'application/javascript' });
   const pngxBridgeBlobUrl = URL.createObjectURL(pngxBridgeBlob);
@@ -218,14 +210,11 @@ async function loadPngxBridgeModule(jsUrl: string, wasmUrl: string): Promise<Png
 }
 
 export async function initPngxBridge(baseUrl: string, numThreads?: number): Promise<void> {
-  logDebug('initPngxBridge called with baseUrl:', baseUrl, 'numThreads:', numThreads);
   if (wasmModule) {
-    logDebug('initPngxBridge: already initialized');
     return;
   }
 
   if (initPromise) {
-    logDebug('initPngxBridge: waiting for existing init promise');
     await initPromise;
     return;
   }
@@ -252,12 +241,9 @@ export async function initPngxBridge(baseUrl: string, numThreads?: number): Prom
       const hardwareConcurrency = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : 1;
       const threads = numThreads && numThreads > 0 ? numThreads : hardwareConcurrency;
 
-      logDebug('Initializing pngx_bridge thread pool with threads:', threads);
-
       try {
         await module.initThreadPool(threads);
         threadingEnabled = true;
-        console.log(`[pngxBridge] Thread pool initialized with ${threads} threads`);
       } catch (error) {
         console.warn('[pngxBridge] Failed to initialize thread pool, falling back to single-threaded mode:', error);
         threadingEnabled = false;
@@ -275,9 +261,7 @@ export async function initPngxBridge(baseUrl: string, numThreads?: number): Prom
 }
 
 export function isPngxBridgeInitialized(): boolean {
-  const result = wasmModule !== null;
-  logDebug('isPngxBridgeInitialized:', result);
-  return result;
+  return wasmModule !== null;
 }
 
 export function isPngxBridgeThreadingEnabled(): boolean {
@@ -293,7 +277,6 @@ function getModule(): PngxBridgeWasmModule {
 }
 
 export function pngxOptimizeLossless(inputData: Uint8Array, options?: PngxBridgeLosslessOptions): Uint8Array {
-  logDebug('pngxOptimizeLossless called, input size:', inputData.length, 'options:', options);
   const module = getModule();
   const wasmOptions = new module.WasmLosslessOptions();
 
@@ -319,7 +302,6 @@ export function pngxOptimizeLossless(inputData: Uint8Array, options?: PngxBridge
 }
 
 export function pngxQuantize(pixels: Uint8Array, width: number, height: number, params?: PngxBridgeQuantParams): PngxBridgeQuantResult {
-  logDebug('pngxQuantize called, dimensions:', width, 'x', height, 'params:', params);
   const module = getModule();
 
   if (params?.importanceMap || params?.fixedColors) {
@@ -393,4 +375,9 @@ export function pngxOxipngVersion(): number {
 
 export function pngxLibimagequantVersion(): number {
   return getWasmExports().pngx_bridge_libimagequant_version();
+}
+
+export function pngxRustVersionString(): string {
+  const module = getModule();
+  return module.pngx_wasm_rust_version_string();
 }
