@@ -56,6 +56,7 @@ RUN --mount=type=cache,target=/opt/rust/cargo/registry,sharing=locked \
     echo 'export PATH="${CARGO_HOME}/bin:${PATH}"' > "/etc/profile.d/cargo.sh" && \
     . "/etc/profile.d/cargo.sh" && \
     rustup toolchain install "${RUST_NIGHTLY_VERSION}" && \
+    rustup toolchain link nightly "${RUSTUP_HOME}/toolchains/${RUST_NIGHTLY_VERSION}-$(rustc -vV | grep host | cut -d' ' -f2)" && \
     rustup component add "rust-src" --toolchain "${RUST_NIGHTLY_VERSION}" && \
     rustup target add "wasm32-unknown-emscripten" --toolchain "${RUST_NIGHTLY_VERSION}" && \
     rustup target add "wasm32-unknown-unknown" --toolchain "${RUST_NIGHTLY_VERSION}" && \
