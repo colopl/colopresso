@@ -74,7 +74,6 @@ fn main() {
 
     let toolchain_path = crate_dir.join("../../rust-toolchain.toml");
     let mut rust_stable = String::from("unknown");
-    let mut rust_nightly = String::from("unknown");
     if let Ok(content) = fs::read_to_string(&toolchain_path) {
         for line in content.lines() {
             let trimmed = line.trim();
@@ -82,14 +81,27 @@ fn main() {
                 if let Some(val) = extract_toml_string_value(trimmed) {
                     rust_stable = val;
                 }
-            } else if trimmed.starts_with("nightly") {
-                if let Some(val) = extract_toml_string_value(trimmed) {
-                    rust_nightly = val;
-                }
             }
         }
     }
-    let rust_version_string = format!("{} / {}", rust_stable, rust_nightly);
+
+    let rust_version_string = if let Ok(output) = std::process::Command::new("rustc")
+        .arg("--version")
+        .output()
+    {
+        let version_output = String::from_utf8_lossy(&output.stdout);
+        if let Some(version_part) = version_output.split_whitespace().nth(1) {
+            if version_part.contains("nightly") {
+                format!("nightly ({})", version_part)
+            } else {
+                format!("stable ({})", rust_stable)
+            }
+        } else {
+            format!("stable ({})", rust_stable)
+        }
+    } else {
+        format!("stable ({})", rust_stable)
+    };
     println!(
         "cargo:rustc-env=PNGX_BRIDGE_RUST_VERSION_STRING={}",
         rust_version_string
