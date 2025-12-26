@@ -246,8 +246,11 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
-          toolchain: ${{ needs.Prepare.outputs.rust_stable }}
+          toolchain: ${{ needs.Prepare.outputs.rust_nightly }}
           targets: wasm32-unknown-emscripten,wasm32-unknown-unknown
+          components: rust-src
+      - name: Setup wasm-pack
+        run: cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
       - name: Setup emsdk
         shell: pwsh
         working-directory: "third_party/emsdk"
@@ -300,6 +303,8 @@ jobs:
         run: |
           tar -xzf "versioned-code.tar.gz" --strip-components=1
           rm -rf "versioned-code.tar.gz"
+      - name: Install LLVM (for wasm32 targets)
+        run: brew install "llvm"
       - name: Setup pnpm
         uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
         with:
@@ -323,8 +328,8 @@ jobs:
           ./emsdk install "${{ needs.Prepare.outputs.emsdk_version }}"
           ./emsdk activate "${{ needs.Prepare.outputs.emsdk_version }}"
           . "./emsdk_env.sh"
-          env | grep -E '^(EMSDK|EM_|BINARYEN)' | while IFS='=' read -r key value; do
-            echo "${key}=${value}" >> "${GITHUB_ENV}"
+          env | grep -E '^(EMSDK|EM_|BINARYEN)' | while IFS='=' read -r KEY VALUE; do
+            echo "${KEY}=${VALUE}" >> "${GITHUB_ENV}"
           done
           echo "${EMSDK}" >> "${GITHUB_PATH}"
           echo "${EMSDK}/upstream/emscripten" >> "${GITHUB_PATH}"
@@ -435,7 +440,7 @@ jobs:
             --file "Dockerfile" \
             --tag "chrome" \
             --build-arg ENABLE_VALGRIND=0 \
-            --build-arg ENABLE_CLANG=0 \
+            --build-arg ENABLE_CLANG=1 \
             --build-arg ENABLE_EMSDK=1 \
             --build-arg EMSDK_VERSION="${{ needs.Prepare.outputs.emsdk_version }}" \
             --target "builder" \
