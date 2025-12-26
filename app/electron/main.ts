@@ -13,6 +13,7 @@ import { app, BrowserWindow, dialog, ipcMain, net, protocol, session } from 'ele
 import type { FileFilter, IpcMainInvokeEvent, MessageBoxOptions, MessageBoxReturnValue } from 'electron';
 import { autoUpdater, UpdateDownloadedEvent, UpdateInfo } from 'electron-updater';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { promises as fs } from 'node:fs';
 import packageJson from '../../package.json';
 import { bundles as languageBundles, translateForLanguage as translateForLanguageCore } from '../shared/i18n/core';
@@ -429,7 +430,9 @@ function createWindow(): void {
   });
 
   const indexPath = path.join(__dirname, 'index.html');
-  void mainWindow.loadURL(`${CUSTOM_SCHEME}://app${indexPath}`);
+  const normalizedPath = indexPath.replace(/\\/g, '/');
+  const urlPath = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
+  void mainWindow.loadURL(`${CUSTOM_SCHEME}://app${urlPath}`);
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -748,7 +751,7 @@ function setupCrossOriginIsolation(): void {
       filePath = filePath.replace('app.asar', 'app.asar.unpacked');
     }
 
-    const fileUrl = `file://${process.platform === 'win32' ? '/' : ''}${filePath}`;
+    const fileUrl = pathToFileURL(filePath).href;
     const response = await net.fetch(fileUrl);
     const body = await response.arrayBuffer();
     const headers = new Headers(response.headers);
