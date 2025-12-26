@@ -55,10 +55,11 @@ RUN --mount=type=cache,target=/opt/rust/cargo/registry,sharing=locked \
     curl --proto '=https' --tlsv1.2 -sSf "https://sh.rustup.rs" | sh -s -- -y --default-toolchain "${RUST_STABLE_VERSION}" --profile "minimal" --no-modify-path && \
     echo 'export PATH="${CARGO_HOME}/bin:${PATH}"' > "/etc/profile.d/cargo.sh" && \
     . "/etc/profile.d/cargo.sh" && \
-    rustup toolchain install "${RUST_NIGHTLY_VERSION}" && \
-    rustup component add "rust-src" --toolchain "${RUST_NIGHTLY_VERSION}" && \
+    rustup toolcain install "${RUST_STABLE_VERSION}" && \
     rustup target add "wasm32-unknown-emscripten" && \
     rustup target add "wasm32-unknown-unknown" && \
+    rustup toolchain install "${RUST_NIGHTLY_VERSION}" && \
+    rustup component add "rust-src" --toolchain "${RUST_NIGHTLY_VERSION}" && \
     rustup target add "wasm32-unknown-emscripten" --toolchain "${RUST_NIGHTLY_VERSION}" && \
     rustup target add "wasm32-unknown-unknown" --toolchain "${RUST_NIGHTLY_VERSION}" && \
     cargo install "wasm-pack" --version "${WASM_PACK_VERSION}" --locked
