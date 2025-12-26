@@ -677,7 +677,8 @@ function registerIpcHandlers(): void {
   });
   ipcMain.handle('get-pngx-bridge-url', () => {
     const pngxBridgeDir = __dirname.replace(/\\/g, '/');
-    const customUrl = `${CUSTOM_SCHEME}://app${pngxBridgeDir}/`;
+    const urlPath = pngxBridgeDir.startsWith('/') ? pngxBridgeDir : `/${pngxBridgeDir}`;
+    const customUrl = `${CUSTOM_SCHEME}://app${urlPath}/`;
     return customUrl;
   });
   ipcMain.handle('install-update-now', () => {
