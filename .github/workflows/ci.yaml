@@ -45,7 +45,7 @@ jobs:
           sed -i "s|/\* COLOPL_VERSION_START \*/.*/\* COLOPL_VERSION_END \*/|999999998|" "library/include/colopresso.h"
           sed -i "s|VERSION 0.0.0|VERSION 999.999.998|" "CMakeLists.txt"
           sed -i "s|0.0.0|999.999.998|" "app/chrome/manifest.json"
-          sed -i "s|0.0.0|999.999.998|" "package.json"
+          sed -i 's|"version": "0.0.0"|"version": "999.999.998"|' "package.json"
       - name: Tar dummy versioned code
         run: |
           tar -czf "../dummy-versioned-code.tar.gz" -C .. "$(basename "${PWD}")"

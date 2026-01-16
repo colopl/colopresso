@@ -124,7 +124,7 @@ jobs:
           sed -i "s|/\* COLOPL_VERSION_START \*/.*/\* COLOPL_VERSION_END \*/|${{ steps.generate_version.outputs.version_int }}|" "library/include/colopresso.h"
           sed -i "s|VERSION 0.0.0|VERSION ${{ steps.generate_version.outputs.version }}|" "CMakeLists.txt"
           sed -i "s|0.0.0|${{ steps.generate_version.outputs.version }}|" "app/chrome/manifest.json"
-          sed -i "s|0.0.0|${{ steps.generate_version.outputs.version }}|" "package.json"
+          sed -i 's|"version": "0.0.0"|"version": "${{ steps.generate_version.outputs.version }}"|' "package.json"
           sed -i "s|\"channel\": \"[^\"]*\"|\"channel\": \"${{ steps.generate_version.outputs.update_channel }}\"|" "package.json"
       - name: Configure package.json for public channel
         run: |
