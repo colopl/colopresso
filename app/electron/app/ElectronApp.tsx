@@ -21,7 +21,7 @@ import { getFormats, activateFormat, getFormat, getDefaultFormat, normalizeForma
 import { loadFormatConfig, saveFormatConfig, saveSelectedFormatId, loadSelectedFormatId, resetAllStoredData } from '../../shared/core/configStore';
 import { AdvancedSettingsController, setupFormatAwareAdvancedSettings } from '../../shared/core/advancedSettingsModal';
 import Storage from '../../shared/core/storage';
-import { initializeModule, isThreadsEnabled, prewarmThreadPool, ModuleWithHelpers, getMaxThreads } from '../../shared/core/converter';
+import { initializeModule, isThreadsEnabled, ModuleWithHelpers } from '../../shared/core/converter';
 import { createConversionWorkerClient, ConversionWorkerClient } from '../../shared/core/conversionWorkerClient';
 import { readFileAsArrayBuffer } from '../../shared/core/files';
 import { FileEntry, FormatDefinition, FormatOptions, SettingsState, StatusMessage, BuildInfoPayload, SETTINGS_SCHEMA_VERSION, SETTINGS_SCHEMA_VERSION_STORAGE_KEY } from '../../shared/types';
@@ -164,10 +164,6 @@ const ElectronAppInner: React.FC = () => {
       .then((Module) => {
         moduleRef.current = Module;
         threadsEnabledRef.current = isThreadsEnabled(Module);
-
-        if (threadsEnabledRef.current) {
-          prewarmThreadPool(Module, getMaxThreads(Module));
-        }
 
         return Module;
       })
@@ -771,6 +767,13 @@ const ElectronAppInner: React.FC = () => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && state.isProcessing) {
         cancelRequestedRef.current = true;
+        setIsCancelling(true);
+
+        if (workerClientRef.current) {
+          workerClientRef.current.terminate();
+          workerClientRef.current = null;
+        }
+        workerClientPromiseRef.current = null;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -891,6 +894,12 @@ const ElectronAppInner: React.FC = () => {
   const handleCancelProcessing = useCallback(() => {
     cancelRequestedRef.current = true;
     setIsCancelling(true);
+
+    if (workerClientRef.current) {
+      workerClientRef.current.terminate();
+      workerClientRef.current = null;
+    }
+    workerClientPromiseRef.current = null;
   }, []);
 
   const ensureElectronAPI = (): NonNullable<Window['electronAPI']> => {

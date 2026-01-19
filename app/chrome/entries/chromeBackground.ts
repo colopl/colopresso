@@ -111,6 +111,22 @@ chrome.action.onClicked.addListener((tab) => {
   chrome.sidePanel.open({ windowId: tab.windowId });
 });
 
+async function closeOffscreenDocument(): Promise<void> {
+  try {
+    const contexts =
+      (await (chrome.runtime as unknown as { getContexts?: (options: unknown) => Promise<chrome.runtime.ExtensionContext[]> }).getContexts?.({
+        contextTypes: ['OFFSCREEN_DOCUMENT'],
+      })) ?? [];
+
+    if (contexts.length > 0) {
+      await chrome.offscreen.closeDocument();
+    }
+  } catch {
+    /* NOP */
+  }
+  offscreenCreationPromise = null;
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message && typeof message === 'object' && FORWARD_MARKER in message) {
     return false;
@@ -118,6 +134,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message?.type === 'ENSURE_OFFSCREEN' && message?.target === 'background') {
     ensureOffscreenDocument()
+      .then(() => sendResponse({ success: true }))
+      .catch((error: Error) => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  if (message?.type === 'CANCEL_PROCESSING' && message?.target === 'background') {
+    closeOffscreenDocument()
       .then(() => sendResponse({ success: true }))
       .catch((error: Error) => sendResponse({ success: false, error: error.message }));
     return true;

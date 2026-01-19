@@ -40,6 +40,7 @@ typedef struct {
   float cutoff;
 } postprocess_indices_parallel_ctx_t;
 
+/* Global context for multi-step processing. Not thread-safe; must be called sequentially. */
 static palette256_context_t g_palette256_ctx = {0};
 
 static inline void alpha_bleed_rgb_from_opaque(uint8_t *rgba, uint32_t width, uint32_t height, const pngx_options_t *opts) {

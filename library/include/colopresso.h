@@ -184,7 +184,7 @@ typedef struct {
   int pngx_palette256_tune_quality_max_target;          /* Auto tune: max quality target (0-100, -1 = internal default) */
   cpres_rgba_color_t *pngx_protected_colors;            /* Array of colors to protect from quantization (NULL if none) */
   int pngx_protected_colors_count;                      /* Number of protected colors (0 if none, max 256) */
-  int pngx_threads;                                     /* Max threads (>=1) */
+  int pngx_threads;                                     /* Max threads (>=0, 0=auto) */
 } cpres_config_t;
 
 typedef enum {

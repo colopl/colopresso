@@ -506,6 +506,11 @@ const ChromeAppInner: React.FC = () => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && state.isProcessing) {
         cancelRequestedRef.current = true;
+        setIsCancelling(true);
+
+        sendChromeMessage({ type: 'CANCEL_PROCESSING', target: 'background' }).catch(() => {
+          /* NOP */
+        });
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -597,6 +602,11 @@ const ChromeAppInner: React.FC = () => {
   const handleCancelProcessing = useCallback(() => {
     cancelRequestedRef.current = true;
     setIsCancelling(true);
+
+    sendChromeMessage({ type: 'CANCEL_PROCESSING', target: 'background' }).catch(() => {
+      /* NOP */
+    });
+    offscreenReadyPromiseRef.current = null;
   }, []);
 
   const updateProgress = useCallback(
