@@ -91,8 +91,8 @@ interface PngxBridgeWasmModule {
     min_posterization: number,
     dithering_level: number,
     remap: boolean,
-    importance_map?: Uint8Array | null,
-    fixed_colors?: Uint8Array | null
+    importance_map?: Uint8Array,
+    fixed_colors?: Uint8Array
   ): WasmQuantResult;
   initThreadPool?(numThreads: number): Promise<void>;
   pngx_wasm_is_threads_enabled?(): boolean;
@@ -325,8 +325,8 @@ export function pngxQuantize(pixels: Uint8Array, width: number, height: number, 
         params?.minPosterization ?? 0,
         params?.ditheringLevel ?? 1.0,
         params?.remap ?? true,
-        params?.importanceMap ?? null,
-        params?.fixedColors ?? null
+        params?.importanceMap ?? undefined,
+        params?.fixedColors ?? undefined
       );
     } catch (e) {
       console.error('[pngxQuantize] pngx_wasm_quantize_advanced threw:', e);
