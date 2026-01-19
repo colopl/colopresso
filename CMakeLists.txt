@@ -218,6 +218,11 @@ if(COLOPRESSO_USE_TESTS)
   include(cmake/testing.cmake)
 endif()
 
+# Python bindings
+if(COLOPRESSO_PYTHON_BINDINGS)
+  include(cmake/python.cmake)
+endif()
+
 # ==============================================================================
 # Installation
 # ==============================================================================

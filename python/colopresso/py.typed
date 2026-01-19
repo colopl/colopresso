@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# This file is part of colopresso
+#
+# Copyright (C) 2026 COLOPL, Inc.
+# 
+# Author: Go Kudo <g-kudo@colopl.co.jp>
+# Developed with AI (LLM) code assistance. See `NOTICE` for details.
+
+"""
+Type stubs for colopresso
+"""
+
+from dataclasses import dataclass
+from enum import IntEnum
+from typing import Optional
+
+class PngxLossyType(IntEnum):
+    PALETTE256: int
+    LIMITED_RGBA4444: int
+    REDUCED_RGBA32: int
+
+class ColopressoError(Exception):
+    code: int
+    message: str
+    def __init__(self, code: int, message: Optional[str] = None) -> None: ...
+
+@dataclass
+class Config:
+    webp_quality: float
+    webp_lossless: bool
+    webp_method: int
+    avif_quality: float
+    avif_alpha_quality: int
+    avif_lossless: bool
+    avif_speed: int
+    avif_threads: int
+    pngx_level: int
+    pngx_strip_safe: bool
+    pngx_optimize_alpha: bool
+    pngx_lossy_enable: bool
+    pngx_lossy_type: PngxLossyType
+    pngx_lossy_max_colors: int
+    pngx_lossy_quality_min: int
+    pngx_lossy_quality_max: int
+    pngx_lossy_speed: int
+    pngx_lossy_dither_level: float
+    pngx_threads: int
+
+def encode_webp(png_data: bytes, config: Optional[Config] = None) -> bytes: ...
+def encode_avif(png_data: bytes, config: Optional[Config] = None) -> bytes: ...
+def encode_pngx(png_data: bytes, config: Optional[Config] = None) -> bytes: ...
+
+def get_version() -> int: ...
+def get_libwebp_version() -> int: ...
+def get_libpng_version() -> int: ...
+def get_libavif_version() -> int: ...
+def get_pngx_oxipng_version() -> int: ...
+def get_pngx_libimagequant_version() -> int: ...
+def get_buildtime() -> int: ...
+def get_compiler_version_string() -> str: ...
+def get_rust_version_string() -> str: ...
+def is_threads_enabled() -> bool: ...
+def get_default_thread_count() -> int: ...
+def get_max_thread_count() -> int: ...
