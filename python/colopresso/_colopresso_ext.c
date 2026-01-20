@@ -55,10 +55,10 @@ static inline char *get_utf8_string(PyObject *obj) {
 
 static PyObject *raise_colopresso_error(cpres_error_t err) {
     const char *msg = cpres_error_string(err);
-    PyObject *args = Py_BuildValue("(is)", (int)err, msg ? msg : "Unknown error");
-    if (args) {
-        PyErr_SetObject(ColopressoError, args);
-        Py_DECREF(args);
+    PyObject *exc = PyObject_CallFunction(ColopressoError, "is", (int)err, msg ? msg : "Unknown error");
+    if (exc) {
+        PyErr_SetObject(ColopressoError, exc);
+        Py_DECREF(exc);
     }
     return NULL;
 }
