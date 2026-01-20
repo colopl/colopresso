@@ -91,8 +91,8 @@ interface PngxBridgeWasmModule {
     min_posterization: number,
     dithering_level: number,
     remap: boolean,
-    importance_map?: Uint8Array,
-    fixed_colors?: Uint8Array
+    importance_map?: Uint8Array | null,
+    fixed_colors?: Uint8Array | null
   ): WasmQuantResult;
   initThreadPool?(numThreads: number): Promise<void>;
   pngx_wasm_is_threads_enabled?(): boolean;
@@ -282,29 +282,25 @@ export function pngxOptimizeLossless(inputData: Uint8Array, options?: PngxBridge
   const module = getModule();
   const wasmOptions = new module.WasmLosslessOptions();
 
-  try {
-    if (options?.optimizationLevel !== undefined) {
-      wasmOptions.optimization_level = options.optimizationLevel;
-    }
-    if (options?.stripSafe !== undefined) {
-      wasmOptions.strip_safe = options.stripSafe;
-    }
-    if (options?.optimizeAlpha !== undefined) {
-      wasmOptions.optimize_alpha = options.optimizeAlpha;
-    }
-
-    const result = module.pngx_wasm_optimize_lossless(inputData, wasmOptions);
-    const out = new Uint8Array(result);
-
-    const message = module.pngx_wasm_last_oxipng_error?.() ?? '';
-    if (message) {
-      console.warn('[pngxOptimizeLossless] oxipng error:', message);
-    }
-
-    return out;
-  } finally {
-    wasmOptions.free();
+  if (options?.optimizationLevel !== undefined) {
+    wasmOptions.optimization_level = options.optimizationLevel;
   }
+  if (options?.stripSafe !== undefined) {
+    wasmOptions.strip_safe = options.stripSafe;
+  }
+  if (options?.optimizeAlpha !== undefined) {
+    wasmOptions.optimize_alpha = options.optimizeAlpha;
+  }
+
+  const result = module.pngx_wasm_optimize_lossless(inputData, wasmOptions);
+  const out = new Uint8Array(result);
+
+  const message = module.pngx_wasm_last_oxipng_error?.() ?? '';
+  if (message) {
+    console.warn('[pngxOptimizeLossless] oxipng error:', message);
+  }
+
+  return out;
 }
 
 export function pngxQuantize(pixels: Uint8Array, width: number, height: number, params?: PngxBridgeQuantParams): PngxBridgeQuantResult {
@@ -325,8 +321,8 @@ export function pngxQuantize(pixels: Uint8Array, width: number, height: number, 
         params?.minPosterization ?? 0,
         params?.ditheringLevel ?? 1.0,
         params?.remap ?? true,
-        params?.importanceMap ?? undefined,
-        params?.fixedColors ?? undefined
+        params?.importanceMap ?? null,
+        params?.fixedColors ?? null
       );
     } catch (e) {
       console.error('[pngxQuantize] pngx_wasm_quantize_advanced threw:', e);
@@ -346,30 +342,25 @@ export function pngxQuantize(pixels: Uint8Array, width: number, height: number, 
   }
 
   const wasmParams = new module.WasmQuantParams();
+  if (params?.speed !== undefined) wasmParams.speed = params.speed;
+  if (params?.qualityMin !== undefined) wasmParams.quality_min = params.qualityMin;
+  if (params?.qualityMax !== undefined) wasmParams.quality_max = params.qualityMax;
+  if (params?.maxColors !== undefined) wasmParams.max_colors = params.maxColors;
+  if (params?.minPosterization !== undefined) wasmParams.min_posterization = params.minPosterization;
+  if (params?.ditheringLevel !== undefined) wasmParams.dithering_level = params.ditheringLevel;
+  if (params?.remap !== undefined) wasmParams.remap = params.remap;
+
+  const result = module.pngx_wasm_quantize(pixels, width, height, wasmParams);
 
   try {
-    if (params?.speed !== undefined) wasmParams.speed = params.speed;
-    if (params?.qualityMin !== undefined) wasmParams.quality_min = params.qualityMin;
-    if (params?.qualityMax !== undefined) wasmParams.quality_max = params.qualityMax;
-    if (params?.maxColors !== undefined) wasmParams.max_colors = params.maxColors;
-    if (params?.minPosterization !== undefined) wasmParams.min_posterization = params.minPosterization;
-    if (params?.ditheringLevel !== undefined) wasmParams.dithering_level = params.ditheringLevel;
-    if (params?.remap !== undefined) wasmParams.remap = params.remap;
-
-    const result = module.pngx_wasm_quantize(pixels, width, height, wasmParams);
-
-    try {
-      return {
-        palette: new Uint8Array(result.palette),
-        indices: new Uint8Array(result.indices),
-        quality: result.quality,
-        status: result.status,
-      };
-    } finally {
-      result.free();
-    }
+    return {
+      palette: new Uint8Array(result.palette),
+      indices: new Uint8Array(result.indices),
+      quality: result.quality,
+      status: result.status,
+    };
   } finally {
-    wasmParams.free();
+    result.free();
   }
 }
 
