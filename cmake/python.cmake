@@ -17,26 +17,26 @@ find_package(Python3 QUIET COMPONENTS Interpreter Development.Module)
 
 if(NOT Python3_Development.Module_FOUND)
   message(STATUS "Python3::Module not found via CMake, using Python to determine paths")
-  
+
   if(NOT Python3_EXECUTABLE)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
   endif()
-  
+
   execute_process(
     COMMAND ${Python3_EXECUTABLE} -c "import sysconfig; print(sysconfig.get_path('include'))"
     OUTPUT_VARIABLE _python_include_dir
     OUTPUT_STRIP_TRAILING_WHITESPACE
     RESULT_VARIABLE _python_include_result
   )
-  
+
   if(NOT _python_include_result EQUAL 0 OR NOT EXISTS "${_python_include_dir}")
     message(FATAL_ERROR "Failed to determine Python include directory")
   endif()
-  
+
   if(WIN32)
     execute_process(
-      COMMAND ${Python3_EXECUTABLE} -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR') or sysconfig.get_path('stdlib'))"
-      OUTPUT_VARIABLE _python_lib_dir
+      COMMAND ${Python3_EXECUTABLE} -c "import sys; print(sys.prefix)"
+      OUTPUT_VARIABLE _python_prefix
       OUTPUT_STRIP_TRAILING_WHITESPACE
     )
     execute_process(
@@ -44,8 +44,11 @@ if(NOT Python3_Development.Module_FOUND)
       OUTPUT_VARIABLE _python_lib_name
       OUTPUT_STRIP_TRAILING_WHITESPACE
     )
+    set(_python_lib_dir "${_python_prefix}/libs")
+    message(STATUS "Python prefix: ${_python_prefix}")
+    message(STATUS "Python libs directory: ${_python_lib_dir}")
   endif()
-  
+
   set(COLOPRESSO_PYTHON_INCLUDE_DIR "${_python_include_dir}")
   set(COLOPRESSO_PYTHON_MANUAL_CONFIG ON)
   message(STATUS "Python include directory: ${COLOPRESSO_PYTHON_INCLUDE_DIR}")
@@ -67,23 +70,30 @@ if(COLOPRESSO_PYTHON_MANUAL_CONFIG)
     ${COLOPRESSO_PYTHON_INCLUDE_DIR}
   )
   if(WIN32 AND _python_lib_dir AND _python_lib_name)
-    # For stable ABI on Windows, link against python3.lib
+    message(STATUS "Searching for Python libraries in: ${_python_lib_dir}")
+    file(GLOB _libs_in_dir "${_python_lib_dir}/*.lib")
+    message(STATUS "Available .lib files: ${_libs_in_dir}")
+
     find_library(_python3_lib
       NAMES python3
-      PATHS "${_python_lib_dir}" "${_python_lib_dir}/../libs"
+      PATHS "${_python_lib_dir}"
       NO_DEFAULT_PATH
     )
     if(_python3_lib)
+      message(STATUS "Found python3.lib: ${_python3_lib}")
       target_link_libraries(colopresso_python PRIVATE "${_python3_lib}")
     else()
-      # Fall back to pythonXY.lib
+      message(STATUS "python3.lib not found, trying ${_python_lib_name}")
       find_library(_python_lib
         NAMES "${_python_lib_name}"
-        PATHS "${_python_lib_dir}" "${_python_lib_dir}/../libs"
+        PATHS "${_python_lib_dir}"
         NO_DEFAULT_PATH
       )
       if(_python_lib)
+        message(STATUS "Found ${_python_lib_name}.lib: ${_python_lib}")
         target_link_libraries(colopresso_python PRIVATE "${_python_lib}")
+      else()
+        message(FATAL_ERROR "Could not find Python library in ${_python_lib_dir}")
       endif()
     endif()
   endif()
