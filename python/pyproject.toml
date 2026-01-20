@@ -74,8 +74,9 @@ before-all = [
     "brew install nasm",
     "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable",
     "source $HOME/.cargo/env && rustc --version",
+    "nasm --version",
 ]
-environment = { PATH = "$HOME/.cargo/bin:$PATH" }
+environment = { PATH = "/opt/homebrew/bin:/usr/local/bin:$HOME/.cargo/bin:$PATH" }
 
 [tool.cibuildwheel.windows]
 before-all = [
