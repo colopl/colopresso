@@ -171,7 +171,6 @@ jobs:
           path: ./versioned-code.tar.gz
           retention-days: 1
   Source:
-    if: false
     needs: Prepare
     runs-on: ubuntu-24.04
     steps:
@@ -199,7 +198,6 @@ jobs:
           name: colopresso-source
           path: dist/
   WindowsElectron:
-    if: false
     needs: Prepare
     strategy:
       matrix:
@@ -295,7 +293,6 @@ jobs:
           path: dist/
           if-no-files-found: error
   macOSElectron:
-    if: false
     needs: Prepare
     runs-on: macos-latest
     steps:
@@ -427,7 +424,6 @@ jobs:
           path: dist/
           if-no-files-found: error
   ChromeExtension:
-    if: false
     needs: Prepare
     runs-on: ubuntu-24.04
     steps:
@@ -474,7 +470,6 @@ jobs:
           name: colopresso-chrome-extension
           path: dist/
   WindowsCLI:
-    if: false
     needs: Prepare
     strategy:
       matrix:
@@ -545,7 +540,6 @@ jobs:
           path: dist/
           if-no-files-found: error
   macOSCLI:
-    if: false
     needs: Prepare
     strategy:
       matrix:
@@ -672,7 +666,6 @@ jobs:
           path: artifact/
           if-no-files-found: error
   LinuxCLI:
-    if: false
     needs: Prepare
     strategy:
       matrix:
@@ -944,15 +937,11 @@ jobs:
           pattern: colopresso-python-wheel-*
           merge-multiple: true
           path: dist/
-      - name: Test
-        run: |
-          ls -alh dist/
-      # - name: Publish to PyPI
-      #   uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
-      #   with:
-      #     packages-dir: dist/
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+        with:
+          packages-dir: dist/
   Release:
-    if: false
     needs:
       - Prepare
       - WindowsElectron

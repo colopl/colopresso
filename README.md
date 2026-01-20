@@ -27,6 +27,10 @@
   <img src="resources/screenshot.png" alt="colopresso screenshot" width="60%" />
 </p>
 
+<p align="center">
+  <a href="https://colopl.github.io/colopresso/"><img src="https://img.shields.io/badge/Download-colopresso-blue?style=for-the-badge" alt="Download" /></a>
+</p>
+
 ## ✨ Features
 
 - 🚀 **Fast Conversion** — High-speed processing with a native C99-based library
@@ -44,6 +48,11 @@ cd colopresso
 ```
 
 For detailed build instructions, see the [Build Guide](#build-linux).
+
+> [!IMPORTANT]
+> **AVX2 instruction set support is required on x86_64 (amd64) platforms for CLI (native builds) and Python Wheel.**
+> Intel Haswell (2013) or later, or AMD Excavator or later processors are required.
+> GUI applications (Electron, Chrome Extension) use WebAssembly and do not require AVX2.
 
 ## 🎯 Supported Formats
 
@@ -101,6 +110,16 @@ A WASM-based CLI that runs in Node.js environments.
 
 - ✅ Run `colopresso.js` directly with Node.js 18+
 - ✅ Ideal for server-side image processing
+
+### Python
+
+Python bindings available on PyPI for easy integration.
+
+- ✅ Simple `pip install colopresso`
+- ✅ Supports WebP, AVIF, and optimized PNG encoding
+- ✅ Available for Windows, macOS, and Linux (x64/ARM64)
+
+For detailed API documentation, see [python/README.md](./python/README.md).
 
 ---
 

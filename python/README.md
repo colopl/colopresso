@@ -4,6 +4,7 @@ Python bindings for the colopresso image compression library. Encode PNG images 
 
 ## Table of Contents
 
+- [Requirements](#requirements)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [API Reference](#api-reference)
@@ -15,6 +16,23 @@ Python bindings for the colopresso image compression library. Encode PNG images 
   - [Exception Classes](#exception-classes)
 - [Examples](#examples)
 - [Building Wheels](#building-wheels)
+
+## Requirements
+
+> [!IMPORTANT]
+> **AVX2 instruction set support is required on x86_64 (amd64) platforms.**
+> Intel Haswell (2013) or later, or AMD Excavator or later processors are required.
+
+| Platform | Architecture | Requirements |
+|----------|--------------|--------------|
+| Windows | x64 | AVX2 support |
+| Windows | ARM64 | - |
+| macOS | x86_64 | AVX2 support |
+| macOS | arm64 (Apple Silicon) | - |
+| Linux (glibc) | x86_64 | AVX2 support |
+| Linux (glibc) | aarch64 | - |
+| Linux (musl) | x86_64 | AVX2 support |
+| Linux (musl) | aarch64 | - |
 
 ## Installation
 

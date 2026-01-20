@@ -2,12 +2,11 @@
 #
 # This file is part of colopresso
 #
-# Copyright (C) 2025 COLOPL, Inc.
+# Copyright (C) 2026 COLOPL, Inc.
 #
 # Author: Go Kudo <g-kudo@colopl.co.jp>
 # Developed with AI (LLM) code assistance. See `NOTICE` for details.
 
-# SIMD
 function(colopresso_configure_simd)
   if(NOT COLOPRESSO_ENABLE_SIMD)
     return()
