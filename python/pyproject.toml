@@ -70,6 +70,14 @@ before-all = [
 ]
 environment = { PATH = "$HOME/.cargo/bin:$PATH" }
 
+[[tool.cibuildwheel.overrides]]
+select = "*-manylinux_x86_64"
+environment = { PATH = "$HOME/.cargo/bin:$PATH", CFLAGS = "-mavx2 -mfma", CXXFLAGS = "-mavx2 -mfma", RUSTFLAGS = "-C target-cpu=x86-64-v3" }
+
+[[tool.cibuildwheel.overrides]]
+select = "*-musllinux_x86_64"
+environment = { PATH = "$HOME/.cargo/bin:$PATH", CFLAGS = "-mavx2 -mfma", CXXFLAGS = "-mavx2 -mfma", RUSTFLAGS = "-C target-cpu=x86-64-v3" }
+
 [tool.cibuildwheel.macos]
 before-all = [
     "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable",

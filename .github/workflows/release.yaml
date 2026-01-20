@@ -844,16 +844,15 @@ jobs:
             WHEEL=$(ls python/dist/*.whl | grep "manylinux" | head -n 1)
           fi
           echo "Testing manylinux wheel: ${WHEEL}"
-          MANYLINUX_IMAGE="quay.io/pypa/manylinux_2_28_${{ matrix.arch == 'amd64' && 'x86_64' || 'aarch64' }}"
           docker run \
             --rm \
             --volume "${PWD}:/workspace:ro" \
             --workdir "/workspace" \
-            "${MANYLINUX_IMAGE}" \
+            python:latest \
             bash -c "
               set -e
-              /opt/python/cp310-cp310/bin/pip install /workspace/${WHEEL}
-              /opt/python/cp310-cp310/bin/python -c \"
+              pip install /workspace/${WHEEL}
+              python -c \"
           import colopresso
           from colopresso import Config, PngxLossyType, encode_pngx
 
@@ -889,16 +888,15 @@ jobs:
             WHEEL=$(ls python/dist/*.whl | grep "musllinux" | head -n 1)
           fi
           echo "Testing musllinux wheel: ${WHEEL}"
-          MUSLLINUX_IMAGE="quay.io/pypa/musllinux_1_2_${{ matrix.arch == 'amd64' && 'x86_64' || 'aarch64' }}"
           docker run \
             --rm \
             --volume "${PWD}:/workspace:ro" \
             --workdir "/workspace" \
-            "${MUSLLINUX_IMAGE}" \
+            python:alpine \
             sh -c "
               set -e
-              /opt/python/cp310-cp310/bin/pip install /workspace/${WHEEL}
-              /opt/python/cp310-cp310/bin/python -c \"
+              pip install /workspace/${WHEEL}
+              python -c \"
           import colopresso
           from colopresso import Config, PngxLossyType, encode_pngx
 
