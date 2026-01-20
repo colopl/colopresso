@@ -42,6 +42,7 @@ dev = [
 
 [tool.scikit-build]
 cmake.build-type = "Release"
+cmake.source-dir = ".."
 cmake.args = [
     "-DCOLOPRESSO_USE_CLI=OFF",
     "-DCOLOPRESSO_USE_TESTS=OFF",
