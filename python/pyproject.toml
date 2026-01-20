@@ -69,14 +69,10 @@ before-all = [
     "source $HOME/.cargo/env && rustc --version",
 ]
 environment = { PATH = "$HOME/.cargo/bin:$PATH" }
-
-[[tool.cibuildwheel.overrides]]
-select = "*-manylinux_x86_64"
-environment = { PATH = "$HOME/.cargo/bin:$PATH", CFLAGS = "-march=haswell", CXXFLAGS = "-march=haswell", RUSTFLAGS = "-C target-cpu=haswell" }
-
-[[tool.cibuildwheel.overrides]]
-select = "*-musllinux_x86_64"
-environment = { PATH = "$HOME/.cargo/bin:$PATH", CFLAGS = "-march=haswell", CXXFLAGS = "-march=haswell", RUSTFLAGS = "-C target-cpu=haswell" }
+manylinux-x86_64-image = "manylinux_2_34"
+manylinux-aarch64-image = "manylinux_2_34"
+musllinux-x86_64-image = "musllinux_1_2"
+musllinux-aarch64-image = "musllinux_1_2"
 
 [tool.cibuildwheel.macos]
 before-all = [
