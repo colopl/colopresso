@@ -511,6 +511,8 @@ const ChromeAppInner: React.FC = () => {
         sendChromeMessage({ type: 'CANCEL_PROCESSING', target: 'background' }).catch(() => {
           /* NOP */
         });
+        offscreenReadyRef.current = false;
+        offscreenReadyPromiseRef.current = null;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -606,6 +608,7 @@ const ChromeAppInner: React.FC = () => {
     sendChromeMessage({ type: 'CANCEL_PROCESSING', target: 'background' }).catch(() => {
       /* NOP */
     });
+    offscreenReadyRef.current = false;
     offscreenReadyPromiseRef.current = null;
   }, []);
 
