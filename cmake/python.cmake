@@ -71,12 +71,12 @@ if(WIN32)
   endif()
 
   execute_process(
-    COMMAND ${Python3_EXECUTABLE} -c "import sys; print(sys.prefix)"
-    OUTPUT_VARIABLE _python_prefix
+    COMMAND ${Python3_EXECUTABLE} -c "import sys; print(sys.base_prefix)"
+    OUTPUT_VARIABLE _python_base_prefix
     OUTPUT_STRIP_TRAILING_WHITESPACE
   )
-  set(_python_lib_dir "${_python_prefix}/libs")
-  message(STATUS "Python prefix: ${_python_prefix}")
+  set(_python_lib_dir "${_python_base_prefix}/libs")
+  message(STATUS "Python base prefix: ${_python_base_prefix}")
   message(STATUS "Python libs directory: ${_python_lib_dir}")
 
   file(GLOB _libs_in_dir "${_python_lib_dir}/*.lib")
