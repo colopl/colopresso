@@ -795,7 +795,6 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r python/requirements.txt
       - name: Build wheels
-        working-directory: python
         env:
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux }}
           CIBW_ARCHS_WINDOWS: ${{ matrix.cibw_archs_windows }}
@@ -803,7 +802,7 @@ jobs:
           CIBW_BUILD: ${{ matrix.cibw_build }}
           CIBW_SKIP: pp*
           CIBW_BUILD_VERBOSITY: 1
-        run: python -m cibuildwheel --output-dir dist
+        run: python -m cibuildwheel python --output-dir python/dist
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
         with:
