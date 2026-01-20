@@ -794,6 +794,135 @@ jobs:
           CIBW_ARCHS_WINDOWS: ${{ matrix.cibw_archs_windows }}
           CIBW_ARCHS_MACOS: ${{ matrix.cibw_archs_macos }}
         run: python -m cibuildwheel python --output-dir python/dist
+      - name: Test wheel (Windows/macOS)
+        if: matrix.os == 'windows' || matrix.os == 'macos'
+        shell: bash
+        run: |
+          set -e
+          WHEEL=$(ls python/dist/*.whl | grep -E "cp310" | head -n 1)
+          if test -z "${WHEEL}"; then
+            echo "No cp310 wheel found, using first available wheel"
+            WHEEL=$(ls python/dist/*.whl | head -n 1)
+          fi
+          echo "Installing wheel: ${WHEEL}"
+          python -m pip install "${WHEEL}"
+
+          echo "Running PNG256 encode test..."
+          python -c "
+          import colopresso
+          from colopresso import Config, PngxLossyType, encode_pngx
+
+          print(f'colopresso version: {colopresso.get_version()}')
+          print(f'libpng version: {colopresso.get_libpng_version()}')
+
+          with open('assets/example.png', 'rb') as f:
+              png_data = f.read()
+          print(f'Original PNG size: {len(png_data)} bytes')
+
+          config = Config()
+          config.pngx_lossy_enable = True
+          config.pngx_lossy_type = PngxLossyType.PALETTE256
+
+          encoded = encode_pngx(png_data, config)
+          print(f'Encoded PNG256 size: {len(encoded)} bytes')
+
+          if len(encoded) == 0:
+              raise RuntimeError('Encoded data is empty')
+
+          # Verify PNG signature
+          if encoded[:8] != b'\\x89PNG\\r\\n\\x1a\\n':
+              raise RuntimeError('Invalid PNG signature in output')
+
+          print('PNG256 encode test passed!')
+          "
+      - name: Test wheel (Linux manylinux)
+        if: matrix.os == 'linux'
+        run: |
+          WHEEL=$(ls python/dist/*.whl | grep -E "manylinux.*cp310" | head -n 1)
+          if test -z "${WHEEL}"; then
+            echo "No manylinux cp310 wheel found, using first manylinux wheel"
+            WHEEL=$(ls python/dist/*.whl | grep "manylinux" | head -n 1)
+          fi
+          echo "Testing manylinux wheel: ${WHEEL}"
+          docker run \
+            --rm \
+            --volume "${PWD}:/workspace:ro" \
+            --workdir "/workspace" \
+            python:latest \
+            bash -c "
+              set -e
+              pip install /workspace/${WHEEL}
+              python -c \"
+          import colopresso
+          from colopresso import Config, PngxLossyType, encode_pngx
+
+          print(f'colopresso version: {colopresso.get_version()}')
+          print(f'libpng version: {colopresso.get_libpng_version()}')
+
+          with open('assets/example.png', 'rb') as f:
+              png_data = f.read()
+          print(f'Original PNG size: {len(png_data)} bytes')
+
+          config = Config()
+          config.pngx_lossy_enable = True
+          config.pngx_lossy_type = PngxLossyType.PALETTE256
+
+          encoded = encode_pngx(png_data, config)
+          print(f'Encoded PNG256 size: {len(encoded)} bytes')
+
+          if len(encoded) == 0:
+              raise RuntimeError('Encoded data is empty')
+
+          if encoded[:8] != b'\\x89PNG\\r\\n\\x1a\\n':
+              raise RuntimeError('Invalid PNG signature in output')
+
+          print('PNG256 encode test passed (manylinux)!')
+          \"
+            "
+      - name: Test wheel (Linux musllinux)
+        if: matrix.os == 'linux'
+        run: |
+          WHEEL=$(ls python/dist/*.whl | grep -E "musllinux.*cp310" | head -n 1)
+          if test -z "${WHEEL}"; then
+            echo "No musllinux cp310 wheel found, using first musllinux wheel"
+            WHEEL=$(ls python/dist/*.whl | grep "musllinux" | head -n 1)
+          fi
+          echo "Testing musllinux wheel: ${WHEEL}"
+          docker run \
+            --rm \
+            --volume "${PWD}:/workspace:ro" \
+            --workdir "/workspace" \
+            python:alpine \
+            sh -c "
+              set -e
+              pip install /workspace/${WHEEL}
+              python -c \"
+          import colopresso
+          from colopresso import Config, PngxLossyType, encode_pngx
+
+          print(f'colopresso version: {colopresso.get_version()}')
+          print(f'libpng version: {colopresso.get_libpng_version()}')
+
+          with open('assets/example.png', 'rb') as f:
+              png_data = f.read()
+          print(f'Original PNG size: {len(png_data)} bytes')
+
+          config = Config()
+          config.pngx_lossy_enable = True
+          config.pngx_lossy_type = PngxLossyType.PALETTE256
+
+          encoded = encode_pngx(png_data, config)
+          print(f'Encoded PNG256 size: {len(encoded)} bytes')
+
+          if len(encoded) == 0:
+              raise RuntimeError('Encoded data is empty')
+
+          if encoded[:8] != b'\\x89PNG\\r\\n\\x1a\\n':
+              raise RuntimeError('Invalid PNG signature in output')
+
+          print('PNG256 encode test passed (musllinux)!')
+          \"
+            "
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
         with:
