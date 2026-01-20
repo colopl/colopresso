@@ -119,6 +119,7 @@ if(UNIX AND NOT APPLE)
     png_static
     zlibstatic
     webp
+    sharpyuv
     avif_static
     pngx_bridge
     -Wl,--no-whole-archive
@@ -131,6 +132,7 @@ elseif(APPLE)
     -Wl,-force_load,$<TARGET_FILE:png_static>
     -Wl,-force_load,$<TARGET_FILE:zlibstatic>
     -Wl,-force_load,$<TARGET_FILE:webp>
+    -Wl,-force_load,$<TARGET_FILE:sharpyuv>
     -Wl,-force_load,$<TARGET_FILE:avif_static>
     -Wl,-force_load,$<TARGET_FILE:pngx_bridge>
     "-framework Accelerate"
@@ -141,6 +143,7 @@ else()
     png_static
     zlibstatic
     webp
+    sharpyuv
     avif_static
     pngx_bridge
     userenv
