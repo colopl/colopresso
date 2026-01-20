@@ -72,11 +72,11 @@ environment = { PATH = "$HOME/.cargo/bin:$PATH" }
 
 [[tool.cibuildwheel.overrides]]
 select = "*-manylinux_x86_64"
-environment = { PATH = "$HOME/.cargo/bin:$PATH", CFLAGS = "-mavx2 -mfma", CXXFLAGS = "-mavx2 -mfma", RUSTFLAGS = "-C target-cpu=x86-64-v3" }
+environment = { PATH = "$HOME/.cargo/bin:$PATH", CFLAGS = "-march=x86-64-v3 -O2", CXXFLAGS = "-march=x86-64-v3 -O2", RUSTFLAGS = "-C target-cpu=haswell" }
 
 [[tool.cibuildwheel.overrides]]
 select = "*-musllinux_x86_64"
-environment = { PATH = "$HOME/.cargo/bin:$PATH", CFLAGS = "-mavx2 -mfma", CXXFLAGS = "-mavx2 -mfma", RUSTFLAGS = "-C target-cpu=x86-64-v3" }
+environment = { PATH = "$HOME/.cargo/bin:$PATH", CFLAGS = "-march=x86-64-v3 -O2", CXXFLAGS = "-march=x86-64-v3 -O2", RUSTFLAGS = "-C target-cpu=haswell" }
 
 [tool.cibuildwheel.macos]
 before-all = [

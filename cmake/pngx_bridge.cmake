@@ -2,7 +2,7 @@
 #
 # This file is part of colopresso
 #
-# Copyright (C) 2025 COLOPL, Inc.
+# Copyright (C) 2026 COLOPL, Inc.
 #
 # Author: Go Kudo <g-kudo@colopl.co.jp>
 # Developed with AI (LLM) code assistance. See `NOTICE` for details.
@@ -221,11 +221,30 @@ elseif(PNGX_BRIDGE_ENABLE_ASAN)
   set(PNGX_BRIDGE_SANITIZER_CFLAGS "-fsanitize=address -fno-omit-frame-pointer -g")
 endif()
 
-set(_pngx_bridge_cargo_env "RUSTFLAGS=${PNGX_BRIDGE_RUSTFLAGS}")
-if(PNGX_BRIDGE_SANITIZER_CFLAGS)
-  list(APPEND _pngx_bridge_cargo_env
-    "CFLAGS=${PNGX_BRIDGE_SANITIZER_CFLAGS}"
-    "CXXFLAGS=${PNGX_BRIDGE_SANITIZER_CFLAGS}")
+set(_pngx_bridge_combined_rustflags "${PNGX_BRIDGE_RUSTFLAGS}")
+if(DEFINED ENV{RUSTFLAGS} AND NOT "$ENV{RUSTFLAGS}" STREQUAL "")
+  string(APPEND _pngx_bridge_combined_rustflags " $ENV{RUSTFLAGS}")
+endif()
+set(_pngx_bridge_cargo_env "RUSTFLAGS=${_pngx_bridge_combined_rustflags}")
+
+if(DEFINED ENV{CFLAGS} AND NOT "$ENV{CFLAGS}" STREQUAL "")
+  if(PNGX_BRIDGE_SANITIZER_CFLAGS)
+    list(APPEND _pngx_bridge_cargo_env "CFLAGS=$ENV{CFLAGS} ${PNGX_BRIDGE_SANITIZER_CFLAGS}")
+  else()
+    list(APPEND _pngx_bridge_cargo_env "CFLAGS=$ENV{CFLAGS}")
+  endif()
+elseif(PNGX_BRIDGE_SANITIZER_CFLAGS)
+  list(APPEND _pngx_bridge_cargo_env "CFLAGS=${PNGX_BRIDGE_SANITIZER_CFLAGS}")
+endif()
+
+if(DEFINED ENV{CXXFLAGS} AND NOT "$ENV{CXXFLAGS}" STREQUAL "")
+  if(PNGX_BRIDGE_SANITIZER_CFLAGS)
+    list(APPEND _pngx_bridge_cargo_env "CXXFLAGS=$ENV{CXXFLAGS} ${PNGX_BRIDGE_SANITIZER_CFLAGS}")
+  else()
+    list(APPEND _pngx_bridge_cargo_env "CXXFLAGS=$ENV{CXXFLAGS}")
+  endif()
+elseif(PNGX_BRIDGE_SANITIZER_CFLAGS)
+  list(APPEND _pngx_bridge_cargo_env "CXXFLAGS=${PNGX_BRIDGE_SANITIZER_CFLAGS}")
 endif()
 
 if(PNGX_BRIDGE_ENABLE_MSAN OR COLOPRESSO_USE_VALGRIND)
