@@ -363,7 +363,8 @@ jobs:
             /bin/sh -c '
               set +e
               /colopresso --verbose --format=pngx "/assets/increase.png" "/tmp/increase.png"
-              if test ${?} -ne 2; then
+              EXIT_CODE=$?
+              if test ${EXIT_CODE} -ne 2; then
                 echo "Error: Expected exit code 2, got ${EXIT_CODE}"
                 exit 1
               fi
@@ -382,7 +383,8 @@ jobs:
             /bin/sh -c '
               set +e
               /colopresso --verbose --format=pngx "/assets/increase.png" "/tmp/increase.png"
-              if test ${?} -ne 2; then
+              EXIT_CODE=$?
+              if test ${EXIT_CODE} -ne 2; then
                 echo "Error: Expected exit code 2, got ${EXIT_CODE}"
                 exit 1
               fi
