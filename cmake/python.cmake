@@ -99,6 +99,7 @@ if(UNIX AND NOT APPLE)
     m
   )
 elseif(APPLE)
+  add_dependencies(colopresso_python colopresso)
   target_link_libraries(colopresso_python PRIVATE
     -Wl,-force_load,$<TARGET_FILE:colopresso>
   )
