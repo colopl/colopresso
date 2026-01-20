@@ -116,6 +116,11 @@ if(UNIX AND NOT APPLE)
   target_link_libraries(colopresso_python PRIVATE
     -Wl,--whole-archive
     colopresso
+    png_static
+    zlibstatic
+    webp
+    avif_static
+    pngx_bridge
     -Wl,--no-whole-archive
     m
   )
@@ -123,9 +128,25 @@ elseif(APPLE)
   add_dependencies(colopresso_python colopresso)
   target_link_libraries(colopresso_python PRIVATE
     -Wl,-force_load,$<TARGET_FILE:colopresso>
+    -Wl,-force_load,$<TARGET_FILE:png_static>
+    -Wl,-force_load,$<TARGET_FILE:zlibstatic>
+    -Wl,-force_load,$<TARGET_FILE:webp>
+    -Wl,-force_load,$<TARGET_FILE:avif_static>
+    -Wl,-force_load,$<TARGET_FILE:pngx_bridge>
+    "-framework Accelerate"
   )
 else()
-  target_link_libraries(colopresso_python PRIVATE colopresso)
+  target_link_libraries(colopresso_python PRIVATE
+    colopresso
+    png_static
+    zlibstatic
+    webp
+    avif_static
+    pngx_bridge
+    userenv
+    ntdll
+    ws2_32
+  )
 endif()
 
 target_include_directories(colopresso_python PRIVATE
