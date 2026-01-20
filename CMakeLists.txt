@@ -2,7 +2,7 @@
 #
 # This file is part of colopresso
 #
-# Copyright (C) 2025 COLOPL, Inc.
+# Copyright (C) 2025-2026 COLOPL, Inc.
 #
 # Author: Go Kudo <g-kudo@colopl.co.jp>
 # Developed with AI (LLM) code assistance. See `NOTICE` for details.
@@ -216,6 +216,11 @@ endif()
 # Tests
 if(COLOPRESSO_USE_TESTS)
   include(cmake/testing.cmake)
+endif()
+
+# Python bindings
+if(COLOPRESSO_PYTHON_BINDINGS)
+  include(cmake/python.cmake)
 endif()
 
 # ==============================================================================

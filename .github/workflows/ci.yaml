@@ -363,7 +363,8 @@ jobs:
             /bin/sh -c '
               set +e
               /colopresso --verbose --format=pngx "/assets/increase.png" "/tmp/increase.png"
-              if test ${?} -ne 2; then
+              EXIT_CODE=$?
+              if test ${EXIT_CODE} -ne 2; then
                 echo "Error: Expected exit code 2, got ${EXIT_CODE}"
                 exit 1
               fi
@@ -382,7 +383,8 @@ jobs:
             /bin/sh -c '
               set +e
               /colopresso --verbose --format=pngx "/assets/increase.png" "/tmp/increase.png"
-              if test ${?} -ne 2; then
+              EXIT_CODE=$?
+              if test ${EXIT_CODE} -ne 2; then
                 echo "Error: Expected exit code 2, got ${EXIT_CODE}"
                 exit 1
               fi
@@ -393,3 +395,190 @@ jobs:
               /colopresso --verbose --format=avif "/assets/example.png" "/tmp/example.avif"
               /colopresso --verbose --format=pngx "/assets/example.png" "/tmp/example.png"
             '
+  PythonWheel:
+    needs: Prepare
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            runs-on: ubuntu-24.04
+            cibw_archs_linux: x86_64
+          - os: linux
+            arch: arm64
+            runs-on: ubuntu-24.04-arm
+            cibw_archs_linux: aarch64
+          - os: windows
+            arch: amd64
+            runs-on: windows-latest
+            cibw_archs_windows: AMD64
+          - os: macos
+            arch: amd64
+            runs-on: macos-15-intel
+            cibw_archs_macos: x86_64
+          - os: macos
+            arch: arm64
+            runs-on: macos-15
+            cibw_archs_macos: arm64
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - name: Download dummy versioned code
+        uses: actions/download-artifact@v7
+        with:
+          name: dummy-versioned-code
+          path: .
+      - name: Extract dummy versioned code (Unix)
+        if: matrix.os != 'windows'
+        run: |
+          tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
+          rm -rf "dummy-versioned-code.tar.gz"
+      - name: Extract dummy versioned code (Windows)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
+          Remove-Item "dummy-versioned-code.tar.gz" -Force
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r python/requirements.txt
+      - name: Build wheels
+        env:
+          CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux }}
+          CIBW_ARCHS_WINDOWS: ${{ matrix.cibw_archs_windows }}
+          CIBW_ARCHS_MACOS: ${{ matrix.cibw_archs_macos }}
+        run: python -m cibuildwheel python --output-dir python/dist
+      - name: Test wheel (Windows/macOS)
+        if: matrix.os == 'windows' || matrix.os == 'macos'
+        shell: bash
+        run: |
+          set -e
+          WHEEL=$(ls python/dist/*.whl | grep -E "cp310" | head -n 1)
+          if test -z "${WHEEL}"; then
+            echo "No cp310 wheel found, using first available wheel"
+            WHEEL=$(ls python/dist/*.whl | head -n 1)
+          fi
+          echo "Installing wheel: ${WHEEL}"
+          python -m pip install "${WHEEL}"
+
+          echo "Running PNG256 encode test..."
+          python -c "
+          import colopresso
+          from colopresso import Config, PngxLossyType, encode_pngx
+
+          print(f'colopresso version: {colopresso.get_version()}')
+          print(f'libpng version: {colopresso.get_libpng_version()}')
+
+          with open('assets/example.png', 'rb') as f:
+              png_data = f.read()
+          print(f'Original PNG size: {len(png_data)} bytes')
+
+          config = Config()
+          config.pngx_lossy_enable = True
+          config.pngx_lossy_type = PngxLossyType.PALETTE256
+
+          encoded = encode_pngx(png_data, config)
+          print(f'Encoded PNG256 size: {len(encoded)} bytes')
+
+          if len(encoded) == 0:
+              raise RuntimeError('Encoded data is empty')
+
+          # Verify PNG signature
+          if encoded[:8] != b'\\x89PNG\\r\\n\\x1a\\n':
+              raise RuntimeError('Invalid PNG signature in output')
+
+          print('PNG256 encode test passed!')
+          "
+      - name: Test wheel (Linux manylinux)
+        if: matrix.os == 'linux'
+        run: |
+          WHEEL=$(ls python/dist/*.whl | grep -E "manylinux.*cp310" | head -n 1)
+          if test -z "${WHEEL}"; then
+            echo "No manylinux cp310 wheel found, using first manylinux wheel"
+            WHEEL=$(ls python/dist/*.whl | grep "manylinux" | head -n 1)
+          fi
+          echo "Testing manylinux wheel: ${WHEEL}"
+          docker run \
+            --rm \
+            --volume "${PWD}:/workspace:ro" \
+            --workdir "/workspace" \
+            python:latest \
+            bash -c "
+              set -e
+              pip install /workspace/${WHEEL}
+              python -c \"
+          import colopresso
+          from colopresso import Config, PngxLossyType, encode_pngx
+
+          print(f'colopresso version: {colopresso.get_version()}')
+          print(f'libpng version: {colopresso.get_libpng_version()}')
+
+          with open('assets/example.png', 'rb') as f:
+              png_data = f.read()
+          print(f'Original PNG size: {len(png_data)} bytes')
+
+          config = Config()
+          config.pngx_lossy_enable = True
+          config.pngx_lossy_type = PngxLossyType.PALETTE256
+
+          encoded = encode_pngx(png_data, config)
+          print(f'Encoded PNG256 size: {len(encoded)} bytes')
+
+          if len(encoded) == 0:
+              raise RuntimeError('Encoded data is empty')
+
+          if encoded[:8] != b'\\x89PNG\\r\\n\\x1a\\n':
+              raise RuntimeError('Invalid PNG signature in output')
+
+          print('PNG256 encode test passed (manylinux)!')
+          \"
+            "
+      - name: Test wheel (Linux musllinux)
+        if: matrix.os == 'linux'
+        run: |
+          WHEEL=$(ls python/dist/*.whl | grep -E "musllinux.*cp310" | head -n 1)
+          if test -z "${WHEEL}"; then
+            echo "No musllinux cp310 wheel found, using first musllinux wheel"
+            WHEEL=$(ls python/dist/*.whl | grep "musllinux" | head -n 1)
+          fi
+          echo "Testing musllinux wheel: ${WHEEL}"
+          docker run \
+            --rm \
+            --volume "${PWD}:/workspace:ro" \
+            --workdir "/workspace" \
+            python:alpine \
+            sh -c "
+              set -e
+              pip install /workspace/${WHEEL}
+              python -c \"
+          import colopresso
+          from colopresso import Config, PngxLossyType, encode_pngx
+
+          print(f'colopresso version: {colopresso.get_version()}')
+          print(f'libpng version: {colopresso.get_libpng_version()}')
+
+          with open('assets/example.png', 'rb') as f:
+              png_data = f.read()
+          print(f'Original PNG size: {len(png_data)} bytes')
+
+          config = Config()
+          config.pngx_lossy_enable = True
+          config.pngx_lossy_type = PngxLossyType.PALETTE256
+
+          encoded = encode_pngx(png_data, config)
+          print(f'Encoded PNG256 size: {len(encoded)} bytes')
+
+          if len(encoded) == 0:
+              raise RuntimeError('Encoded data is empty')
+
+          if encoded[:8] != b'\\x89PNG\\r\\n\\x1a\\n':
+              raise RuntimeError('Invalid PNG signature in output')
+
+          print('PNG256 encode test passed (musllinux)!')
+          \"
+            "

@@ -27,6 +27,10 @@
   <img src="resources/screenshot_ja.png" alt="colopresso スクリーンショット" width="60%" />
 </p>
 
+<p align="center">
+  <a href="https://colopl.github.io/colopresso/"><img src="https://img.shields.io/badge/ダウンロード-colopresso-blue?style=for-the-badge" alt="ダウンロード" /></a>
+</p>
+
 ## ✨ 特長
 
 - 🚀 **高速変換** — C99 ベースのネイティブライブラリによる高速処理
@@ -44,6 +48,11 @@ cd colopresso
 ```
 
 詳細なビルド手順は [ビルドガイド](#ビルド-linux) を参照してください。
+
+> [!IMPORTANT]
+> **CLI (ネイティブビルド) および Python Wheel は、x86_64 (amd64) 環境で AVX2 命令セットのサポートが必須です。**
+> 2013年以降の Intel Haswell 以降、または AMD Excavator 以降のプロセッサが必要です。
+> GUI アプリケーション (Electron、Chrome Extension) は WebAssembly を使用するため、AVX2 は不要です。
 
 ## 🎯 対応フォーマット
 
@@ -101,6 +110,16 @@ Node.js 環境で動作する WASM 版 CLI です。
 
 - ✅ Node.js 18 以降で `colopresso.js` を直接実行可能
 - ✅ サーバーサイドでの画像処理に最適
+
+### Python
+
+PyPI で公開されている Python バインディングで簡単に統合できます。
+
+- ✅ `pip install colopresso` でインストール
+- ✅ WebP、AVIF、最適化 PNG エンコードをサポート
+- ✅ Windows、macOS、Linux (x64/ARM64) で利用可能
+
+詳細な API ドキュメントは [python/README_ja.md](./python/README_ja.md) を参照してください。
 
 ---
 

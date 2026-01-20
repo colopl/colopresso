@@ -2,14 +2,10 @@
 #
 # This file is part of colopresso
 #
-# Copyright (C) 2025 COLOPL, Inc.
+# Copyright (C) 2025-2026 COLOPL, Inc.
 #
 # Author: Go Kudo <g-kudo@colopl.co.jp>
 # Developed with AI (LLM) code assistance. See `NOTICE` for details.
-
-# ==============================================================================
-# CLI Application
-# ==============================================================================
 
 if(NOT COLOPRESSO_WITH_FILE_OPS)
   message(FATAL_ERROR "CLI requires COLOPRESSO_WITH_FILE_OPS=ON")

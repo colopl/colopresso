@@ -44,7 +44,7 @@ RUN set -e; \
     echo "RUST_STABLE_VERSION=${RUST_STABLE_VERSION}" > /tmp/rust-versions.env; \
     echo "RUST_NIGHTLY_VERSION=${RUST_NIGHTLY_VERSION}" >> /tmp/rust-versions.env; \
     echo "WASM_PACK_VERSION=${WASM_PACK_VERSION}" >> /tmp/rust-versions.env; \
-    rm /tmp/rust-toolchain.toml
+    rm "/tmp/rust-toolchain.toml"
 
 ENV RUSTUP_HOME="/opt/rust/rustup"
 ENV CARGO_HOME="/opt/rust/cargo"
@@ -154,13 +154,15 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && \
     apt-get --no-install-recommends install -y \
       "ssh" "gdb" "bash" \
-      "imagemagick" "python3" "python3-pip" "python3-venv" \
+      "imagemagick" "python3" "python3-dev" "python3-pip" "python3-venv" "python3-build" \
       "vim" "bsdmainutils" "strace" "pngtools" "ripgrep" "exiftool" && \
     echo 'export PATH="${HOME}/.local/share/pnpm:${PATH}"' >> "/etc/bash.bashrc" && \
-    pip3 install --resume-retries=5 --no-cache-dir "numpy" "opencv-python" "Pillow" "scikit-image" "flake8" "black" && \
     update-alternatives --install "/usr/bin/python" python "$(command -v "python3")" 100 && \
+    update-alternatives --install "/usr/bin/pip" pip "$(command -v "pip3")" 100 && \
+    pip install --resume-retries=5 --no-cache-dir "numpy" "opencv-python" \
+      "Pillow" "scikit-image" "scikit-build-core" "flake8" "black" && \
     . "/etc/profile.d/cargo.sh" && \
-    rm -f /tmp/rust-versions.env
+    rm -f "/tmp/rust-versions.env"
 
 ENV EDITOR="vim"
 ENV VISUAL="vim"

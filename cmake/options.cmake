@@ -2,7 +2,7 @@
 #
 # This file is part of colopresso
 #
-# Copyright (C) 2025 COLOPL, Inc.
+# Copyright (C) 2025-2026 COLOPL, Inc.
 #
 # Author: Go Kudo <g-kudo@colopl.co.jp>
 # Developed with AI (LLM) code assistance. See `NOTICE` for details.
@@ -13,6 +13,7 @@ option(COLOPRESSO_USE_CLI "Build unified CLI application" OFF)
 option(COLOPRESSO_WITH_FILE_OPS "Enable file operation functions (fopen, fwrite, etc.)" ON)
 option(COLOPRESSO_ENABLE_THREADS "Enable threads support" ON)
 option(COLOPRESSO_ENABLE_SIMD "Enable SIMD optimizations" ON)
+option(COLOPRESSO_PYTHON_BINDINGS "Build Python bindings" OFF)
 
 if(EMSCRIPTEN)
   option(COLOPRESSO_CHROME_EXTENSION "Build for Chrome Extension" OFF)

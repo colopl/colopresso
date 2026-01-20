@@ -1,0 +1,92 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# This file is part of colopresso
+#
+# Copyright (C) 2026 COLOPL, Inc.
+# Author: Go Kudo <g-kudo@colopl.co.jp>
+# Developed with AI (LLM) code assistance. See `NOTICE` for details.
+
+[build-system]
+requires = ["scikit-build-core>=0.10"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "colopresso"
+version = "0.0.0"
+description = "PNG conversion and compression library"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.10"
+authors = [
+    { name = "COLOPL, Inc." }
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics :: Graphics Conversion",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pillow>=10.0",
+]
+
+[tool.scikit-build]
+cmake.build-type = "Release"
+cmake.source-dir = ".."
+cmake.args = [
+    "-DCOLOPRESSO_USE_CLI=OFF",
+    "-DCOLOPRESSO_USE_TESTS=OFF",
+    "-DCOLOPRESSO_USE_UTILS=OFF",
+    "-DCOLOPRESSO_DISABLE_FILE_OPS=OFF",
+    "-DCOLOPRESSO_PYTHON_BINDINGS=ON",
+]
+wheel.packages = ["colopresso"]
+wheel.py-api = "cp310"
+install.components = ["python"]
+
+[tool.scikit-build.cmake.define]
+CMAKE_POSITION_INDEPENDENT_CODE = "ON"
+
+[tool.cibuildwheel]
+build = "cp310-*"
+skip = ["*-win32", "*-manylinux_i686", "*-musllinux_i686"]
+build-verbosity = 1
+
+[tool.cibuildwheel.linux]
+before-all = [
+    "if command -v yum &> /dev/null; then yum install -y nasm; elif command -v apk &> /dev/null; then apk add nasm; fi",
+    "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable",
+    "source $HOME/.cargo/env && rustc --version",
+]
+environment = { PATH = "$HOME/.cargo/bin:$PATH" }
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+musllinux-x86_64-image = "musllinux_1_2"
+musllinux-aarch64-image = "musllinux_1_2"
+
+[tool.cibuildwheel.macos]
+before-all = [
+    "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable",
+    "source $HOME/.cargo/env && rustc --version",
+]
+environment = { PATH = "/opt/homebrew/bin:/usr/local/bin:$HOME/.cargo/bin:$PATH" }
+
+[[tool.cibuildwheel.overrides]]
+select = "*-macosx_x86_64"
+environment = { PATH = "/opt/homebrew/bin:/usr/local/bin:$HOME/.cargo/bin:$PATH", CMAKE_ARGS = "-DAOM_TARGET_CPU=generic" }
+
+[tool.cibuildwheel.windows]
+before-all = [
+    "rustup default stable",
+    "rustc --version",
+]

@@ -3,7 +3,7 @@
  *
  * This file is part of colopresso
  *
- * Copyright (C) 2025 COLOPL, Inc.
+ * Copyright (C) 2025-2026 COLOPL, Inc.
  *
  * Author: Go Kudo <g-kudo@colopl.co.jp>
  * Developed with AI (LLM) code assistance. See `NOTICE` for details.
@@ -429,10 +429,8 @@ function createWindow(): void {
       });
   });
 
-  const indexPath = path.join(__dirname, 'index.html');
-  const normalizedPath = indexPath.replace(/\\/g, '/');
-  const urlPath = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
-  void mainWindow.loadURL(`${CUSTOM_SCHEME}://app${urlPath}`);
+  const indexUrl = new URL('index.html', `${CUSTOM_SCHEME}://app${pathToFileURL(__dirname).pathname}/`);
+  void mainWindow.loadURL(indexUrl.href);
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -676,10 +674,8 @@ function registerIpcHandlers(): void {
     }
   });
   ipcMain.handle('get-pngx-bridge-url', () => {
-    const pngxBridgeDir = __dirname.replace(/\\/g, '/');
-    const urlPath = pngxBridgeDir.startsWith('/') ? pngxBridgeDir : `/${pngxBridgeDir}`;
-    const customUrl = `${CUSTOM_SCHEME}://app${urlPath}/`;
-    return customUrl;
+    const baseUrl = new URL(`${CUSTOM_SCHEME}://app${pathToFileURL(__dirname).pathname}/`);
+    return baseUrl.href;
   });
   ipcMain.handle('install-update-now', () => {
     if (!pendingUpdateEvent) {
@@ -738,12 +734,34 @@ function registerIpcHandlers(): void {
 }
 
 function setupCrossOriginIsolation(): void {
+  const appBaseDir = path.resolve(__dirname);
+
   protocol.handle(CUSTOM_SCHEME, async (request) => {
     const url = new URL(request.url);
     let filePath = decodeURIComponent(url.pathname);
     if (process.platform === 'win32' && filePath.startsWith('/')) {
       filePath = filePath.slice(1);
     }
+
+    const resolvedPath = path.resolve(filePath);
+    const normalizedBase = appBaseDir.replace(/\\/g, '/');
+    const normalizedResolved = resolvedPath.replace(/\\/g, '/');
+
+    const asarUnpackedBase = normalizedBase.replace('app.asar', 'app.asar.unpacked');
+    const isWithinAppDir =
+      normalizedResolved.startsWith(normalizedBase + '/') ||
+      normalizedResolved === normalizedBase ||
+      normalizedResolved.startsWith(asarUnpackedBase + '/') ||
+      normalizedResolved === asarUnpackedBase;
+
+    if (!isWithinAppDir) {
+      return new Response('Forbidden: Path traversal detected', {
+        status: 403,
+        statusText: 'Forbidden',
+      });
+    }
+
+    filePath = resolvedPath;
 
     const unpackedPatterns = ['/pngx_bridge.js', '/pngx_bridge_bg.wasm'];
     const shouldUseUnpacked = unpackedPatterns.some((pattern) => filePath.includes(pattern));
