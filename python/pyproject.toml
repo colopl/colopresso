@@ -71,12 +71,14 @@ environment = { PATH = "$HOME/.cargo/bin:$PATH" }
 
 [tool.cibuildwheel.macos]
 before-all = [
-    "brew install nasm",
     "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable",
     "source $HOME/.cargo/env && rustc --version",
-    "nasm --version",
 ]
 environment = { PATH = "/opt/homebrew/bin:/usr/local/bin:$HOME/.cargo/bin:$PATH" }
+
+[[tool.cibuildwheel.overrides]]
+select = "*-macosx_x86_64"
+environment = { PATH = "/opt/homebrew/bin:/usr/local/bin:$HOME/.cargo/bin:$PATH", CMAKE_ARGS = "-DAOM_TARGET_CPU=generic" }
 
 [tool.cibuildwheel.windows]
 before-all = [
