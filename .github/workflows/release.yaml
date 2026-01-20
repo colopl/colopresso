@@ -171,6 +171,7 @@ jobs:
           path: ./versioned-code.tar.gz
           retention-days: 1
   Source:
+    if: false
     needs: Prepare
     runs-on: ubuntu-24.04
     steps:
@@ -198,6 +199,7 @@ jobs:
           name: colopresso-source
           path: dist/
   WindowsElectron:
+    if: false
     needs: Prepare
     strategy:
       matrix:
@@ -293,6 +295,7 @@ jobs:
           path: dist/
           if-no-files-found: error
   macOSElectron:
+    if: false
     needs: Prepare
     runs-on: macos-latest
     steps:
@@ -424,6 +427,7 @@ jobs:
           path: dist/
           if-no-files-found: error
   ChromeExtension:
+    if: false
     needs: Prepare
     runs-on: ubuntu-24.04
     steps:
@@ -470,6 +474,7 @@ jobs:
           name: colopresso-chrome-extension
           path: dist/
   WindowsCLI:
+    if: false
     needs: Prepare
     strategy:
       matrix:
@@ -540,6 +545,7 @@ jobs:
           path: dist/
           if-no-files-found: error
   macOSCLI:
+    if: false
     needs: Prepare
     strategy:
       matrix:
@@ -666,6 +672,7 @@ jobs:
           path: artifact/
           if-no-files-found: error
   LinuxCLI:
+    if: false
     needs: Prepare
     strategy:
       matrix:
@@ -734,32 +741,26 @@ jobs:
             arch: amd64
             runs-on: ubuntu-24.04
             cibw_archs_linux: x86_64
-            cibw_build: cp310-manylinux_* cp310-musllinux_*
           - os: linux
             arch: arm64
             runs-on: ubuntu-24.04-arm
             cibw_archs_linux: aarch64
-            cibw_build: cp310-manylinux_* cp310-musllinux_*
           - os: windows
             arch: amd64
             runs-on: windows-latest
             cibw_archs_windows: AMD64
-            cibw_build: cp310-win_amd64
           - os: windows
             arch: arm64
             runs-on: windows-11-arm
             cibw_archs_windows: ARM64
-            cibw_build: cp310-win_arm64
           - os: macos
             arch: amd64
             runs-on: macos-15-intel
             cibw_archs_macos: x86_64
-            cibw_build: cp310-macosx_x86_64
           - os: macos
             arch: arm64
             runs-on: macos-15
             cibw_archs_macos: arm64
-            cibw_build: cp310-macosx_arm64
     runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Download versioned code
@@ -792,9 +793,6 @@ jobs:
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux }}
           CIBW_ARCHS_WINDOWS: ${{ matrix.cibw_archs_windows }}
           CIBW_ARCHS_MACOS: ${{ matrix.cibw_archs_macos }}
-          CIBW_BUILD: ${{ matrix.cibw_build }}
-          CIBW_SKIP: pp*
-          CIBW_BUILD_VERBOSITY: 1
         run: python -m cibuildwheel python --output-dir python/dist
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
@@ -817,11 +815,15 @@ jobs:
           pattern: colopresso-python-wheel-*
           merge-multiple: true
           path: dist/
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
-        with:
-          packages-dir: dist/
+      - name: Test
+        run: |
+          ls -alh dist/
+      # - name: Publish to PyPI
+      #   uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+      #   with:
+      #     packages-dir: dist/
   Release:
+    if: false
     needs:
       - Prepare
       - WindowsElectron
