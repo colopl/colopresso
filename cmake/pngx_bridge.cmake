@@ -370,7 +370,6 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND} -E env ${_pngx_bridge_cargo_env}
     ${_pngx_bridge_build_command}
   ${_pngx_bridge_post_build_commands}
-  BYPRODUCTS "${PNGX_BRIDGE_BUILD_DIR}/generated/pngx_bridge.h"
   WORKING_DIRECTORY "${PNGX_BRIDGE_BUILD_DIR}"
   DEPENDS
     "${PNGX_BRIDGE_BUILD_DIR}/Cargo.toml"
