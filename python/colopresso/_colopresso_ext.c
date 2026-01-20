@@ -41,10 +41,13 @@ static inline char *get_utf8_string(PyObject *obj) {
     }
 
     result = (char *)malloc((size_t)len + 1);
-    if (result) {
-        memcpy(result, str, (size_t)len);
-        result[len] = '\0';
+    if (!result) {
+        Py_DECREF(bytes);
+        PyErr_NoMemory();
+        return NULL;
     }
+    memcpy(result, str, (size_t)len);
+    result[len] = '\0';
 
     Py_DECREF(bytes);
     return result;
@@ -156,7 +159,10 @@ static int parse_config(PyObject *config_dict, cpres_config_t *config, protected
 
     while (PyDict_Next(config_dict, &pos, &key, &value)) {
         char *key_str = get_utf8_string(key);
-        if (!key_str) return -1;
+        if (!key_str) {
+            free_protected_colors(pcolors);
+            return -1;
+        }
 
         /* WebP */
         if (strcmp(key_str, "webp_quality") == 0) {
@@ -299,6 +305,7 @@ static int parse_config(PyObject *config_dict, cpres_config_t *config, protected
             config->pngx_threads = (int)PyLong_AsLong(value);
         } else if (strcmp(key_str, "pngx_protected_colors") == 0) {
             free(key_str);
+            free_protected_colors(pcolors);
             if (parse_protected_colors(value, pcolors) < 0) {
                 return -1;
             }
@@ -310,6 +317,7 @@ static int parse_config(PyObject *config_dict, cpres_config_t *config, protected
         free(key_str);
 
         if (PyErr_Occurred()) {
+            free_protected_colors(pcolors);
             return -1;
         }
     }
@@ -344,6 +352,7 @@ static PyObject *py_encode_webp(PyObject *self, PyObject *args, PyObject *kwargs
     }
 
     if (parse_config(config_dict, &config, &pcolors) < 0) {
+        free_protected_colors(&pcolors);
         return NULL;
     }
 
@@ -390,6 +399,7 @@ static PyObject *py_encode_avif(PyObject *self, PyObject *args, PyObject *kwargs
     }
 
     if (parse_config(config_dict, &config, &pcolors) < 0) {
+        free_protected_colors(&pcolors);
         return NULL;
     }
 
@@ -436,6 +446,7 @@ static PyObject *py_encode_pngx(PyObject *self, PyObject *args, PyObject *kwargs
     }
 
     if (parse_config(config_dict, &config, &pcolors) < 0) {
+        free_protected_colors(&pcolors);
         return NULL;
     }
 
