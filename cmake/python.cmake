@@ -126,15 +126,17 @@ if(UNIX AND NOT APPLE)
     m
   )
 elseif(APPLE)
-  add_dependencies(colopresso_python colopresso)
+  add_dependencies(colopresso_python colopresso png_static zlibstatic webp sharpyuv avif_static pngx_bridge)
+  target_link_options(colopresso_python PRIVATE
+    -force_load $<TARGET_FILE:colopresso>
+    -force_load $<TARGET_FILE:png_static>
+    -force_load $<TARGET_FILE:zlibstatic>
+    -force_load $<TARGET_FILE:webp>
+    -force_load $<TARGET_FILE:sharpyuv>
+    -force_load $<TARGET_FILE:avif_static>
+    -force_load $<TARGET_FILE:pngx_bridge>
+  )
   target_link_libraries(colopresso_python PRIVATE
-    -Wl,-force_load,$<TARGET_FILE:colopresso>
-    -Wl,-force_load,$<TARGET_FILE:png_static>
-    -Wl,-force_load,$<TARGET_FILE:zlibstatic>
-    -Wl,-force_load,$<TARGET_FILE:webp>
-    -Wl,-force_load,$<TARGET_FILE:sharpyuv>
-    -Wl,-force_load,$<TARGET_FILE:avif_static>
-    -Wl,-force_load,$<TARGET_FILE:pngx_bridge>
     "-framework Accelerate"
   )
 else()
