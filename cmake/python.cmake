@@ -65,40 +65,51 @@ target_compile_definitions(colopresso_python PRIVATE
   Py_LIMITED_API=${COLOPRESSO_PYTHON_ABI_VERSION}
 )
 
-if(COLOPRESSO_PYTHON_MANUAL_CONFIG)
-  target_include_directories(colopresso_python PRIVATE
-    ${COLOPRESSO_PYTHON_INCLUDE_DIR}
-  )
-  if(WIN32 AND _python_lib_dir AND _python_lib_name)
-    message(STATUS "Searching for Python libraries in: ${_python_lib_dir}")
-    file(GLOB _libs_in_dir "${_python_lib_dir}/*.lib")
-    message(STATUS "Available .lib files: ${_libs_in_dir}")
+if(WIN32)
+  if(NOT Python3_EXECUTABLE)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  endif()
 
-    find_library(_python3_lib
-      NAMES python3
-      PATHS "${_python_lib_dir}"
-      NO_DEFAULT_PATH
+  execute_process(
+    COMMAND ${Python3_EXECUTABLE} -c "import sys; print(sys.prefix)"
+    OUTPUT_VARIABLE _python_prefix
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  set(_python_lib_dir "${_python_prefix}/libs")
+  message(STATUS "Python prefix: ${_python_prefix}")
+  message(STATUS "Python libs directory: ${_python_lib_dir}")
+
+  file(GLOB _libs_in_dir "${_python_lib_dir}/*.lib")
+  message(STATUS "Available .lib files: ${_libs_in_dir}")
+
+  find_library(_python3_lib
+    NAMES python3
+    PATHS "${_python_lib_dir}"
+    NO_DEFAULT_PATH
+  )
+  if(_python3_lib)
+    message(STATUS "Found python3.lib for stable ABI: ${_python3_lib}")
+    target_link_libraries(colopresso_python PRIVATE "${_python3_lib}")
+  else()
+    message(FATAL_ERROR "Could not find python3.lib for stable ABI in ${_python_lib_dir}")
+  endif()
+
+  if(COLOPRESSO_PYTHON_MANUAL_CONFIG)
+    target_include_directories(colopresso_python PRIVATE
+      ${COLOPRESSO_PYTHON_INCLUDE_DIR}
     )
-    if(_python3_lib)
-      message(STATUS "Found python3.lib: ${_python3_lib}")
-      target_link_libraries(colopresso_python PRIVATE "${_python3_lib}")
-    else()
-      message(STATUS "python3.lib not found, trying ${_python_lib_name}")
-      find_library(_python_lib
-        NAMES "${_python_lib_name}"
-        PATHS "${_python_lib_dir}"
-        NO_DEFAULT_PATH
-      )
-      if(_python_lib)
-        message(STATUS "Found ${_python_lib_name}.lib: ${_python_lib}")
-        target_link_libraries(colopresso_python PRIVATE "${_python_lib}")
-      else()
-        message(FATAL_ERROR "Could not find Python library in ${_python_lib_dir}")
-      endif()
-    endif()
+  else()
+    get_target_property(_python_includes Python3::Module INTERFACE_INCLUDE_DIRECTORIES)
+    target_include_directories(colopresso_python PRIVATE ${_python_includes})
   endif()
 else()
-  target_link_libraries(colopresso_python PRIVATE Python3::Module)
+  if(COLOPRESSO_PYTHON_MANUAL_CONFIG)
+    target_include_directories(colopresso_python PRIVATE
+      ${COLOPRESSO_PYTHON_INCLUDE_DIR}
+    )
+  else()
+    target_link_libraries(colopresso_python PRIVATE Python3::Module)
+  endif()
 endif()
 
 if(UNIX AND NOT APPLE)
