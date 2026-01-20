@@ -126,6 +126,8 @@ jobs:
           sed -i "s|0.0.0|${{ steps.generate_version.outputs.version }}|" "app/chrome/manifest.json"
           sed -i 's|"version": "0.0.0"|"version": "${{ steps.generate_version.outputs.version }}"|' "package.json"
           sed -i "s|\"channel\": \"[^\"]*\"|\"channel\": \"${{ steps.generate_version.outputs.update_channel }}\"|" "package.json"
+          sed -i "s|^version = \".*\"|version = \"${{ steps.generate_version.outputs.version }}\"|" "python/pyproject.toml"
+          sed -i "s|^__version__ = \".*\"|__version__ = \"${{ steps.generate_version.outputs.version }}\"|" "python/colopresso/__init__.py"
       - name: Configure package.json for public channel
         run: |
           CHANNEL="${{ steps.generate_version.outputs.update_channel }}"
@@ -169,6 +171,7 @@ jobs:
           path: ./versioned-code.tar.gz
           retention-days: 1
   Source:
+    if: false
     needs: Prepare
     runs-on: ubuntu-24.04
     steps:
@@ -196,6 +199,7 @@ jobs:
           name: colopresso-source
           path: dist/
   WindowsElectron:
+    if: false
     needs: Prepare
     strategy:
       matrix:
@@ -291,6 +295,7 @@ jobs:
           path: dist/
           if-no-files-found: error
   macOSElectron:
+    if: false
     needs: Prepare
     runs-on: macos-latest
     steps:
@@ -422,6 +427,7 @@ jobs:
           path: dist/
           if-no-files-found: error
   ChromeExtension:
+    if: false
     needs: Prepare
     runs-on: ubuntu-24.04
     steps:
@@ -468,6 +474,7 @@ jobs:
           name: colopresso-chrome-extension
           path: dist/
   WindowsCLI:
+    if: false
     needs: Prepare
     strategy:
       matrix:
@@ -538,6 +545,7 @@ jobs:
           path: dist/
           if-no-files-found: error
   macOSCLI:
+    if: false
     needs: Prepare
     strategy:
       matrix:
@@ -664,6 +672,7 @@ jobs:
           path: artifact/
           if-no-files-found: error
   LinuxCLI:
+    if: false
     needs: Prepare
     strategy:
       matrix:
@@ -723,7 +732,109 @@ jobs:
           name: colopresso-cli-linux-${{ matrix.arch }}
           path: artifact/
           if-no-files-found: error
+  PythonWheel:
+    needs: Prepare
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            runs-on: ubuntu-24.04
+            cibw_archs_linux: x86_64
+            cibw_build: cp310-abi3-manylinux* cp310-abi3-musllinux*
+          - os: linux
+            arch: arm64
+            runs-on: ubuntu-24.04-arm
+            cibw_archs_linux: aarch64
+            cibw_build: cp310-abi3-manylinux* cp310-abi3-musllinux*
+          - os: windows
+            arch: amd64
+            runs-on: windows-latest
+            cibw_archs_windows: AMD64
+            cibw_build: cp310-abi3-win_*
+          - os: windows
+            arch: arm64
+            runs-on: windows-11-arm
+            cibw_archs_windows: ARM64
+            cibw_build: cp310-abi3-win_*
+          - os: macos
+            arch: amd64
+            runs-on: macos-15-intel
+            cibw_archs_macos: x86_64
+            cibw_build: cp310-abi3-macosx_*
+          - os: macos
+            arch: arm64
+            runs-on: macos-15
+            cibw_archs_macos: arm64
+            cibw_build: cp310-abi3-macosx_*
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - name: Download versioned code
+        uses: actions/download-artifact@v7
+        with:
+          name: versioned-code
+          path: .
+      - name: Extract versioned code (Unix)
+        if: matrix.os != 'windows'
+        run: |
+          tar -xzf "versioned-code.tar.gz" --strip-components=1
+          rm -rf "versioned-code.tar.gz"
+      - name: Extract versioned code (Windows)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          tar -xzf "versioned-code.tar.gz" --strip-components=1
+          Remove-Item "versioned-code.tar.gz" -Force
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r python/requirements.txt
+      - name: Build wheels
+        working-directory: python
+        env:
+          CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux }}
+          CIBW_ARCHS_WINDOWS: ${{ matrix.cibw_archs_windows }}
+          CIBW_ARCHS_MACOS: ${{ matrix.cibw_archs_macos }}
+          CIBW_BUILD: ${{ matrix.cibw_build }}
+          CIBW_SKIP: pp*
+          CIBW_BUILD_VERBOSITY: 1
+        run: python -m cibuildwheel --output-dir dist
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: colopresso-python-wheel-${{ matrix.os }}-${{ matrix.arch }}
+          path: python/dist/*.whl
+          if-no-files-found: error
+  PublishPyPI:
+    needs:
+      - Prepare
+      - PythonWheel
+    # if: ${{ needs.Prepare.outputs.update_channel == 'latest' }}
+    environment: pypi
+    runs-on: ubuntu-24.04
+    permissions:
+      id-token: write
+    steps:
+      - name: Download wheel artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: colopresso-python-wheel-*
+          merge-multiple: true
+          path: dist/
+      - name: Test
+        run: |
+          ls -alh dist/
+      # - name: Publish to PyPI
+      #   uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+      #   with:
+      #     packages-dir: dist/
   Release:
+    if: false
     needs:
       - Prepare
       - WindowsElectron
@@ -733,6 +844,7 @@ jobs:
       - WindowsCLI
       - macOSCLI
       - LinuxCLI
+      - PythonWheel
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -761,6 +873,12 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           pattern: colopresso-cli-*
+          merge-multiple: true
+          path: artifacts/
+      - name: Download Python Wheel Artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: colopresso-python-wheel-*
           merge-multiple: true
           path: artifacts/
       - name: Create Release (internal)

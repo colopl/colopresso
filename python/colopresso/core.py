@@ -17,7 +17,6 @@ from dataclasses import dataclass, field, asdict
 from enum import IntEnum
 from typing import List, Optional, Tuple
 
-# Import from the stable ABI extension module
 from . import _colopresso
 
 
@@ -54,7 +53,7 @@ class ColopressoError(Exception):
 class Config:
     """Configuration for colopresso encoders"""
     
-    # WebP settings
+    # WebP
     webp_quality: float = 80.0
     webp_lossless: bool = False
     webp_method: int = 6
@@ -81,14 +80,14 @@ class Config:
     webp_use_delta_palette: bool = False
     webp_use_sharp_yuv: bool = False
     
-    # AVIF settings
+    # AVIF
     avif_quality: float = 50.0
     avif_alpha_quality: int = 100
     avif_lossless: bool = False
     avif_speed: int = 6
     avif_threads: int = 1
     
-    # PNGX settings
+    # PNGX (PNG)
     pngx_level: int = 5
     pngx_strip_safe: bool = True
     pngx_optimize_alpha: bool = True

@@ -18,6 +18,12 @@ Python bindings for the colopresso image compression library. Encode PNG images 
 
 ## Installation
 
+### From PyPI
+
+```bash
+pip install "colopresso"
+```
+
 ### From source (requires CMake, Rust, and C compiler)
 
 ```bash

@@ -54,6 +54,7 @@ SUFFIX_STYLE: Sequence[Tuple[str, str]] = (
     (".py", "sharp"),
     (".cmake", "sharp"),
     ("cmakelists.txt", "sharp"),
+    (".typed", "sharp")
 )
 
 

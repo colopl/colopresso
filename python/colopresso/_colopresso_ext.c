@@ -22,7 +22,6 @@
 
 static PyObject *ColopressoError;
 
-/* Protected colors storage for config lifetime */
 typedef struct {
     cpres_rgba_color_t *colors;
     int count;
@@ -159,7 +158,7 @@ static int parse_config(PyObject *config_dict, cpres_config_t *config, protected
         char *key_str = get_utf8_string(key);
         if (!key_str) return -1;
 
-        /* WebP settings */
+        /* WebP */
         if (strcmp(key_str, "webp_quality") == 0) {
             config->webp_quality = (float)PyFloat_AsDouble(value);
         } else if (strcmp(key_str, "webp_lossless") == 0) {
@@ -212,7 +211,7 @@ static int parse_config(PyObject *config_dict, cpres_config_t *config, protected
             config->webp_use_sharp_yuv = PyObject_IsTrue(value);
         }
 
-        /* AVIF settings */
+        /* AVIF */
         else if (strcmp(key_str, "avif_quality") == 0) {
             config->avif_quality = (float)PyFloat_AsDouble(value);
         } else if (strcmp(key_str, "avif_alpha_quality") == 0) {
@@ -225,7 +224,7 @@ static int parse_config(PyObject *config_dict, cpres_config_t *config, protected
             config->avif_threads = (int)PyLong_AsLong(value);
         }
 
-        /* PNGX settings */
+        /* PNGX (PNG) */
         else if (strcmp(key_str, "pngx_level") == 0) {
             config->pngx_level = (int)PyLong_AsLong(value);
         } else if (strcmp(key_str, "pngx_strip_safe") == 0) {
