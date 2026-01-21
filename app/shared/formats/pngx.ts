@@ -156,7 +156,7 @@ const sections: FormatSection[] = [
       {
         id: 'pngx_palette256_alpha_bleed_enable',
         type: 'checkbox',
-        defaultValue: true,
+        defaultValue: false,
         labelKey: 'formats.pngx.fields.palette256_alpha_bleed_enable',
         noteKey: 'settingsModal.notes.pngxPalette256AlphaBleed',
       },

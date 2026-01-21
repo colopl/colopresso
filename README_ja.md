@@ -62,7 +62,7 @@ cd colopresso
 | **AVIF** | 圧縮 / ロスレス | 最高品質の次世代フォーマット |
 | **PNG** | 256色パレット | 256色量子化 (保護色指定あり) |
 | **PNG** | Reduced RGBA32 | ビット深度削減 (8-bit RGBA 出力を維持) |
-| **PNG** | Limited RGBA4444 | 誤差拡散ディザリング付き量子化 |
+| **PNG** | Limited RGBA4444 | RGBA16bit, RGBA4444 でのバンディング対策 |
 | **PNG** | ロスレス | メタデータ削除による最適化 |
 
 ### 📱 フォーマット選択ガイド
@@ -117,6 +117,7 @@ PyPI で公開されている Python バインディングで簡単に統合で�
 
 - ✅ `pip install colopresso` でインストール
 - ✅ WebP、AVIF、最適化 PNG エンコードをサポート
+- ✅ CLI 同様の OS ネイティブの高速な処理
 - ✅ Windows、macOS、Linux (x64/ARM64) で利用可能
 
 詳細な API ドキュメントは [python/README_ja.md](./python/README_ja.md) を参照してください。
@@ -274,7 +275,7 @@ cmake --build "build" --parallel
 ctest --test-dir "build" --output-on-failure --parallel
 ```
 
-4. `./build/cli/colopresso` と `./build/utils/cpres` に実行可能ファイルが、`./build` に `libcolopresso.a` が生成されます
+4. `./build/cli/colopresso` に CLI バイナリが、`./build/utils` にユーティリティバイナリが、`./build` に `libcolopresso.a` が生成されます
 
 ## ビルド (Node.js)
 
@@ -345,7 +346,7 @@ rm -rf "build" && emcmake cmake -B "build" \
 cmake --build "build" --config Release --parallel
 ```
 
-成果物は `dist_build/colopresso-<version>_{x64,arm64}.dmg` に出力されます。
+成果物は `dist_build/colopresso_macos_gui_{x64,arm64}.dmg` に出力されます。
 
 ### Windows
 
@@ -366,7 +367,7 @@ emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARG
 cmake --build "build" --config Release --parallel
 ```
 
-成果物は `dist_build/colopresso-<version>_{ia32,x64,arm64}.exe` として出力されます。
+成果物は `dist_build/colopresso_windows_gui_{x64,arm64}.exe` として出力されます。
 
 ---
 
