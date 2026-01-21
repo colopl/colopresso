@@ -62,7 +62,7 @@ For detailed build instructions, see the [Build Guide](#build-linux).
 | **AVIF** | Lossy / Lossless | Best quality next-gen format |
 | **PNG** | 256-color Palette | 256-color quantization (with protected colors) |
 | **PNG** | Reduced RGBA32 | Bit depth reduction (preserves 8-bit RGBA output) |
-| **PNG** | Limited RGBA4444 | Quantization with error-diffusion dithering |
+| **PNG** | Limited RGBA4444 | Prevents banding artifacts in RGBA16bit and RGBA4444 |
 | **PNG** | Lossless | Optimization through metadata removal |
 
 ### 📱 Format Selection Guide
@@ -117,6 +117,7 @@ Python bindings available on PyPI for easy integration.
 
 - ✅ Simple `pip install colopresso`
 - ✅ Supports WebP, AVIF, and optimized PNG encoding
+- ✅ Fast OS-native processing, same as CLI
 - ✅ Available for Windows, macOS, and Linux (x64/ARM64)
 
 For detailed API documentation, see [python/README.md](./python/README.md).
@@ -274,7 +275,7 @@ cmake --build "build" --parallel
 ctest --test-dir "build" --output-on-failure --parallel
 ```
 
-4. `./build/cli/colopresso` and `./build/utils/cpres` contain executables, and `./build` contains `libcolopresso.a`
+4. `./build/cli/colopresso` contains the CLI binary, `./build/utils` contains utility binaries, and `./build` contains `libcolopresso.a`
 
 ## Build (Node.js)
 
@@ -345,7 +346,7 @@ rm -rf "build" && emcmake cmake -B "build" \
 cmake --build "build" --config Release --parallel
 ```
 
-Artifacts are output to `dist_build/colopresso-<version>_{x64,arm64}.dmg`.
+Artifacts are output to `dist_build/colopresso_macos_gui_{x64,arm64}.dmg`.
 
 ### Windows
 
@@ -366,7 +367,7 @@ emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARG
 cmake --build "build" --config Release --parallel
 ```
 
-Artifacts are output as `dist_build/colopresso-<version>_{ia32,x64,arm64}.exe`.
+Artifacts are output as `dist_build/colopresso_windows_gui_{x64,arm64}.exe`.
 
 ---
 

@@ -26,13 +26,13 @@ Python bindings for the colopresso image compression library. Encode PNG images 
 | Platform | Architecture | Requirements |
 |----------|--------------|--------------|
 | Windows | x64 | AVX2 support |
-| Windows | ARM64 | - |
+| Windows | ARM64 | NEON (ASIMD) |
 | macOS | x86_64 | AVX2 support |
-| macOS | arm64 (Apple Silicon) | - |
+| macOS | arm64 (Apple Silicon) | NEON (ASIMD) |
 | Linux (glibc) | x86_64 | AVX2 support |
-| Linux (glibc) | aarch64 | - |
+| Linux (glibc) | aarch64 | NEON (ASIMD) |
 | Linux (musl) | x86_64 | AVX2 support |
-| Linux (musl) | aarch64 | - |
+| Linux (musl) | aarch64 | NEON (ASIMD) |
 
 ## Installation
 
@@ -226,8 +226,8 @@ class PngxLossyType(IntEnum):
 | Value | Description | Use Case |
 |---|---|---|
 | `PALETTE256` | Convert to 256-color indexed palette | Icons, illustrations with few colors |
-| `LIMITED_RGBA4444` | Limit each RGBA channel to 4 bits | Game textures, UI assets |
-| `REDUCED_RGBA32` | Reduce colors while keeping RGBA32 | Photo-like images |
+| `LIMITED_RGBA4444` | Limit each RGBA channel to 4 bits | Prevents banding artifacts in RGBA16bit and RGBA4444 |
+| `REDUCED_RGBA32` | Reduce colors while keeping RGBA32 | When PALETTE256 is not acceptable |
 
 ---
 
@@ -252,7 +252,7 @@ class PngxLossyType(IntEnum):
 | `webp_filter_strength` | int | 60 | Deblocking filter strength (0-100) |
 | `webp_filter_sharpness` | int | 0 | Filter sharpness (0-7). 0 = sharpest |
 | `webp_filter_type` | int | 1 | Filter type. 0 = simple, 1 = strong |
-| `webp_autofilter` | bool | False | Auto-adjust filter strength |
+| `webp_autofilter` | bool | True | Auto-adjust filter strength |
 | `webp_alpha_compression` | bool | True | Compress alpha channel |
 | `webp_alpha_filtering` | int | 1 | Alpha filtering (0-2) |
 | `webp_alpha_quality` | int | 100 | Alpha channel quality (0-100) |
@@ -317,20 +317,20 @@ class PngxLossyType(IntEnum):
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `pngx_lossy_reduced_colors` | int | 0 | Target color count after reduction. 0 = auto |
-| `pngx_saliency_map_enable` | bool | False | Adaptive quantization using saliency map |
-| `pngx_chroma_anchor_enable` | bool | False | Preserve chroma anchor points |
-| `pngx_adaptive_dither_enable` | bool | False | Adaptive dithering |
-| `pngx_gradient_boost_enable` | bool | False | Gradient enhancement |
-| `pngx_chroma_weight_enable` | bool | False | Apply chroma weighting |
-| `pngx_postprocess_smooth_enable` | bool | False | Post-processing smoothing |
-| `pngx_postprocess_smooth_importance_cutoff` | float | 0.0 | Smoothing importance cutoff |
-| `pngx_palette256_gradient_profile_enable` | bool | False | Enable gradient profile |
-| `pngx_palette256_gradient_dither_floor` | float | 0.0 | Gradient dither floor |
+| `pngx_lossy_reduced_colors` | int | -1 | Target color count after reduction. -1 = auto |
+| `pngx_saliency_map_enable` | bool | True | Adaptive quantization using saliency map |
+| `pngx_chroma_anchor_enable` | bool | True | Preserve chroma anchor points |
+| `pngx_adaptive_dither_enable` | bool | True | Adaptive dithering |
+| `pngx_gradient_boost_enable` | bool | True | Gradient enhancement |
+| `pngx_chroma_weight_enable` | bool | True | Apply chroma weighting |
+| `pngx_postprocess_smooth_enable` | bool | True | Post-processing smoothing |
+| `pngx_postprocess_smooth_importance_cutoff` | float | 0.6 | Smoothing importance cutoff |
+| `pngx_palette256_gradient_profile_enable` | bool | True | Enable gradient profile |
+| `pngx_palette256_gradient_dither_floor` | float | 0.78 | Gradient dither floor |
 | `pngx_palette256_alpha_bleed_enable` | bool | False | Enable alpha bleed |
-| `pngx_palette256_alpha_bleed_max_distance` | int | 0 | Maximum bleed distance in pixels |
-| `pngx_palette256_alpha_bleed_opaque_threshold` | int | 0 | Opaque threshold |
-| `pngx_palette256_alpha_bleed_soft_limit` | int | 0 | Soft bleed limit |
+| `pngx_palette256_alpha_bleed_max_distance` | int | 64 | Maximum bleed distance in pixels |
+| `pngx_palette256_alpha_bleed_opaque_threshold` | int | 248 | Opaque threshold |
+| `pngx_palette256_alpha_bleed_soft_limit` | int | 160 | Soft bleed limit |
 
 ##### LIMITED_RGBA4444 Mode Settings
 

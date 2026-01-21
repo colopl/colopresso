@@ -26,13 +26,13 @@ colopresso 画像圧縮ライブラリの Python バインディングです。P
 | プラットフォーム | アーキテクチャ | 必要条件 |
 |-----------------|---------------|---------|
 | Windows | x64 | AVX2 サポート |
-| Windows | ARM64 | - |
+| Windows | ARM64 | NEON (ASIMD) |
 | macOS | x86_64 | AVX2 サポート |
-| macOS | arm64 (Apple Silicon) | - |
+| macOS | arm64 (Apple Silicon) | NEON (ASIMD) |
 | Linux (glibc) | x86_64 | AVX2 サポート |
-| Linux (glibc) | aarch64 | - |
+| Linux (glibc) | aarch64 | NEON (ASIMD) |
 | Linux (musl) | x86_64 | AVX2 サポート |
-| Linux (musl) | aarch64 | - |
+| Linux (musl) | aarch64 | NEON (ASIMD) |
 
 ## インストール
 
@@ -226,8 +226,8 @@ class PngxLossyType(IntEnum):
 | 値 | 説明 | 用途 |
 |---|---|---|
 | `PALETTE256` | 256色インデックスパレットに変換 | アイコン、色数の少ないイラスト |
-| `LIMITED_RGBA4444` | 各 RGBA チャンネルを 4 ビットに制限 | ゲームテクスチャ、UI アセット |
-| `REDUCED_RGBA32` | RGBA32 を保持しながら色数を削減 | 写真のような画像 |
+| `LIMITED_RGBA4444` | 各 RGBA チャンネルを 4 ビットに制限 | RGBA16bit, RGBA4444 でのバンディング対策 |
+| `REDUCED_RGBA32` | RGBA32 を保持しながら色数を削減 | PALETTE256 ではどうしても許容できない場合 |
 
 ---
 
@@ -252,7 +252,7 @@ class PngxLossyType(IntEnum):
 | `webp_filter_strength` | int | 60 | デブロッキングフィルタ強度 (0-100) |
 | `webp_filter_sharpness` | int | 0 | フィルタシャープネス (0-7)。0 = 最もシャープ |
 | `webp_filter_type` | int | 1 | フィルタタイプ。0 = シンプル、1 = 強力 |
-| `webp_autofilter` | bool | False | フィルタ強度を自動調整 |
+| `webp_autofilter` | bool | True | フィルタ強度を自動調整 |
 | `webp_alpha_compression` | bool | True | アルファチャンネルを圧縮 |
 | `webp_alpha_filtering` | int | 1 | アルファフィルタリング (0-2) |
 | `webp_alpha_quality` | int | 100 | アルファチャンネル品質 (0-100) |
@@ -317,20 +317,20 @@ class PngxLossyType(IntEnum):
 
 | パラメータ | 型 | デフォルト | 説明 |
 |---|---|---|---|
-| `pngx_lossy_reduced_colors` | int | 0 | 削減後の目標色数。0 = 自動 |
-| `pngx_saliency_map_enable` | bool | False | サリエンシーマップを使用した適応量子化 |
-| `pngx_chroma_anchor_enable` | bool | False | クロマアンカーポイントを保持 |
-| `pngx_adaptive_dither_enable` | bool | False | 適応ディザリング |
-| `pngx_gradient_boost_enable` | bool | False | グラデーション強調 |
-| `pngx_chroma_weight_enable` | bool | False | クロマ重み付けを適用 |
-| `pngx_postprocess_smooth_enable` | bool | False | 後処理スムージング |
-| `pngx_postprocess_smooth_importance_cutoff` | float | 0.0 | スムージング重要度カットオフ |
-| `pngx_palette256_gradient_profile_enable` | bool | False | グラデーションプロファイルを有効化 |
-| `pngx_palette256_gradient_dither_floor` | float | 0.0 | グラデーションディザフロア |
+| `pngx_lossy_reduced_colors` | int | -1 | 削減後の目標色数。-1 = 自動 |
+| `pngx_saliency_map_enable` | bool | True | サリエンシーマップを使用した適応量子化 |
+| `pngx_chroma_anchor_enable` | bool | True | クロマアンカーポイントを保持 |
+| `pngx_adaptive_dither_enable` | bool | True | 適応ディザリング |
+| `pngx_gradient_boost_enable` | bool | True | グラデーション強調 |
+| `pngx_chroma_weight_enable` | bool | True | クロマ重み付けを適用 |
+| `pngx_postprocess_smooth_enable` | bool | True | 後処理スムージング |
+| `pngx_postprocess_smooth_importance_cutoff` | float | 0.6 | スムージング重要度カットオフ |
+| `pngx_palette256_gradient_profile_enable` | bool | True | グラデーションプロファイルを有効化 |
+| `pngx_palette256_gradient_dither_floor` | float | 0.78 | グラデーションディザフロア |
 | `pngx_palette256_alpha_bleed_enable` | bool | False | アルファブリードを有効化 |
-| `pngx_palette256_alpha_bleed_max_distance` | int | 0 | 最大ブリード距離 (ピクセル) |
-| `pngx_palette256_alpha_bleed_opaque_threshold` | int | 0 | 不透明しきい値 |
-| `pngx_palette256_alpha_bleed_soft_limit` | int | 0 | ソフトブリード制限 |
+| `pngx_palette256_alpha_bleed_max_distance` | int | 64 | 最大ブリード距離 (ピクセル) |
+| `pngx_palette256_alpha_bleed_opaque_threshold` | int | 248 | 不透明しきい値 |
+| `pngx_palette256_alpha_bleed_soft_limit` | int | 160 | ソフトブリード制限 |
 
 ##### LIMITED_RGBA4444 モード設定
 
