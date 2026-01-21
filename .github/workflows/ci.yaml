@@ -83,7 +83,7 @@ jobs:
           docker build \
             --file "Dockerfile" \
             --build-arg PLATFORM="${{ matrix.platform }}" \
-            --build-arg ENABLE_VALGRIND="${{ (github.ref == 'refs/heads/main' && github.event_name == 'push') && '1' || '0' }}" \
+            --build-arg ENABLE_VALGRIND="0" \
             --build-arg ENABLE_CLANG="1" \
             --build-arg ENABLE_EMSDK="1" \
             --build-arg EMSDK_VERSION="${{ needs.Prepare.outputs.emsdk_version }}" \
@@ -108,18 +108,6 @@ jobs:
                 -DCOLOPRESSO_USE_CLI=ON
               cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
               ctest --test-dir "build" --output-on-failure --parallel
-
-              if type "valgrind" &> /dev/null; then
-                rm -rf "build"
-                cmake -B "build" \
-                  -DCMAKE_BUILD_TYPE="Debug" \
-                  -DCOLOPRESSO_USE_VALGRIND=ON \
-                  -DCOLOPRESSO_USE_TESTS=ON \
-                  -DCOLOPRESSO_USE_UTILS=ON \
-                  -DCOLOPRESSO_USE_CLI=ON
-                cmake --build "build" --config "Debug" --parallel="$(($(nproc)-1))"
-                ctest --test-dir "build" --output-on-failure
-              fi
 
               for OPTS in ASAN MSAN UBSAN; do
                 rm -rf "build"
@@ -150,6 +138,58 @@ jobs:
                 -DCMAKE_BUILD_TYPE="Release" \
                 -DCOLOPRESSO_CHROME_EXTENSION=ON
               cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
+            '
+  Valgrind:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: Prepare
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runs-on: ubuntu-24.04
+          - arch: arm64
+            platform: linux/arm64
+            runs-on: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - name: Download dummy versioned code
+        uses: actions/download-artifact@v7
+        with:
+          name: dummy-versioned-code
+          path: .
+      - name: Extract dummy versioned code
+        run: |
+          tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
+          rm -rf "dummy-versioned-code.tar.gz"
+      - name: Build container
+        run: |
+          docker build \
+            --file "Dockerfile" \
+            --build-arg PLATFORM="${{ matrix.platform }}" \
+            --build-arg ENABLE_VALGRIND="1" \
+            --build-arg ENABLE_CLANG="0" \
+            --build-arg ENABLE_EMSDK="0" \
+            --target "builder" \
+            --tag "valgrind" \
+            .
+      - name: Run Valgrind tests
+        run: |
+          docker run \
+            --rm \
+            --volume "${PWD}:/workspace" \
+            --workdir "/workspace" \
+            valgrind \
+            /bin/bash -lc '
+              set -e
+              cmake -B "build" \
+                -DCMAKE_BUILD_TYPE="Debug" \
+                -DCOLOPRESSO_USE_VALGRIND=ON \
+                -DCOLOPRESSO_USE_TESTS=ON \
+                -DCOLOPRESSO_USE_UTILS=ON \
+                -DCOLOPRESSO_USE_CLI=ON
+              cmake --build "build" --config "Debug" --parallel="$(($(nproc)-1))"
+              ctest --test-dir "build" --output-on-failure --parallel
             '
   WindowsElectron:
     needs: Prepare
