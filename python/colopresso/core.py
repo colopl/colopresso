@@ -110,7 +110,7 @@ class Config:
     pngx_postprocess_smooth_importance_cutoff: float = 0.6
     pngx_palette256_gradient_profile_enable: bool = True
     pngx_palette256_gradient_dither_floor: float = 0.78
-    pngx_palette256_alpha_bleed_enable: bool = True
+    pngx_palette256_alpha_bleed_enable: bool = False
     pngx_palette256_alpha_bleed_max_distance: int = 64
     pngx_palette256_alpha_bleed_opaque_threshold: int = 248
     pngx_palette256_alpha_bleed_soft_limit: int = 160
