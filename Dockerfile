@@ -70,11 +70,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     set -e; \
     if test "${ENABLE_CLANG}" != "0"; then \
       apt-get update && \
-      apt-get --no-install-recommends install -y "gnupg" && \
-      mkdir -p "/usr/share/keyrings" && \
-      curl -sSL "https://apt.llvm.org/llvm-snapshot.gpg.key" | gpg --dearmor > "/usr/share/keyrings/llvm-archive-keyring.gpg" && \
-      echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] http://apt.llvm.org/trixie/ llvm-toolchain-trixie main" > "/etc/apt/sources.list.d/llvm.list" && \
-      echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] http://apt.llvm.org/trixie/ llvm-toolchain-trixie-21 main" >> "/etc/apt/sources.list.d/llvm.list" && \
+      # fixme: re-enable keyring usage when SHA256 key is available
+      # apt-get --no-install-recommends install -y "gnupg" && \
+      # mkdir -p "/usr/share/keyrings" && \
+      # curl -sSL "https://apt.llvm.org/llvm-snapshot.gpg.key" | gpg --dearmor > "/usr/share/keyrings/llvm-archive-keyring.gpg" && \
+      echo "deb [trusted=yes] http://apt.llvm.org/trixie/ llvm-toolchain-trixie main" > "/etc/apt/sources.list.d/llvm.list" && \
+      echo "deb [trusted=yes] http://apt.llvm.org/trixie/ llvm-toolchain-trixie-21 main" >> "/etc/apt/sources.list.d/llvm.list" && \
       apt-get update && \
       apt-get install --no-install-recommends -y \
         "clang-21" "clang-tools-21" "clang-format-21" "clang-tidy-21" \
