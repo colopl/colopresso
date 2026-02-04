@@ -218,6 +218,8 @@ jobs:
           toolchain: ${{ needs.Prepare.outputs.rust_nightly }}
           targets: wasm32-unknown-emscripten,wasm32-unknown-unknown
           components: rust-src
+      - name: Set Rust default
+        run: rustup default ${{ needs.Prepare.outputs.rust_nightly }}
       - name: Setup wasm-pack
         run: cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
       - name: Setup emsdk
@@ -271,6 +273,8 @@ jobs:
           toolchain: ${{ needs.Prepare.outputs.rust_nightly }}
           targets: wasm32-unknown-emscripten,wasm32-unknown-unknown
           components: rust-src
+      - name: Set Rust default
+        run: rustup default ${{ needs.Prepare.outputs.rust_nightly }}
       - name: Setup wasm-pack
         run: cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
       - name: Setup emsdk
