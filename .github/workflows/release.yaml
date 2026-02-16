@@ -246,7 +246,7 @@ jobs:
           $json.build.publish[0].releaseType = $releaseType
           $json | ConvertTo-Json -Depth 64 | Set-Content $pkgPath -Encoding UTF8
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: ${{ needs.Prepare.outputs.rust_nightly }}
           targets: wasm32-unknown-emscripten,wasm32-unknown-unknown
@@ -319,7 +319,7 @@ jobs:
           node-version: '24'
           cache: 'pnpm'
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: ${{ needs.Prepare.outputs.rust_nightly }}
           targets: wasm32-unknown-emscripten,wasm32-unknown-unknown
@@ -496,7 +496,7 @@ jobs:
           tar -xzf "versioned-code.tar.gz" --strip-components=1
           Remove-Item "versioned-code.tar.gz" -Force
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: ${{ needs.Prepare.outputs.rust_stable }}
       - name: Configure CMake
@@ -566,7 +566,7 @@ jobs:
           tar -xzf "versioned-code.tar.gz" --strip-components=1
           rm -rf "versioned-code.tar.gz"
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: ${{ needs.Prepare.outputs.rust_stable }}
           targets: ${{ matrix.arch.rust_target }}
