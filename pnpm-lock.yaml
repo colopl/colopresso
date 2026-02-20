@@ -26,7 +26,7 @@ importers:
     devDependencies:
       '@types/chrome':
         specifier: ^0.1.32
-        version: 0.1.36
+        version: 0.1.37
       '@types/node':
         specifier: ^24.10.3
         version: 24.10.13
@@ -576,8 +576,8 @@ packages:
   '@types/cacheable-request@6.0.3':
     resolution: {integrity: sha512-IQ3EbTzGxIigb1I3qPZc1rWJnH0BmSKv5QYTalEwweFvyBDLSAe24zP0le/hyi7ecGfZVlIVAg4BZqb8WBwKqw==}
 
-  '@types/chrome@0.1.36':
-    resolution: {integrity: sha512-BvHbuyGttYXnGt5Gpwa4769KIinKHY1iLjlAPrrMBS2GI9m/XNMPtdsq0NgQalyuUdxvlMN/0OyGw0shFVIoUQ==}
+  '@types/chrome@0.1.37':
+    resolution: {integrity: sha512-IJE4ceuDO7lrEuua7Pow47zwNcI8E6qqkowRP7aFPaZ0lrjxh6y836OPqqkIZeTX64FTogbw+4RNH0+QrweCTQ==}
 
   '@types/debug@4.1.12':
     resolution: {integrity: sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ==}
@@ -1373,6 +1373,10 @@ packages:
   minimatch@10.2.1:
     resolution: {integrity: sha512-MClCe8IL5nRRmawL6ib/eT4oLyeKMGCghibcDWK+J0hh0Q8kqSdia6BvbRMVk6mPa6WqUa5uR2oxt6C5jd533A==}
     engines: {node: 20 || >=22}
+
+  minimatch@10.2.2:
+    resolution: {integrity: sha512-+G4CpNBxa5MprY+04MbgOw1v7So6n5JY166pFi9KfYwT78fxScCeSNQSNzp6dpPSW2rONOps6Ocam1wFhCgoVw==}
+    engines: {node: 18 || 20 || >=22}
 
   minimatch@3.1.2:
     resolution: {integrity: sha512-J7p63hRiAjw1NDEww1W7i37+ByIrOWO5XQQAzZ3VOcL0PNybwpfmV/N05zFAzwQ9USyEcX6t3UO+K5aqBQOIHw==}
@@ -2471,7 +2475,7 @@ snapshots:
       '@types/node': 24.10.13
       '@types/responselike': 1.0.3
 
-  '@types/chrome@0.1.36':
+  '@types/chrome@0.1.37':
     dependencies:
       '@types/filesystem': 0.0.36
       '@types/har-format': 1.2.16
@@ -2605,7 +2609,7 @@ snapshots:
       js-yaml: 4.1.1
       json5: 2.2.3
       lazy-val: 1.0.5
-      minimatch: 10.2.1
+      minimatch: 10.2.2
       plist: 3.1.0
       resedit: 1.7.2
       semver: 7.7.4
@@ -3479,6 +3483,10 @@ snapshots:
   mimic-response@3.1.0: {}
 
   minimatch@10.2.1:
+    dependencies:
+      brace-expansion: 5.0.2
+
+  minimatch@10.2.2:
     dependencies:
       brace-expansion: 5.0.2
 
