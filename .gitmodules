@@ -1,7 +1,7 @@
 [submodule "third_party/emsdk"]
 	path = third_party/emsdk
 	url = https://github.com/emscripten-core/emsdk.git
-	branch = 5.0.1
+	branch = 5.0.2
 [submodule "third_party/libpng"]
 	path = third_party/libpng
 	url = https://github.com/pnggroup/libpng.git
