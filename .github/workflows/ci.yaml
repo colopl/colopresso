@@ -51,7 +51,7 @@ jobs:
           tar -czf "../dummy-versioned-code.tar.gz" -C .. "$(basename "${PWD}")"
           mv "../dummy-versioned-code.tar.gz" "./dummy-versioned-code.tar.gz"
       - name: Upload versioned code
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: dummy-versioned-code
           path: ./dummy-versioned-code.tar.gz
@@ -70,7 +70,7 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Download dummy versioned code
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: dummy-versioned-code
           path: .
@@ -154,7 +154,7 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Download dummy versioned code
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: dummy-versioned-code
           path: .
@@ -196,7 +196,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Download dummy versioned code
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: dummy-versioned-code
       - name: Extract versioned code
@@ -248,7 +248,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Download dummy versioned code
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: dummy-versioned-code
           path: .
@@ -300,7 +300,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Download dummy versioned code
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: dummy-versioned-code
       - name: Extract versioned code
@@ -329,7 +329,7 @@ jobs:
     runs-on: ${{ matrix.arch.runs-on }}
     steps:
       - name: Download dummy versioned code
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: dummy-versioned-code
           path: .
@@ -362,7 +362,7 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Download dummy versioned code
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: dummy-versioned-code
           path: .
@@ -467,7 +467,7 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Download dummy versioned code
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: dummy-versioned-code
           path: .
