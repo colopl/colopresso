@@ -13,7 +13,7 @@
 [submodule "third_party/libavif"]
 	path = third_party/libavif
 	url = https://github.com/AOMediaCodec/libavif.git
-	branch = v1.3.0
+	branch = v1.4.0
 [submodule "third_party/zlib"]
 	path = third_party/zlib
 	url = https://github.com/madler/zlib.git
