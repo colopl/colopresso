@@ -17,7 +17,7 @@
 [submodule "third_party/zlib"]
 	path = third_party/zlib
 	url = https://github.com/madler/zlib.git
-	branch = v1.3.1
+	branch = v1.3.2
 	ignore = dirty
 [submodule "third_party/unity"]
 	path = third_party/unity
