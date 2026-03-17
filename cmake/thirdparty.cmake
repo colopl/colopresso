@@ -23,7 +23,7 @@ endif()
 
 # zlib
 set(ZLIB_LIBRARY_TYPE STATIC)
-colopresso_force_cache(ZLIB_BUILD_EXAMPLES BOOL OFF)
+colopresso_force_cache(ZLIB_BUILD_TESTING BOOL OFF)
 colopresso_force_cache(ZLIB_BUILD_SHARED BOOL OFF)
 colopresso_force_cache(ZLIB_BUILD_STATIC BOOL ON)
 colopresso_force_cache(ZLIB_ROOT PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party/zlib")
