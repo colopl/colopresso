@@ -23,20 +23,17 @@ endif()
 
 # zlib
 set(ZLIB_LIBRARY_TYPE STATIC)
-colopresso_force_cache(ZLIB_BUILD_EXAMPLES BOOL OFF)
+colopresso_force_cache(ZLIB_BUILD_TESTING BOOL OFF)
 colopresso_force_cache(ZLIB_BUILD_SHARED BOOL OFF)
 colopresso_force_cache(ZLIB_BUILD_STATIC BOOL ON)
+colopresso_force_cache(ZLIB_INSTALL BOOL OFF)
 colopresso_force_cache(ZLIB_ROOT PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party/zlib")
 colopresso_force_cache(ZLIB_INCLUDE_DIR PATH "${CMAKE_CURRENT_BINARY_DIR}/third_party/zlib;${CMAKE_CURRENT_SOURCE_DIR}/third_party/zlib")
 if(WIN32)
-  colopresso_force_cache(ZLIB_LIBRARY FILEPATH "${CMAKE_CURRENT_BINARY_DIR}/third_party/zlib/Release/zlibstatic.lib")
+  colopresso_force_cache(ZLIB_LIBRARY FILEPATH "${CMAKE_CURRENT_BINARY_DIR}/third_party/zlib/Release/zs.lib")
 else()
   colopresso_force_cache(ZLIB_LIBRARY FILEPATH "${CMAKE_CURRENT_BINARY_DIR}/third_party/zlib/libz.a")
 endif()
-foreach(_skip_target LIBRARIES HEADERS FILES)
-  colopresso_force_cache(SKIP_INSTALL_${_skip_target} BOOL OFF)
-endforeach()
-colopresso_force_cache(SKIP_INSTALL_ALL BOOL ON)
 
 # libpng
 colopresso_force_cache(PNG_SHARED BOOL OFF)
