@@ -63,6 +63,7 @@ function(colopresso_register_test SOURCE)
   if(COLOPRESSO_USE_MSAN)
     set_tests_properties(${_test_name} PROPERTIES
       ENVIRONMENT "MSAN_OPTIONS=halt_on_error=0:track_origins=2"
+      TIMEOUT 3600
     )
   endif()
 
