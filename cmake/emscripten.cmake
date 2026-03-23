@@ -84,10 +84,15 @@ if(_colopresso_gui_enabled)
       CONFIG "${CMAKE_SOURCE_DIR}/app/electron/vite.config.ts"
       ENV ${_electron_app_env}
     )
+    colopresso_add_vite_build(_vite_commands
+      CONFIG "${CMAKE_SOURCE_DIR}/app/electron/vite.preload.config.ts"
+      ENV ${_electron_app_env}
+    )
 
     list(APPEND _gui_config_files
       "${CMAKE_SOURCE_DIR}/app/shared/vite.config.ts"
       "${CMAKE_SOURCE_DIR}/app/electron/vite.config.ts"
+      "${CMAKE_SOURCE_DIR}/app/electron/vite.preload.config.ts"
     )
     list(APPEND _gui_source_globs
       "${CMAKE_SOURCE_DIR}/app/shared/*.ts"
@@ -238,6 +243,7 @@ function(colopresso_configure_gui_target PLATFORM DISPLAY_NAME)
     ${OUTPUT_DIR}/offscreen.js.map
     ${OUTPUT_DIR}/tsconfig.json
     ${OUTPUT_DIR}/vite.config.ts
+    ${OUTPUT_DIR}/vite.preload.config.ts
   )
 
   list(APPEND _post_build_commands

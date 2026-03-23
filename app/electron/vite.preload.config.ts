@@ -29,7 +29,7 @@ export default defineConfig({
     target: 'node20',
     rollupOptions: {
       input: {
-        main: path.resolve(__dirname, 'main.ts'),
+        preload: path.resolve(__dirname, 'preload.ts'),
       },
       external,
       output: {
