@@ -152,6 +152,7 @@ jobs:
             platform: linux/arm64
             runs-on: ubuntu-24.04-arm
     runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 360
     steps:
       - name: Download dummy versioned code
         uses: actions/download-artifact@v8
