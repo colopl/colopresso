@@ -87,6 +87,7 @@ function(colopresso_register_test SOURCE)
     )
     set_tests_properties(${_test_name}_valgrind PROPERTIES
       ENVIRONMENT "RAYON_NUM_THREADS=${COLOPRESSO_VALGRIND_RAYON_NUM_THREADS}"
+      TIMEOUT 3600
     )
   endif()
 endfunction()
