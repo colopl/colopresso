@@ -80,7 +80,7 @@ endif()
 
 # Coverage configuration
 if(COLOPRESSO_ENABLE_COVERAGE)
-  target_compile_options(colopresso PRIVATE "--coverage")
+  target_compile_options(colopresso PRIVATE "--coverage" "-fprofile-update=atomic")
   target_link_options(colopresso PRIVATE "--coverage")
 endif()
 

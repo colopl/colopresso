@@ -24,7 +24,7 @@ if(COLOPRESSO_ENABLE_COVERAGE)
   add_custom_target(coverage
     COMMAND ${LCOV} --initial --directory ${CMAKE_BINARY_DIR} --capture --output-file ${_coverage_dir}/base.info
     COMMAND ${CMAKE_CTEST_COMMAND} -C ${CMAKE_BUILD_TYPE} --parallel
-    COMMAND ${LCOV} --directory ${CMAKE_BINARY_DIR} --capture --output-file ${_coverage_dir}/test.info
+    COMMAND ${LCOV} --directory ${CMAKE_BINARY_DIR} --capture --ignore-errors negative --output-file ${_coverage_dir}/test.info
     COMMAND ${LCOV} --add-tracefile ${_coverage_dir}/base.info --add-tracefile ${_coverage_dir}/test.info --output-file ${_coverage_dir}/total.info
     COMMAND ${LCOV} --remove ${_coverage_dir}/total.info '*/third_party/*' '/usr/*' --ignore-errors unused --output-file ${_coverage_dir}/filtered.info
     COMMAND ${GENHTML} --demangle-cpp --legend --title "${CMAKE_PROJECT_NAME} Coverage Report" --output-directory ${_coverage_dir}/html ${_coverage_dir}/filtered.info
@@ -63,7 +63,7 @@ function(colopresso_register_test SOURCE)
   if(COLOPRESSO_USE_MSAN)
     set_tests_properties(${_test_name} PROPERTIES
       ENVIRONMENT "MSAN_OPTIONS=halt_on_error=0:track_origins=2"
-      TIMEOUT 3600
+      TIMEOUT 7200
     )
   endif()
 
@@ -87,7 +87,7 @@ function(colopresso_register_test SOURCE)
     )
     set_tests_properties(${_test_name}_valgrind PROPERTIES
       ENVIRONMENT "RAYON_NUM_THREADS=${COLOPRESSO_VALGRIND_RAYON_NUM_THREADS}"
-      TIMEOUT 21600
+      TIMEOUT 43200
     )
   endif()
 endfunction()
