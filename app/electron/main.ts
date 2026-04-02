@@ -690,10 +690,10 @@ function registerIpcHandlers(): void {
   ipcMain.handle('restart-app', () => {
     try {
       app.relaunch();
+      app.exit(0);
     } catch (error) {
       console.error('app.relaunch() failed', error);
     }
-    app.exit(0);
   });
 
   ipcMain.handle('confirm-install-update', async (_event: IpcMainInvokeEvent, payload: unknown): Promise<ElectronConfirmInstallUpdateResult> => {
