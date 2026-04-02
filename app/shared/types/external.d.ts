@@ -27,6 +27,7 @@ declare global {
     onUpdateDownloadProgress?: (handler: (payload: Record<string, unknown>) => void) => () => void;
     onUpdateDownloadComplete?: (handler: (payload: Record<string, unknown>) => void) => () => void;
     onUpdateDownloadError?: (handler: (payload: Record<string, unknown>) => void) => () => void;
+    restartApp?: () => Promise<void>;
   }
 
   interface Window {

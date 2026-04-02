@@ -63,6 +63,7 @@ const api: ElectronAPI = {
   downloadUpdateNow: () => ipcRenderer.invoke('download-update-now'),
   confirmInstallUpdate: (payload) => ipcRenderer.invoke('confirm-install-update', payload),
   installUpdateNow: () => ipcRenderer.invoke('install-update-now'),
+  restartApp: () => ipcRenderer.invoke('restart-app'),
   getUpdateChannel: () => ipcRenderer.invoke('get-update-channel'),
   getArchitecture: () => ipcRenderer.invoke('get-architecture'),
   getPngxBridgeUrl: () => ipcRenderer.invoke('get-pngx-bridge-url'),

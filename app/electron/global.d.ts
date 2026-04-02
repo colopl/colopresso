@@ -82,6 +82,7 @@ interface ElectronAPI {
   downloadUpdateNow?: () => Promise<ElectronDownloadUpdateResult>;
   confirmInstallUpdate?: (payload: { version?: string }) => Promise<ElectronConfirmInstallUpdateResult>;
   installUpdateNow?: () => Promise<ElectronInstallUpdateResult>;
+  restartApp?: () => Promise<void>;
   getUpdateChannel?: () => Promise<string | undefined>;
   getArchitecture?: () => Promise<string | undefined>;
   getPngxBridgeUrl?: () => Promise<string | undefined>;

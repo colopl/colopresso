@@ -687,6 +687,15 @@ function registerIpcHandlers(): void {
     return { success: true };
   });
 
+  ipcMain.handle('restart-app', () => {
+    try {
+      app.relaunch();
+      app.exit(0);
+    } catch (error) {
+      console.error('app.relaunch() failed', error);
+    }
+  });
+
   ipcMain.handle('confirm-install-update', async (_event: IpcMainInvokeEvent, payload: unknown): Promise<ElectronConfirmInstallUpdateResult> => {
     const typed = (payload ?? {}) as { version?: unknown };
     const version = typeof typed.version === 'string' ? typed.version : '';
