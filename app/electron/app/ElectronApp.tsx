@@ -842,7 +842,11 @@ const ElectronAppInner: React.FC = () => {
       await resetAllStoredData();
       sessionStorage.setItem(CHECK_FOR_UPDATES_AFTER_RELOAD_KEY, 'true');
       window.alert(t('settingsMenu.resetSuccess'));
-      window.location.reload();
+      if (window.electronAPI?.restartApp) {
+        void window.electronAPI.restartApp();
+      } else {
+        window.location.reload();
+      }
     } catch (error) {
       window.alert(t('settingsMenu.resetFailed', { error: (error as Error).message ?? '' }));
     }

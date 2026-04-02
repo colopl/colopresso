@@ -881,7 +881,11 @@ class AdvancedSettingsManager {
           const shouldReload = confirm(t('settingsModal.alerts.reloadRequired'));
           if (shouldReload) {
             sessionStorage.setItem('checkForUpdatesAfterReload', 'true');
-            window.location.reload();
+            if (window.electronAPI?.restartApp) {
+              void window.electronAPI.restartApp();
+            } else {
+              window.location.reload();
+            }
           }
         }
       });
