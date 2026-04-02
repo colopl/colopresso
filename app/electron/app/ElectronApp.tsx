@@ -686,9 +686,10 @@ const ElectronAppInner: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const shouldCheck = sessionStorage.getItem(CHECK_FOR_UPDATES_AFTER_RELOAD_KEY);
+    const shouldCheck = sessionStorage.getItem(CHECK_FOR_UPDATES_AFTER_RELOAD_KEY) || localStorage.getItem(CHECK_FOR_UPDATES_AFTER_RELOAD_KEY);
     if (shouldCheck) {
       sessionStorage.removeItem(CHECK_FOR_UPDATES_AFTER_RELOAD_KEY);
+      localStorage.removeItem(CHECK_FOR_UPDATES_AFTER_RELOAD_KEY);
       if (window.electronAPI?.checkForUpdates) {
         void window.electronAPI.checkForUpdates();
       }
@@ -843,6 +844,8 @@ const ElectronAppInner: React.FC = () => {
       sessionStorage.setItem(CHECK_FOR_UPDATES_AFTER_RELOAD_KEY, 'true');
       window.alert(t('settingsMenu.resetSuccess'));
       if (window.electronAPI?.restartApp) {
+        localStorage.setItem(CHECK_FOR_UPDATES_AFTER_RELOAD_KEY, 'true');
+        sessionStorage.removeItem(CHECK_FOR_UPDATES_AFTER_RELOAD_KEY);
         void window.electronAPI.restartApp();
       } else {
         window.location.reload();
