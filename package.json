@@ -4,7 +4,7 @@
   "description": "colopresso - PNG to Advanced Image Format converter",
   "main": "build/electron/main.js",
   "scripts": {
-    "format:web": "prettier --write 'app/shared/**/*.{ts,tsx,js,css,html}' 'app/electron/**/*.{ts,tsx,js,css,html}' 'app/chrome/**/*.{ts,tsx,js,css,html}'",
+    "format:web": "prettier --write 'app/shared/**/*.{ts,tsx,js,css,html}' 'app/electron/**/*.{ts,tsx,js,css,html}'",
     "format:c": "find library/src/ library/utils/ library/tests/ library/include/ -name '*.c' -o -name '*.h' | xargs clang-format -i",
     "format:rust": "cd library/pngx_bridge && cargo fmt && cd -",
     "format:header": "python utils/update_licence_header.py",
@@ -22,9 +22,7 @@
     "wconfigure": "emcmake cmake -B build -DCMAKE_BUILD_TYPE=Release -DCOLOPRESSO_USE_UTILS=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_USE_CLI=ON -DCOLOPRESSO_NODE_BUILD=ON",
     "wdconfigure": "emcmake cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_USE_UTILS=ON -DCOLOPRESSO_USE_TESTS=ON -DCOLOPRESSO_USE_CLI=ON -DCOLOPRESSO_NODE_BUILD=ON",
     "econfigure": "utils/electron_configure.sh Release",
-    "edconfigure": "utils/electron_configure.sh Debug",
-    "cconfigure": "emcmake cmake -B build -DCMAKE_BUILD_TYPE=Release -DCOLOPRESSO_CHROME_EXTENSION=ON",
-    "cdconfigure": "emcmake cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCOLOPRESSO_CHROME_EXTENSION=ON"
+    "edconfigure": "utils/electron_configure.sh Debug"
   },
   "keywords": [
     "png",
@@ -33,13 +31,11 @@
     "converter",
     "compressor",
     "electron",
-    "chrome",
     "colopl"
   ],
   "author": "COLOPL, Inc. <g-kudo@colopl.co.jp>",
-  "license": "GPL-3.0-only",
+  "license": "GPL-3.0-or-later",
   "devDependencies": {
-    "@types/chrome": "^0.1.32",
     "@types/node": "^24.10.3",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",

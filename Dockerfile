@@ -39,9 +39,11 @@ CMD [ "/bin/bash" ]
 COPY rust-toolchain.toml /tmp/rust-toolchain.toml
 RUN set -e; \
     RUST_STABLE_VERSION="$(grep -E '^channel\s*=' /tmp/rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')"; \
+    RUST_STABLE_COMPONENTS="$(sed -n '/^components\s*=/p' /tmp/rust-toolchain.toml | grep -o '"[^"]*"' | tr -d '"' | paste -sd, -)"; \
     RUST_NIGHTLY_VERSION="$(grep -E '^nightly\s*=' /tmp/rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')"; \
     WASM_PACK_VERSION="$(grep -E '^wasm-pack\s*=' /tmp/rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')"; \
     echo "RUST_STABLE_VERSION=${RUST_STABLE_VERSION}" > /tmp/rust-versions.env; \
+    echo "RUST_STABLE_COMPONENTS=${RUST_STABLE_COMPONENTS}" >> /tmp/rust-versions.env; \
     echo "RUST_NIGHTLY_VERSION=${RUST_NIGHTLY_VERSION}" >> /tmp/rust-versions.env; \
     echo "WASM_PACK_VERSION=${WASM_PACK_VERSION}" >> /tmp/rust-versions.env; \
     rm "/tmp/rust-toolchain.toml"
@@ -56,6 +58,10 @@ RUN --mount=type=cache,target=/opt/rust/cargo/registry,sharing=locked \
     echo 'export PATH="${CARGO_HOME}/bin:${PATH}"' > "/etc/profile.d/cargo.sh" && \
     . "/etc/profile.d/cargo.sh" && \
     rustup toolchain install "${RUST_STABLE_VERSION}" && \
+    if test -n "${RUST_STABLE_COMPONENTS}"; then \
+      set -- $(printf '%s' "${RUST_STABLE_COMPONENTS}" | tr ',' ' '); \
+      rustup component add "$@" --toolchain "${RUST_STABLE_VERSION}"; \
+    fi && \
     rustup target add "wasm32-unknown-emscripten" && \
     rustup target add "wasm32-unknown-unknown" && \
     rustup toolchain install "${RUST_NIGHTLY_VERSION}" && \

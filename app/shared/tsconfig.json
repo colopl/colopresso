@@ -10,9 +10,7 @@
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "jsx": "react-jsx",
-    "baseUrl": "./",
-    "types": ["chrome"]
+    "jsx": "react-jsx"
   },
   "include": [
     "./**/*.ts",

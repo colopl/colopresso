@@ -16,7 +16,6 @@ option(COLOPRESSO_ENABLE_SIMD "Enable SIMD optimizations" ON)
 option(COLOPRESSO_PYTHON_BINDINGS "Build Python bindings" OFF)
 
 if(EMSCRIPTEN)
-  option(COLOPRESSO_CHROME_EXTENSION "Build for Chrome Extension" OFF)
   option(COLOPRESSO_ELECTRON_APP "Build for Electron" OFF)
   option(COLOPRESSO_NODE_BUILD "Build for Node.js" ON)
   option(COLOPRESSO_ENABLE_WASM_SIMD "Enable WASM SIMD128 optimizations" ON)

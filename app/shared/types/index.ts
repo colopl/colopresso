@@ -159,7 +159,6 @@ export const SETTINGS_SCHEMA_VERSION_STORAGE_KEY = 'settingsSchemaVersion';
 export interface SettingsState {
   deletePng?: boolean;
   createZip?: boolean;
-  processFolder?: boolean;
   useOriginalOutput?: boolean;
   outputDirectoryPath?: string | null;
 }
@@ -193,12 +192,6 @@ export interface ProcessedFileResult {
 export interface ZipSpecifier {
   filename: string;
   data: Uint8Array;
-}
-
-export interface EnvironmentDescriptor {
-  type: 'chrome' | 'electron';
-  titleKey: string;
-  settings: AppSettingDefinition[];
 }
 
 export interface ProcessBatch {

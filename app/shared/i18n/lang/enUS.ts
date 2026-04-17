@@ -165,19 +165,6 @@ const bundle: TranslationBundle = {
       copyAction: 'Copy message',
       copyHint: 'Click to copy the error message.',
     },
-    chrome: {
-      title: 'colopresso',
-      settings: {
-        processFolderLabel: 'Process every PNG file inside dropped folders',
-        processFolderDescription: 'When you drop a folder, convert all PNG files it contains.',
-        createZipLabel: 'Bundle multiple files into a ZIP',
-        createZipDescription: 'When multiple files are processed, download them as a ZIP file.',
-      },
-      dropzone: {
-        text: 'Drop PNG images',
-        hint: 'Or click to select files',
-      },
-    },
     electron: {
       title: 'colopresso',
       settings: {

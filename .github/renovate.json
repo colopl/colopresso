@@ -8,6 +8,59 @@
   "git-submodules": {
     "enabled": true
   },
+  "customDatasources": {
+    "rust-nightly": {
+      "defaultRegistryUrlTemplate": "https://static.rust-lang.org/dist/channel-rust-nightly-date.txt",
+      "format": "plain",
+      "transformTemplates": [
+        "{\"releases\":[{\"version\": $join([\"nightly-\", releases[0].version]), \"sourceUrl\": \"https://github.com/rust-lang/rust\", \"changelogUrl\": \"https://github.com/rust-lang/rust/releases\"}], \"sourceUrl\": \"https://github.com/rust-lang/rust\"}"
+      ]
+    }
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update stable Rust toolchain pins",
+      "managerFilePatterns": [
+        "/^rust-toolchain\\.toml$/",
+        "/^library\\/pngx_bridge\\/rust-toolchain\\.toml$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\n)channel\\s*=\\s*\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
+      ],
+      "depNameTemplate": "rust-lang/rust",
+      "datasourceTemplate": "github-tags",
+      "versioningTemplate": "semver-coerced"
+    },
+    {
+      "customType": "regex",
+      "description": "Update Rust nightly toolchain pins",
+      "managerFilePatterns": [
+        "/^rust-toolchain\\.toml$/",
+        "/^library\\/pngx_bridge\\/rust-toolchain-nightly\\.toml$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\n)(?:nightly|channel)\\s*=\\s*\"(?<currentValue>nightly-\\d{4}-\\d{2}-\\d{2})\""
+      ],
+      "depNameTemplate": "rust-nightly",
+      "datasourceTemplate": "custom.rust-nightly",
+      "versioningTemplate": "regex:^nightly-(?<major>\\d{4})-(?<minor>\\d{2})-(?<patch>\\d{2})$"
+    },
+    {
+      "customType": "regex",
+      "description": "Update wasm-pack pin",
+      "managerFilePatterns": [
+        "/^rust-toolchain\\.toml$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\n)wasm-pack\\s*=\\s*\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
+      ],
+      "depNameTemplate": "wasm-bindgen/wasm-pack",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    }
+  ],
   "packageRules": [
     {
       "description": "Semver format",

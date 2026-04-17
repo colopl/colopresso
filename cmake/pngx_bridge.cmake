@@ -32,9 +32,9 @@ macro(_pngx_bridge_create_wasm_stub)
 endmacro()
 
 if(EMSCRIPTEN)
-  if(COLOPRESSO_ELECTRON_APP OR COLOPRESSO_CHROME_EXTENSION)
-    set(COLOPRESSO_NODE_WASM_SEPARATION ON CACHE BOOL "Use WASM separation (forced ON for Electron/Chrome)" FORCE)
-    message(STATUS "pngx_bridge: WASM separation forced ON for Electron/Chrome Extension build")
+  if(COLOPRESSO_ELECTRON_APP)
+    set(COLOPRESSO_NODE_WASM_SEPARATION ON CACHE BOOL "Use WASM separation (forced ON for Electron)" FORCE)
+    message(STATUS "pngx_bridge: WASM separation forced ON for Electron build")
   else()
     option(COLOPRESSO_NODE_WASM_SEPARATION "Use WASM separation for Node.js build (enables separate pngx_bridge WASM module)" OFF)
   endif()
@@ -199,10 +199,11 @@ add_custom_command(
 )
 
 set(PNGX_BRIDGE_RUSTFLAGS "-A mismatched_lifetime_syntaxes")
+set(PNGX_BRIDGE_TARGET_RUSTFLAGS "")
 
 if(EMSCRIPTEN)
   if(COLOPRESSO_ENABLE_WASM_SIMD)
-    string(APPEND PNGX_BRIDGE_RUSTFLAGS " -C target-feature=+simd128")
+    set(PNGX_BRIDGE_TARGET_RUSTFLAGS "-C target-feature=+simd128")
   endif()
 endif()
 
@@ -226,6 +227,15 @@ if(DEFINED ENV{RUSTFLAGS} AND NOT "$ENV{RUSTFLAGS}" STREQUAL "")
   string(APPEND _pngx_bridge_combined_rustflags " $ENV{RUSTFLAGS}")
 endif()
 set(_pngx_bridge_cargo_env "RUSTFLAGS=${_pngx_bridge_combined_rustflags}")
+
+if(PNGX_BRIDGE_TARGET_RUSTFLAGS)
+  set(_pngx_bridge_combined_target_rustflags "${PNGX_BRIDGE_TARGET_RUSTFLAGS}")
+  if(DEFINED ENV{CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_RUSTFLAGS} AND NOT "$ENV{CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_RUSTFLAGS}" STREQUAL "")
+    string(APPEND _pngx_bridge_combined_target_rustflags " $ENV{CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_RUSTFLAGS}")
+  endif()
+  list(APPEND _pngx_bridge_cargo_env
+    "CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_RUSTFLAGS=${_pngx_bridge_combined_target_rustflags}")
+endif()
 
 if(DEFINED ENV{CFLAGS} AND NOT "$ENV{CFLAGS}" STREQUAL "")
   if(PNGX_BRIDGE_SANITIZER_CFLAGS)
