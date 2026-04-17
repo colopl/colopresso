@@ -312,6 +312,7 @@ cmake --build "build" --parallel
 ### 共通要件
 
 - Node.js
+- pnpm
 - Rust nightly
   ```bash
   rustup toolchain install nightly

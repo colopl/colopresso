@@ -21,7 +21,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     set -e; \
     apt-get update && \
     apt-get --no-install-recommends install -y \
-      "ca-certificates" "tzdata" "lsb-release" "curl" \
+      "ca-certificates" "tzdata" "curl" \
       "bash" \
       "git" \
       "xz-utils" \
@@ -70,28 +70,26 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     set -e; \
     if test "${ENABLE_CLANG}" != "0"; then \
       apt-get update && \
-      # fixme: re-enable keyring usage when SHA256 key is available
-      # apt-get --no-install-recommends install -y "gnupg" && \
-      # mkdir -p "/usr/share/keyrings" && \
-      # curl -sSL "https://apt.llvm.org/llvm-snapshot.gpg.key" | gpg --dearmor > "/usr/share/keyrings/llvm-archive-keyring.gpg" && \
-      echo "deb [trusted=yes] http://apt.llvm.org/trixie/ llvm-toolchain-trixie main" > "/etc/apt/sources.list.d/llvm.list" && \
-      echo "deb [trusted=yes] http://apt.llvm.org/trixie/ llvm-toolchain-trixie-21 main" >> "/etc/apt/sources.list.d/llvm.list" && \
+      apt-get --no-install-recommends install -y "gnupg" && \
+      LLVM_APT_CODENAME="$(. "/etc/os-release" && printf '%s' "${VERSION_CODENAME}")" && \
+      test -n "${LLVM_APT_CODENAME}" && \
+      mkdir -p "/usr/share/keyrings" && \
+      curl -fsSL "https://apt.llvm.org/llvm-snapshot.gpg.key" | gpg --dearmor --yes -o "/usr/share/keyrings/llvm-archive-keyring.gpg" && \
+      echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] https://apt.llvm.org/${LLVM_APT_CODENAME}/ llvm-toolchain-${LLVM_APT_CODENAME}-22 main" > "/etc/apt/sources.list.d/llvm.list" && \
       apt-get update && \
       apt-get install --no-install-recommends -y \
-        "clang-21" "clang-tools-21" "clang-format-21" "clang-tidy-21" \
-        "libclang-rt-21-dev" "lld-21" "lldb-21" \
-        "libc++-21-dev" "libc++abi-21-dev" \
-        "llvm-21" "llvm-21-dev" "llvm-21-runtime" \
-        "clang-format-21" && \
-      update-alternatives --install "/usr/bin/clang" clang "/usr/bin/clang-21" 100 && \
-      update-alternatives --install "/usr/bin/clang++" clang++ "/usr/bin/clang++-21" 100 && \
-      update-alternatives --install "/usr/bin/clang-format" clang-format "/usr/bin/clang-format-21" 100 && \
-      update-alternatives --install "/usr/bin/clang-tidy" clang-tidy "/usr/bin/clang-tidy-21" 100 && \
-      update-alternatives --install "/usr/bin/lldb" lldb "/usr/bin/lldb-21" 100 && \
-      update-alternatives --install "/usr/bin/ld.lld" ld.lld "/usr/bin/ld.lld-21" 100; \
-      update-alternatives --install "/usr/bin/llvm-symbolizer" llvm-symbolizer "/usr/bin/llvm-symbolizer-21" 100 && \
-      update-alternatives --install "/usr/bin/llvm-config" llvm-config "/usr/bin/llvm-config-21" 100 && \
-      update-alternatives --install "/usr/bin/clang-format" clang-format "/usr/bin/clang-format-21" 100; \
+        "clang-22" "clang-tools-22" "clang-format-22" "clang-tidy-22" \
+        "libclang-rt-22-dev" "lld-22" "lldb-22" \
+        "libc++-22-dev" "libc++abi-22-dev" \
+        "llvm-22" "llvm-22-dev" "llvm-22-runtime" && \
+      update-alternatives --install "/usr/bin/clang" clang "/usr/bin/clang-22" 100 && \
+      update-alternatives --install "/usr/bin/clang++" clang++ "/usr/bin/clang++-22" 100 && \
+      update-alternatives --install "/usr/bin/clang-format" clang-format "/usr/bin/clang-format-22" 100 && \
+      update-alternatives --install "/usr/bin/clang-tidy" clang-tidy "/usr/bin/clang-tidy-22" 100 && \
+      update-alternatives --install "/usr/bin/lldb" lldb "/usr/bin/lldb-22" 100 && \
+      update-alternatives --install "/usr/bin/ld.lld" ld.lld "/usr/bin/ld.lld-22" 100 && \
+      update-alternatives --install "/usr/bin/llvm-symbolizer" llvm-symbolizer "/usr/bin/llvm-symbolizer-22" 100 && \
+      update-alternatives --install "/usr/bin/llvm-config" llvm-config "/usr/bin/llvm-config-22" 100; \
     fi
 
 # Copy project files

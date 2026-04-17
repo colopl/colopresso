@@ -35,7 +35,13 @@ if(_colopresso_gui_enabled)
     "NODE_ENV=production"
     "ROLLUP_FORCE_JS=1"
   )
-  set(VITE_CLI "${CMAKE_SOURCE_DIR}/node_modules/vite/bin/vite.js")
+  set(COLOPRESSO_GUI_VITE_CLI "${CMAKE_SOURCE_DIR}/node_modules/vite/bin/vite.js")
+  set(COLOPRESSO_GUI_NODE_MODULES_STAMP "${CMAKE_BINARY_DIR}/.gui_node_modules.stamp")
+  set(COLOPRESSO_GUI_PACKAGE_FILES
+    "${CMAKE_SOURCE_DIR}/package.json"
+    "${CMAKE_SOURCE_DIR}/pnpm-lock.yaml"
+    "${CMAKE_SOURCE_DIR}/pnpm-workspace.yaml"
+  )
 
   function(colopresso_add_vite_build OUT_VAR)
     set(options)
@@ -55,13 +61,13 @@ if(_colopresso_gui_enabled)
     set(_commands "${${OUT_VAR}}")
     list(APPEND _commands
       COMMAND ${CMAKE_COMMAND} -E env ${_env}
-        node "${VITE_CLI}" build --config "${ARG_CONFIG}"
+        ${PNPM_EXECUTABLE} exec vite build --config "${ARG_CONFIG}"
     )
     set(${OUT_VAR} "${_commands}" PARENT_SCOPE)
   endfunction()
 
   set(_vite_commands)
-  set(_gui_config_files "${CMAKE_SOURCE_DIR}/package.json" "${CMAKE_SOURCE_DIR}/package-lock.json")
+  set(_gui_config_files)
   set(_gui_source_globs)
   set(_cleanup_dist_commands)
 
@@ -142,20 +148,36 @@ if(_colopresso_gui_enabled)
     )
   endif()
 
-  file(GLOB_RECURSE COLOPRESSO_GUI_SOURCES CONFIGURE_DEPENDS
-    ${_gui_config_files}
+  file(GLOB_RECURSE _gui_source_files CONFIGURE_DEPENDS
     ${_gui_source_globs}
+  )
+
+  set(COLOPRESSO_GUI_SOURCES
+    ${COLOPRESSO_GUI_PACKAGE_FILES}
+    ${_gui_config_files}
+    ${_gui_source_files}
   )
 
   set(COLOPRESSO_GUI_RESOURCES_STAMP "${CMAKE_BINARY_DIR}/.gui_resources.stamp")
 
   add_custom_command(
+    OUTPUT ${COLOPRESSO_GUI_NODE_MODULES_STAMP}
+    BYPRODUCTS ${COLOPRESSO_GUI_VITE_CLI}
+    DEPENDS ${COLOPRESSO_GUI_PACKAGE_FILES}
+    COMMAND ${CMAKE_COMMAND} -E remove "${COLOPRESSO_GUI_NODE_MODULES_STAMP}"
+    COMMAND ${PNPM_EXECUTABLE} install --frozen-lockfile
+    COMMAND ${CMAKE_COMMAND} -E touch ${COLOPRESSO_GUI_NODE_MODULES_STAMP}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Installing GUI dependencies"
+    VERBATIM
+    COMMAND_EXPAND_LISTS
+  )
+
+  add_custom_command(
     OUTPUT ${COLOPRESSO_GUI_RESOURCES_STAMP}
-    DEPENDS ${COLOPRESSO_GUI_SOURCES}
+    DEPENDS ${COLOPRESSO_GUI_NODE_MODULES_STAMP} ${COLOPRESSO_GUI_VITE_CLI} ${COLOPRESSO_GUI_SOURCES}
     COMMAND ${CMAKE_COMMAND} -E remove "${COLOPRESSO_GUI_RESOURCES_STAMP}"
     ${_cleanup_dist_commands}
-    COMMAND ${CMAKE_COMMAND} -E remove_directory "${CMAKE_SOURCE_DIR}/node_modules"
-    COMMAND ${PNPM_EXECUTABLE} i --frozen-lockfile
     ${_vite_commands}
     COMMAND ${CMAKE_COMMAND} -E touch ${COLOPRESSO_GUI_RESOURCES_STAMP}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
