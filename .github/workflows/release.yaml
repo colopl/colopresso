@@ -253,7 +253,9 @@ jobs:
       - name: Set Rust default
         run: rustup default ${{ needs.Prepare.outputs.rust_nightly }}
       - name: Setup wasm-pack
-        run: cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
+        run: |
+          cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
+          wasm-pack --version
       - name: Setup emsdk
         shell: pwsh
         working-directory: "third_party/emsdk"
@@ -326,7 +328,9 @@ jobs:
       - name: Set Rust default
         run: rustup default ${{ needs.Prepare.outputs.rust_nightly }}
       - name: Setup wasm-pack
-        run: cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
+        run: |
+          cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
+          wasm-pack --version
       - name: Setup emsdk
         working-directory: "third_party/emsdk"
         run: |

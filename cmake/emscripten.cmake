@@ -31,10 +31,16 @@ if(_colopresso_gui_enabled)
     message(FATAL_ERROR "pnpm executable not found. Please install pnpm before building the GUI assets.")
   endif()
 
+  find_program(NODE_EXECUTABLE NAMES node node.exe)
+  if(NOT NODE_EXECUTABLE)
+    message(FATAL_ERROR "node executable not found. Please install Node.js before building the GUI assets.")
+  endif()
+
   set(VITE_BASE_ENV
     "NODE_ENV=production"
     "ROLLUP_FORCE_JS=1"
   )
+  set(VITE_CLI "${CMAKE_SOURCE_DIR}/node_modules/vite/bin/vite.js")
   set(COLOPRESSO_GUI_NODE_MODULES_STAMP "${CMAKE_BINARY_DIR}/.gui_node_modules.stamp")
   set(COLOPRESSO_GUI_PACKAGE_FILES
     "${CMAKE_SOURCE_DIR}/package.json"
@@ -76,7 +82,7 @@ endif()
     set(_commands "${${OUT_VAR}}")
     list(APPEND _commands
       COMMAND ${CMAKE_COMMAND} -E env ${_env}
-        ${PNPM_EXECUTABLE} exec vite build --config "${ARG_CONFIG}"
+        ${NODE_EXECUTABLE} "${VITE_CLI}" build --config "${ARG_CONFIG}"
     )
     set(${OUT_VAR} "${_commands}" PARENT_SCOPE)
   endfunction()
