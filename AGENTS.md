@@ -24,9 +24,8 @@
 - `/cli`: CLI 版 `colopresso` アプリケーションの実装です
     - `/cli/CMakeLists.txt`: CLI 版 `colopresso` アプリケーションの CMake 構成ファイルです
 - `/app`: GUI 版 `colopresso` アプリケーションの実装です
-    - `/app/chrome` Chrome Extension としての GUI 版 `colopresso` の実装です
     - `/app/electron` Electron アプリケーションとしての GUI 版 `colopresso` の実装です
-    - `/app/shared`: Chrome Extension / Electron 共通の実装です。 CMake によりビルド時に自動的にコピーされます
+    - `/app/shared`: Electron アプリケーションが利用する共通実装です。 CMake によりビルド時に自動的にコピーされます
 - `/cmake`: CMakeLists.txt から参照される CMake の構成ファイルです
 - `/assets`: エンコーダーのテストに用いる画像ファイルを置いたディレクトリです
 - `/third_party`: サードパーティライブラリの git submodule です。このディレクトリ以下のコードは編集しないでください

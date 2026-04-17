@@ -758,10 +758,7 @@ function setupCrossOriginIsolation(): void {
 
     const asarUnpackedBase = normalizedBase.replace('app.asar', 'app.asar.unpacked');
     const isWithinAppDir =
-      normalizedResolved.startsWith(normalizedBase + '/') ||
-      normalizedResolved === normalizedBase ||
-      normalizedResolved.startsWith(asarUnpackedBase + '/') ||
-      normalizedResolved === asarUnpackedBase;
+      normalizedResolved.startsWith(normalizedBase + '/') || normalizedResolved === normalizedBase || normalizedResolved.startsWith(asarUnpackedBase + '/') || normalizedResolved === asarUnpackedBase;
 
     if (!isWithinAppDir) {
       return new Response('Forbidden: Path traversal detected', {

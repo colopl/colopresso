@@ -12,13 +12,6 @@ set(PNGX_BRIDGE_WASM_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/pngx_bridge_wasm")
 set(PNGX_BRIDGE_WASM_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/pngx_bridge_wasm/pkg")
 option(COLOPRESSO_PNGX_WASM_DISABLE_THREADING "Disable Rayon threading in pngx_bridge WASM module" OFF)
 
-if(COLOPRESSO_CHROME_EXTENSION)
-  if(NOT COLOPRESSO_PNGX_WASM_DISABLE_THREADING)
-    message(STATUS "pngx_bridge_wasm: Forcing threading OFF for Chrome Extension build")
-    set(COLOPRESSO_PNGX_WASM_DISABLE_THREADING ON)
-  endif()
-endif()
-
 find_program(WASM_PACK_EXECUTABLE wasm-pack)
 if(NOT WASM_PACK_EXECUTABLE)
   message(FATAL_ERROR "wasm-pack not found.")
@@ -111,9 +104,15 @@ endif()
 if(COLOPRESSO_PNGX_WASM_DISABLE_THREADING)
   message(STATUS "pngx_bridge_wasm: Building with stable Rust (no threading)")
 
-  list(APPEND _pngx_bridge_wasm_env
-    "RUSTFLAGS=-C target-feature=+simd128"
-  )
+  if(COLOPRESSO_ENABLE_WASM_SIMD)
+    set(_pngx_bridge_wasm_target_rustflags "-C target-feature=+simd128")
+    if(DEFINED ENV{CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS} AND NOT "$ENV{CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS}" STREQUAL "")
+      string(APPEND _pngx_bridge_wasm_target_rustflags " $ENV{CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS}")
+    endif()
+    list(APPEND _pngx_bridge_wasm_env
+      "CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS=${_pngx_bridge_wasm_target_rustflags}"
+    )
+  endif()
 
   set(_pngx_bridge_wasm_feature "wasm-bindgen")
   set(_pngx_bridge_wasm_build_comment "Building pngx_bridge WASM module (stable Rust, no threading)")

@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPLv3" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg" alt="License: GPL-3.0-or-later" /></a>
   <img src="https://img.shields.io/badge/C99-Library-green.svg" alt="C99 library" />
   <img src="https://img.shields.io/badge/Rust-Used-green.svg" alt="Rust used" />
   <img src="https://img.shields.io/badge/Platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg" alt="Platforms" />
@@ -36,9 +36,9 @@
 - 🚀 **Fast Conversion** — High-speed processing with a native C99-based library
 - 📦 **Multiple Format Support** — WebP, AVIF, optimized PNG (256-color, Reduced RGBA32, Limited RGBA4444)
 - 🖥️ **Cross-Platform** — Supports Windows, macOS, and Linux
-- 🎛️ **Flexible Deployment** — Choose from CLI, Electron app, Chrome extension, or Node.js
+- 🎛️ **Flexible Deployment** — Choose from CLI, Electron app, or Node.js
 - ⚙️ **Profile System** — Save, export, and import per-format parameters
-- 🌐 **WebAssembly Support** — WASM builds that run in browsers and Node.js
+- 🌐 **WebAssembly Support** — WASM builds for Electron and Node.js
 
 ## 📥 Quick Start
 
@@ -52,7 +52,7 @@ For detailed build instructions, see the [Build Guide](#build-linux).
 > [!IMPORTANT]
 > **AVX2 instruction set support is required on x86_64 (amd64) platforms for CLI (native builds) and Python Wheel.**
 > Intel Haswell (2013) or later, or AMD Excavator or later processors are required.
-> GUI applications (Electron, Chrome Extension) use WebAssembly and do not require AVX2.
+> Electron uses WebAssembly and does not require AVX2.
 
 ## 🎯 Supported Formats
 
@@ -94,16 +94,6 @@ A desktop application with intuitive drag & drop interface.
 - ✅ Option to automatically delete original files after conversion
 - ✅ Streamline workflows with profile functionality
 
-### Chrome Extension
-
-A lightweight conversion tool that runs in the browser.
-
-- ✅ Download converted files directly from Chrome
-- ✅ Download multiple files as a ZIP archive
-
-> [!NOTE]
-> The official Chrome extension is not published on the Chrome Web Store. Self-hosting is recommended.
-
 ### Node.js (WebAssembly)
 
 A WASM-based CLI that runs in Node.js environments.
@@ -134,7 +124,6 @@ For detailed API documentation, see [python/README.md](./python/README.md).
 - [Build (Linux)](#build-linux)
 - [Build (macOS)](#build-macos)
 - [Build (Node.js)](#build-nodejs)
-- [Build (Chrome Extension)](#build-chrome-extension)
 - [Build (Electron)](#build-electron)
 - [License](#license)
 - [Authors](#authors)
@@ -170,7 +159,7 @@ Open the cloned `colopresso` directory with Visual Studio Code and attach to the
 | `COLOPRESSO_USE_CLI` | OFF | Enables building the CLI binary. Requires `COLOPRESSO_WITH_FILE_OPS=ON`. |
 | `COLOPRESSO_USE_UTILS` | OFF | Builds code under `library/utils/`. Automatically disabled if `COLOPRESSO_WITH_FILE_OPS=OFF`. |
 | `COLOPRESSO_USE_TESTS` | OFF | Builds code under `library/tests/`. |
-| `COLOPRESSO_WITH_FILE_OPS` | ON | Enables file I/O APIs (`cpres_encode_*_file`). Forced to `OFF` when Chrome Extension or Electron builds are enabled. |
+| `COLOPRESSO_WITH_FILE_OPS` | ON | Enables file I/O APIs (`cpres_encode_*_file`). Forced to `OFF` when Electron builds are enabled. |
 
 ### GCC && Debug Mode
 
@@ -293,25 +282,12 @@ ctest --test-dir "build" --output-on-failure --parallel
 
 4. `./build/cli/colopresso.js` / `colopresso.wasm` are generated
 
-## Build (Chrome Extension)
-
-1. Install VS Code and Docker (or compatible software), then open the repository directory
-2. Attach using Dev Containers
-3. Run the following commands:
-
-```bash
-rm -rf "build" && emcmake cmake -B "build" -DCMAKE_BUILD_TYPE=Release \
-  -DCOLOPRESSO_CHROME_EXTENSION=ON
-cmake --build "build" --parallel
-```
-
-4. Extension build artifacts are placed under `./build/chrome`
-
 ## Build (Electron)
 
 ### Common Requirements
 
 - Node.js
+- pnpm
 - Rust nightly
   ```bash
   rustup toolchain install nightly
@@ -373,7 +349,7 @@ Artifacts are output as `dist_build/colopresso_windows_gui_{x64,arm64}.exe`.
 
 ## License
 
-**GNU General Public License v3.0 (GPLv3)**
+**GNU General Public License v3.0 or later (GPL-3.0-or-later)**
 
 See [LICENSE](./LICENSE) for details.
 

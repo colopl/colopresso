@@ -123,7 +123,6 @@ jobs:
         run: |
           sed -i "s|/\* COLOPL_VERSION_START \*/.*/\* COLOPL_VERSION_END \*/|${{ steps.generate_version.outputs.version_int }}|" "library/include/colopresso.h"
           sed -i "s|VERSION 0.0.0|VERSION ${{ steps.generate_version.outputs.version }}|" "CMakeLists.txt"
-          sed -i "s|0.0.0|${{ steps.generate_version.outputs.version }}|" "app/chrome/manifest.json"
           sed -i 's|"version": "0.0.0"|"version": "${{ steps.generate_version.outputs.version }}"|' "package.json"
           sed -i "s|\"channel\": \"[^\"]*\"|\"channel\": \"${{ steps.generate_version.outputs.update_channel }}\"|" "package.json"
           sed -i "s|^version = \".*\"|version = \"${{ steps.generate_version.outputs.version }}\"|" "python/pyproject.toml"
@@ -254,7 +253,9 @@ jobs:
       - name: Set Rust default
         run: rustup default ${{ needs.Prepare.outputs.rust_nightly }}
       - name: Setup wasm-pack
-        run: cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
+        run: |
+          cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
+          wasm-pack --version
       - name: Setup emsdk
         shell: pwsh
         working-directory: "third_party/emsdk"
@@ -327,7 +328,9 @@ jobs:
       - name: Set Rust default
         run: rustup default ${{ needs.Prepare.outputs.rust_nightly }}
       - name: Setup wasm-pack
-        run: cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
+        run: |
+          cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
+          wasm-pack --version
       - name: Setup emsdk
         working-directory: "third_party/emsdk"
         run: |
@@ -427,52 +430,6 @@ jobs:
           name: colopresso-electron-macos
           path: dist/
           if-no-files-found: error
-  ChromeExtension:
-    needs: Prepare
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Download versioned code
-        uses: actions/download-artifact@v8
-        with:
-          name: versioned-code
-          path: .
-      - name: Extract versioned code
-        run: |
-          tar -xzf "versioned-code.tar.gz" --strip-components=1
-          rm -rf "versioned-code.tar.gz"
-      - name: Setup builder
-        run: |
-          docker build \
-            --file "Dockerfile" \
-            --tag "chrome" \
-            --build-arg ENABLE_VALGRIND=0 \
-            --build-arg ENABLE_CLANG=1 \
-            --build-arg ENABLE_EMSDK=1 \
-            --build-arg EMSDK_VERSION="${{ needs.Prepare.outputs.emsdk_version }}" \
-            --target "builder" \
-            .
-      - name: Build Chrome Extension
-        run: |
-          docker run \
-            --rm \
-            --volume "${PWD}:/workspace" \
-            --workdir "/workspace" \
-            chrome \
-            /bin/bash -lc '
-              set -e
-              rm -rf "build"
-              emcmake cmake -B "build" \
-                -DCMAKE_BUILD_TYPE="Release" \
-                -DCOLOPRESSO_CHROME_EXTENSION=ON
-              cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
-            '
-          mkdir -p "dist"
-          tar -czf "dist/colopresso_chrome.tar.gz" -C "${PWD}/build" "chrome"
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: colopresso-chrome-extension
-          path: dist/
   WindowsCLI:
     needs: Prepare
     strategy:
@@ -953,7 +910,6 @@ jobs:
       - Prepare
       - WindowsElectron
       - macOSElectron
-      - ChromeExtension
       - Source
       - WindowsCLI
       - macOSCLI
@@ -967,11 +923,6 @@ jobs:
           submodules: false
           fetch-depth: 1
           ref: ${{ github.ref }}
-      - name: Download Chrome Extension Artifacts
-        uses: actions/download-artifact@v8
-        with:
-          name: colopresso-chrome-extension
-          path: artifacts/
       - name: Download Source Artifacts
         uses: actions/download-artifact@v8
         with:

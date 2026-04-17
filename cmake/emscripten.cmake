@@ -13,7 +13,7 @@ set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ON CACHE INTERNAL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
 
 set(_colopresso_gui_enabled OFF)
-if(COLOPRESSO_CHROME_EXTENSION OR COLOPRESSO_ELECTRON_APP)
+if(COLOPRESSO_ELECTRON_APP)
   set(_colopresso_gui_enabled ON)
 endif()
 
@@ -22,13 +22,18 @@ if(_colopresso_gui_enabled)
 endif()
 
 if(_colopresso_gui_enabled)
-  set(COLOPRESSO_DISABLE_FILE_OPS ON CACHE BOOL "Disable file operations for Chrome Extension/Electron" FORCE)
+  set(COLOPRESSO_DISABLE_FILE_OPS ON CACHE BOOL "Disable file operations for Electron" FORCE)
   set(COLOPRESSO_WITH_FILE_OPS OFF CACHE BOOL "Enable file operation functions (fopen, fwrite, etc.)" FORCE)
-  message(STATUS "File operations disabled for Chrome Extension/Electron build")
+  message(STATUS "File operations disabled for Electron build")
 
   find_program(PNPM_EXECUTABLE pnpm)
   if(NOT PNPM_EXECUTABLE)
     message(FATAL_ERROR "pnpm executable not found. Please install pnpm before building the GUI assets.")
+  endif()
+
+  find_program(NODE_EXECUTABLE NAMES node node.exe)
+  if(NOT NODE_EXECUTABLE)
+    message(FATAL_ERROR "node executable not found. Please install Node.js before building the GUI assets.")
   endif()
 
   set(VITE_BASE_ENV
@@ -36,6 +41,28 @@ if(_colopresso_gui_enabled)
     "ROLLUP_FORCE_JS=1"
   )
   set(VITE_CLI "${CMAKE_SOURCE_DIR}/node_modules/vite/bin/vite.js")
+  set(COLOPRESSO_GUI_NODE_MODULES_STAMP "${CMAKE_BINARY_DIR}/.gui_node_modules.stamp")
+  set(COLOPRESSO_GUI_PACKAGE_FILES
+    "${CMAKE_SOURCE_DIR}/package.json"
+    "${CMAKE_SOURCE_DIR}/pnpm-lock.yaml"
+    "${CMAKE_SOURCE_DIR}/pnpm-workspace.yaml"
+  )
+  set(COLOPRESSO_OPTIONAL_DIRECTORY_COPY_SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/copy_optional_directory.cmake")
+  file(WRITE "${COLOPRESSO_OPTIONAL_DIRECTORY_COPY_SCRIPT}" [=[
+if(NOT DEFINED COLOPRESSO_COPY_SOURCE)
+  message(FATAL_ERROR "COLOPRESSO_COPY_SOURCE is not defined")
+endif()
+
+if(NOT DEFINED COLOPRESSO_COPY_DEST)
+  message(FATAL_ERROR "COLOPRESSO_COPY_DEST is not defined")
+endif()
+
+if(EXISTS "${COLOPRESSO_COPY_SOURCE}")
+  get_filename_component(_copy_dest_parent "${COLOPRESSO_COPY_DEST}" DIRECTORY)
+  file(MAKE_DIRECTORY "${_copy_dest_parent}")
+  file(COPY "${COLOPRESSO_COPY_SOURCE}" DESTINATION "${_copy_dest_parent}")
+endif()
+]=])
 
   function(colopresso_add_vite_build OUT_VAR)
     set(options)
@@ -55,13 +82,13 @@ if(_colopresso_gui_enabled)
     set(_commands "${${OUT_VAR}}")
     list(APPEND _commands
       COMMAND ${CMAKE_COMMAND} -E env ${_env}
-        node "${VITE_CLI}" build --config "${ARG_CONFIG}"
+        ${NODE_EXECUTABLE} "${VITE_CLI}" build --config "${ARG_CONFIG}"
     )
     set(${OUT_VAR} "${_commands}" PARENT_SCOPE)
   endfunction()
 
   set(_vite_commands)
-  set(_gui_config_files "${CMAKE_SOURCE_DIR}/package.json" "${CMAKE_SOURCE_DIR}/package-lock.json")
+  set(_gui_config_files)
   set(_gui_source_globs)
   set(_cleanup_dist_commands)
 
@@ -117,45 +144,35 @@ if(_colopresso_gui_enabled)
     )
   endif()
 
-  if(COLOPRESSO_CHROME_EXTENSION)
-    set(COLOPRESSO_CHROME_OUT_DIR "${CMAKE_BINARY_DIR}/chrome")
-    set(_chrome_env
-      "COLOPRESSO_BUILD_TARGET=chrome"
-      "COLOPRESSO_RESOURCES_DIR=${COLOPRESSO_CHROME_OUT_DIR}"
-      "COLOPRESSO_SHARED_DIST_DIR=${COLOPRESSO_CHROME_OUT_DIR}"
-    )
-    colopresso_add_vite_build(_vite_commands
-      CONFIG "${CMAKE_SOURCE_DIR}/app/chrome/vite.config.ts"
-      ENV ${_chrome_env}
-    )
-
-    list(APPEND _gui_config_files "${CMAKE_SOURCE_DIR}/app/chrome/vite.config.ts")
-    list(APPEND _gui_source_globs
-      "${CMAKE_SOURCE_DIR}/app/chrome/*.ts"
-      "${CMAKE_SOURCE_DIR}/app/chrome/*.tsx"
-      "${CMAKE_SOURCE_DIR}/app/chrome/*.js"
-      "${CMAKE_SOURCE_DIR}/app/chrome/*.jsx"
-      "${CMAKE_SOURCE_DIR}/app/chrome/*.json"
-      "${CMAKE_SOURCE_DIR}/app/chrome/*.css"
-      "${CMAKE_SOURCE_DIR}/app/chrome/*.scss"
-      "${CMAKE_SOURCE_DIR}/app/chrome/*.html"
-    )
-  endif()
-
-  file(GLOB_RECURSE COLOPRESSO_GUI_SOURCES CONFIGURE_DEPENDS
-    ${_gui_config_files}
+  file(GLOB_RECURSE _gui_source_files CONFIGURE_DEPENDS
     ${_gui_source_globs}
+  )
+
+  set(COLOPRESSO_GUI_SOURCES
+    ${COLOPRESSO_GUI_PACKAGE_FILES}
+    ${_gui_config_files}
+    ${_gui_source_files}
   )
 
   set(COLOPRESSO_GUI_RESOURCES_STAMP "${CMAKE_BINARY_DIR}/.gui_resources.stamp")
 
   add_custom_command(
+    OUTPUT ${COLOPRESSO_GUI_NODE_MODULES_STAMP}
+    DEPENDS ${COLOPRESSO_GUI_PACKAGE_FILES}
+    COMMAND ${CMAKE_COMMAND} -E remove "${COLOPRESSO_GUI_NODE_MODULES_STAMP}"
+    COMMAND ${PNPM_EXECUTABLE} install --frozen-lockfile
+    COMMAND ${CMAKE_COMMAND} -E touch ${COLOPRESSO_GUI_NODE_MODULES_STAMP}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Installing GUI dependencies"
+    VERBATIM
+    COMMAND_EXPAND_LISTS
+  )
+
+  add_custom_command(
     OUTPUT ${COLOPRESSO_GUI_RESOURCES_STAMP}
-    DEPENDS ${COLOPRESSO_GUI_SOURCES}
+    DEPENDS ${COLOPRESSO_GUI_NODE_MODULES_STAMP} ${COLOPRESSO_GUI_SOURCES}
     COMMAND ${CMAKE_COMMAND} -E remove "${COLOPRESSO_GUI_RESOURCES_STAMP}"
     ${_cleanup_dist_commands}
-    COMMAND ${CMAKE_COMMAND} -E remove_directory "${CMAKE_SOURCE_DIR}/node_modules"
-    COMMAND ${PNPM_EXECUTABLE} i --frozen-lockfile
     ${_vite_commands}
     COMMAND ${CMAKE_COMMAND} -E touch ${COLOPRESSO_GUI_RESOURCES_STAMP}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -173,7 +190,7 @@ function(colopresso_configure_gui_target PLATFORM DISPLAY_NAME)
   set(TARGET_NAME "colopresso_${PLATFORM_LOWER}")
   set(OUTPUT_DIR "${CMAKE_BINARY_DIR}/${PLATFORM_LOWER}")
   set(APP_DIR "${CMAKE_SOURCE_DIR}/app/${PLATFORM_LOWER}")
-  if(PLATFORM_LOWER STREQUAL "electron" OR PLATFORM_LOWER STREQUAL "chrome")
+  if(PLATFORM_LOWER STREQUAL "electron")
     set(RESOURCE_DEST_DIR "${OUTPUT_DIR}")
   else()
     set(RESOURCE_DEST_DIR "${OUTPUT_DIR}/resources/${PLATFORM_LOWER}")
@@ -219,15 +236,12 @@ function(colopresso_configure_gui_target PLATFORM DISPLAY_NAME)
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${_pngx_bridge_wasm_out_dir}/pngx_bridge_bg.wasm"
         ${RESOURCE_DEST_DIR}/pngx_bridge_bg.wasm
+      COMMAND ${CMAKE_COMMAND} -E remove_directory ${RESOURCE_DEST_DIR}/snippets
+      COMMAND ${CMAKE_COMMAND}
+        -DCOLOPRESSO_COPY_SOURCE=${_pngx_bridge_wasm_out_dir}/snippets
+        -DCOLOPRESSO_COPY_DEST=${RESOURCE_DEST_DIR}/snippets
+        -P ${COLOPRESSO_OPTIONAL_DIRECTORY_COPY_SCRIPT}
     )
-    # Copy snippets directory for wasm-bindgen-rayon workerHelpers.js
-    if(EXISTS "${_pngx_bridge_wasm_out_dir}/snippets")
-      list(APPEND _post_build_commands
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-          "${_pngx_bridge_wasm_out_dir}/snippets"
-          ${RESOURCE_DEST_DIR}/snippets
-      )
-    endif()
   endif()
 
   set(_cleanup_files
@@ -376,14 +390,11 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 if(_colopresso_gui_enabled)
-  if(COLOPRESSO_CHROME_EXTENSION)
-    message(STATUS "Building for Chrome Extension (threads disabled, no SharedArrayBuffer)")
-    set(_gui_environment "web")
-  elseif(COLOPRESSO_ENABLE_THREADS)
+  if(COLOPRESSO_ENABLE_THREADS)
     message(STATUS "Building for Electron with threads enabled")
     set(_gui_environment "web,node,worker")
   else()
-    message(STATUS "Building for Electron / Chrome Extension")
+    message(STATUS "Building for Electron without threads")
     set(_gui_environment "web,node")
   endif()
   add_link_options(
@@ -406,10 +417,6 @@ elseif(COLOPRESSO_NODE_BUILD)
   )
 else()
   message(FATAL_ERROR "No Emscripten build target specified")
-endif()
-
-if(COLOPRESSO_CHROME_EXTENSION)
-  colopresso_configure_gui_target("chrome" "Chrome extension")
 endif()
 
 if(COLOPRESSO_ELECTRON_APP)

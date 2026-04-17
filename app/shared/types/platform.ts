@@ -12,8 +12,6 @@
 import { BuildInfoPayload, FormatOptions, SettingsState, StatusMessage } from './index';
 
 export type ElectronSettingKey = 'deletePng' | 'createZip';
-export type ChromeSettingKey = 'processFolder' | 'createZip';
-export type PlatformSettingKey = ElectronSettingKey | ChromeSettingKey;
 
 export interface FileCandidate {
   file: File;
@@ -42,7 +40,7 @@ export interface SaveFileResult {
 }
 
 export interface PlatformConfig {
-  type: 'electron' | 'chrome';
+  type: 'electron';
   titleKey: string;
   dropZoneIconEmoji: string;
   dropZoneTextKey: string;
@@ -53,7 +51,7 @@ export interface PlatformConfig {
 
 export interface SettingItemConfig {
   id: string;
-  key: PlatformSettingKey;
+  key: ElectronSettingKey;
   labelKey: string;
   descriptionKey: string;
   lockedByFixedOutput?: boolean;
@@ -79,7 +77,7 @@ export interface PlatformAdapter {
   renderExtraSettings?(
     settings: SettingsState,
     isProcessing: boolean,
-    onSettingChange: (key: PlatformSettingKey, value: boolean) => void,
+    onSettingChange: (key: ElectronSettingKey, value: boolean) => void,
     t: (key: string, params?: Record<string, unknown>) => string
   ): React.ReactNode;
 }

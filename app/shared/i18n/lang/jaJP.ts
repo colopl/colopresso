@@ -164,19 +164,6 @@ const bundle: TranslationBundle = {
       copyAction: 'メッセージをコピー',
       copyHint: 'クリックでエラーメッセージをコピーできます',
     },
-    chrome: {
-      title: 'colopresso',
-      settings: {
-        processFolderLabel: 'ドロップしたフォルダ内の PNG ファイルをすべて処理',
-        processFolderDescription: 'フォルダをドロップすると、含まれるすべての PNG ファイルを変換します',
-        createZipLabel: '複数ファイルを ZIP にまとめる',
-        createZipDescription: '複数のファイルを処理した場合、ZIP ファイルとしてダウンロードします',
-      },
-      dropzone: {
-        text: 'PNG 画像をドロップ',
-        hint: 'または、クリックしてファイルを選択',
-      },
-    },
     electron: {
       title: 'colopresso',
       settings: {

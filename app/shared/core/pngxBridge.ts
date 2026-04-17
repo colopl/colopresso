@@ -227,16 +227,7 @@ export async function initPngxBridge(baseUrl: string, numThreads?: number): Prom
     const jsUrl = moduleBaseUrl + 'pngx_bridge.js';
     const wasmUrl = moduleBaseUrl + 'pngx_bridge_bg.wasm';
     const module = await loadPngxBridgeModule(jsUrl, wasmUrl);
-    const isNode = typeof process !== 'undefined' && typeof (process as unknown as { versions?: { node?: string } }).versions?.node === 'string';
-    let exports: WasmExports;
-    if (isNode && wasmUrl.startsWith('file:')) {
-      const fs = await import('node:fs/promises');
-      const wasmBytes = await fs.readFile(new URL(wasmUrl));
-      const view = new Uint8Array(wasmBytes.buffer, wasmBytes.byteOffset, wasmBytes.byteLength);
-      exports = await module.default({ module_or_path: view });
-    } else {
-      exports = await module.default({ module_or_path: wasmUrl });
-    }
+    const exports = await module.default({ module_or_path: wasmUrl });
     wasmExports = exports;
 
     if (module.initThreadPool && module.pngx_wasm_is_threads_enabled?.()) {

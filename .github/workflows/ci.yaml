@@ -44,7 +44,6 @@ jobs:
         run: |
           sed -i "s|/\* COLOPL_VERSION_START \*/.*/\* COLOPL_VERSION_END \*/|999999998|" "library/include/colopresso.h"
           sed -i "s|VERSION 0.0.0|VERSION 999.999.998|" "CMakeLists.txt"
-          sed -i "s|0.0.0|999.999.998|" "app/chrome/manifest.json"
           sed -i 's|"version": "0.0.0"|"version": "999.999.998"|' "package.json"
       - name: Tar dummy versioned code
         run: |
@@ -56,7 +55,7 @@ jobs:
           name: dummy-versioned-code
           path: ./dummy-versioned-code.tar.gz
           retention-days: 1
-  LinuxAndChromeExtension:
+  LinuxAndWasm:
     needs: Prepare
     strategy:
       matrix:
@@ -132,12 +131,6 @@ jobs:
                 -DCOLOPRESSO_USE_CLI=ON
               cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
               ctest --test-dir "build" --output-on-failure --parallel
-
-              rm -rf "build"
-              emcmake cmake -B "build" \
-                -DCMAKE_BUILD_TYPE="Release" \
-                -DCOLOPRESSO_CHROME_EXTENSION=ON
-              cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
             '
   Valgrind:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -222,7 +215,9 @@ jobs:
       - name: Set Rust default
         run: rustup default ${{ needs.Prepare.outputs.rust_nightly }}
       - name: Setup wasm-pack
-        run: cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
+        run: |
+          cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
+          wasm-pack --version
       - name: Setup emsdk
         shell: pwsh
         working-directory: "third_party/emsdk"
@@ -277,7 +272,9 @@ jobs:
       - name: Set Rust default
         run: rustup default ${{ needs.Prepare.outputs.rust_nightly }}
       - name: Setup wasm-pack
-        run: cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
+        run: |
+          cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
+          wasm-pack --version
       - name: Setup emsdk
         working-directory: "third_party/emsdk"
         run: |

@@ -9,15 +9,8 @@
  * Developed with AI (LLM) code assistance. See `NOTICE` for details.
  */
 
-const isChromeExtension = typeof chrome !== 'undefined' && typeof chrome.storage !== 'undefined';
-
 export const Storage = {
   async getItem<T = unknown>(key: string): Promise<T | undefined> {
-    if (isChromeExtension) {
-      const result = await chrome.storage.local.get(key);
-      return result[key] as T | undefined;
-    }
-
     try {
       const raw = localStorage.getItem(key);
       if (raw === null) {
@@ -44,11 +37,6 @@ export const Storage = {
   },
 
   async setItem(key: string, value: unknown): Promise<void> {
-    if (isChromeExtension) {
-      await chrome.storage.local.set({ [key]: value });
-      return;
-    }
-
     try {
       localStorage.setItem(key, JSON.stringify(value));
     } catch (error) {
@@ -57,11 +45,6 @@ export const Storage = {
   },
 
   async removeItem(key: string): Promise<void> {
-    if (isChromeExtension) {
-      await chrome.storage.local.remove(key);
-      return;
-    }
-
     try {
       localStorage.removeItem(key);
     } catch (error) {
@@ -70,11 +53,6 @@ export const Storage = {
   },
 
   async clear(): Promise<void> {
-    if (isChromeExtension) {
-      await chrome.storage.local.clear();
-      return;
-    }
-
     try {
       localStorage.clear();
     } catch (error) {

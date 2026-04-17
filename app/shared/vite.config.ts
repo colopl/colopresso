@@ -14,7 +14,6 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 const sharedRoot = path.resolve(__dirname);
-const chromeRoot = path.resolve(__dirname, '../chrome');
 const electronRoot = path.resolve(__dirname, '../electron');
 
 const outDir = process.env.COLOPRESSO_DEST_DIR;
@@ -22,22 +21,12 @@ if (!outDir) {
   throw new Error('COLOPRESSO_DEST_DIR must be defined to build shared assets.');
 }
 
-const buildTarget = process.env.COLOPRESSO_BUILD_TARGET ?? 'electron';
+const inputs: Record<string, string> = {
+  renderer: path.resolve(electronRoot, 'entries/electronRenderer.tsx'),
+  conversionWorker: path.resolve(sharedRoot, 'core/conversionWorker.ts'),
+};
 
-const inputs: Record<string, string> = {};
-if (buildTarget === 'electron') {
-  inputs['renderer'] = path.resolve(electronRoot, 'entries/electronRenderer.tsx');
-  inputs['conversionWorker'] = path.resolve(sharedRoot, 'core/conversionWorker.ts');
-} else if (buildTarget === 'chrome') {
-  inputs['sidepanel'] = path.resolve(chromeRoot, 'entries/chromeSidepanel.tsx');
-  inputs['offscreen'] = path.resolve(chromeRoot, 'entries/chromeOffscreen.ts');
-  inputs['background'] = path.resolve(chromeRoot, 'entries/chromeBackground.ts');
-} else {
-  throw new Error(`Unsupported COLOPRESSO_BUILD_TARGET value: ${buildTarget}`);
-}
-
-const chunkFilePattern = buildTarget === 'electron' ? 'chunks-render-[name].js' : 'chunks-chrome-[name].js';
-const allowedPaths = Array.from(new Set([sharedRoot, chromeRoot, electronRoot, outDir]));
+const allowedPaths = Array.from(new Set([sharedRoot, electronRoot, outDir]));
 
 export default defineConfig({
   root: sharedRoot,
@@ -57,7 +46,7 @@ export default defineConfig({
       input: inputs,
       output: {
         entryFileNames: '[name].js',
-        chunkFileNames: chunkFilePattern,
+        chunkFileNames: 'chunks-render-[name].js',
         assetFileNames: (assetInfo) => {
           if (assetInfo.name && assetInfo.name.endsWith('.css')) {
             return 'style.css';

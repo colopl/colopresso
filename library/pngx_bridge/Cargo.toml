@@ -3,7 +3,9 @@ name = "pngx_bridge"
 version = "0.0.0"
 edition = "2021"
 publish = false
-license = "GPL-3.0"
+description = "Rust bridge for PNGX encoding in colopresso"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/colopl/colopresso"
 
 [lib]
 crate-type = ["staticlib", "cdylib"]
@@ -14,7 +16,7 @@ default = []
 rayon = ["dep:rayon", "oxipng/parallel", "imagequant/threads"]
 
 # WASM builds with stable Rust (no threading)
-wasm-bindgen = ["dep:wasm-bindgen", "oxipng/freestanding", "oxipng/filetime"]
+wasm-bindgen = ["dep:wasm-bindgen", "oxipng/freestanding"]
 
 # WASM builds with nightly Rust (threading via wasm-bindgen-rayon)
 wasm-bindgen-rayon = [
@@ -22,24 +24,23 @@ wasm-bindgen-rayon = [
     "dep:wasm-bindgen-rayon",
     "dep:rayon",
     "oxipng/freestanding",
-    "oxipng/filetime",
     "oxipng/parallel",
     "imagequant/threads",
 ]
 
 [dependencies]
-rayon = { version = "1.11", optional = true }
-wasm-bindgen = { version = "0.2", optional = true }
-wasm-bindgen-rayon = { version = "1.3", optional = true }
+rayon = { version = "1.12.0", optional = true }
+wasm-bindgen = { version = "0.2.118", optional = true }
+wasm-bindgen-rayon = { version = "1.3.0", optional = true }
 
 [dependencies.oxipng]
-version = "10.0.0"
+version = "10.1.0"
 default-features = false
 features = ["zopfli", "freestanding"]
 
 [dependencies.imagequant]
-version = "4.4.0"
+version = "4.4.1"
 default-features = false
 
 [build-dependencies]
-cbindgen = "0.29.0"
+cbindgen = "0.29.2"
