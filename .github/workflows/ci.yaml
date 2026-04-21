@@ -198,7 +198,7 @@ jobs:
           tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
           Remove-Item "dummy-versioned-code.tar.gz" -Force
       - name: Setup pnpm
-        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
+        uses: pnpm/action-setup@903f9c1a6ebcba6cf41d87230be49611ac97822e # v6.0.3
         with:
           version: 10
       - name: Setup Node.js
@@ -255,7 +255,7 @@ jobs:
       - name: Install LLVM (for wasm32 targets)
         run: brew install "llvm"
       - name: Setup pnpm
-        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
+        uses: pnpm/action-setup@903f9c1a6ebcba6cf41d87230be49611ac97822e # v6.0.3
         with:
           version: 10
       - name: Setup Node.js
