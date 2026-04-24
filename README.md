@@ -93,12 +93,16 @@ A desktop application with intuitive drag & drop interface.
 - ✅ Batch convert all PNG files in a folder
 - ✅ Option to automatically delete original files after conversion
 - ✅ Streamline workflows with profile functionality
+- ✅ Uses separated nightly `pngx_bridge.js` / `pngx_bridge_bg.wasm` assets with `wasm-bindgen-rayon` threading
 
 ### Node.js (WebAssembly)
 
 A WASM-based CLI that runs in Node.js environments.
 
 - ✅ Run `colopresso.js` directly with Node.js 18+
+- ✅ Uses the integrated stable `wasm32-unknown-emscripten` pngx_bridge
+- ✅ Does not emit separate `pngx_bridge.js` / `pngx_bridge_bg.wasm` assets
+- ✅ Keeps Rayon disabled and forces Rust panic behavior to `abort` in this mode
 - ✅ Ideal for server-side image processing
 
 ### Python
@@ -160,6 +164,14 @@ Open the cloned `colopresso` directory with Visual Studio Code and attach to the
 | `COLOPRESSO_USE_UTILS` | OFF | Builds code under `library/utils/`. Automatically disabled if `COLOPRESSO_WITH_FILE_OPS=OFF`. |
 | `COLOPRESSO_USE_TESTS` | OFF | Builds code under `library/tests/`. |
 | `COLOPRESSO_WITH_FILE_OPS` | ON | Enables file I/O APIs (`cpres_encode_*_file`). Forced to `OFF` when Electron builds are enabled. |
+
+### Emscripten Build Matrix
+
+| Option | Mode | Details |
+|--------|------|---------|
+| `COLOPRESSO_NODE_BUILD=ON` | Stable integrated Node.js/WebAssembly mode | Builds `pngx_bridge` as an integrated `wasm32-unknown-emscripten` static library. No external `pngx_bridge.js` / `pngx_bridge_bg.wasm` assets are emitted. Rayon stays disabled and Rust panic behavior is forced to `abort` for link compatibility. |
+| `COLOPRESSO_ELECTRON_APP=ON` | Nightly separated Electron mode | Keeps the main app on `wasm32-unknown-emscripten`, but builds `pngx_bridge.js`, `pngx_bridge_bg.wasm`, and optional `snippets/` separately with nightly Rust on `wasm32-unknown-unknown` via `wasm-bindgen-rayon`. |
+| `COLOPRESSO_NODE_WASM_SEPARATION` | Legacy compatibility toggle | Forced `ON` for Electron packaging and ignored for non-Electron Emscripten builds. Non-Electron Emscripten builds always use the integrated stable mode. |
 
 ### GCC && Debug Mode
 
@@ -272,6 +284,9 @@ ctest --test-dir "build" --output-on-failure --parallel
 2. Attach using Dev Containers
 3. Run the following commands:
 
+> [!NOTE]
+> This is the stable integrated Emscripten mode. `pngx_bridge` is built as a static library for `wasm32-unknown-emscripten`, no separate `pngx_bridge.js` / `pngx_bridge_bg.wasm` assets are produced, Rayon stays disabled, and Rust panic behavior is forced to `abort` for the integrated bridge.
+
 ```bash
 rm -rf "build" && emcmake cmake -B "build" -DCMAKE_BUILD_TYPE=Release \
   -DCOLOPRESSO_USE_UTILS=ON -DCOLOPRESSO_USE_TESTS=ON \
@@ -288,7 +303,7 @@ ctest --test-dir "build" --output-on-failure --parallel
 
 - Node.js
 - pnpm
-- Rust nightly
+- Rust nightly for the separated `pngx_bridge` asset build
   ```bash
   rustup toolchain install nightly
   rustup component add "rust-src" --toolchain nightly
@@ -302,6 +317,9 @@ ctest --test-dir "build" --output-on-failure --parallel
 
 > [!NOTE]
 > File I/O APIs are automatically disabled for Electron builds; only memory APIs remain available.
+
+> [!NOTE]
+> Electron is the separated nightly mode. The main app is still configured through `emcmake`, while `pngx_bridge` is emitted separately as `pngx_bridge.js`, `pngx_bridge_bg.wasm`, and optional `snippets/` assets for the renderer. This path keeps the existing `wasm-bindgen-rayon` threading behavior; the integrated Node.js `panic=abort` restriction only applies to the Node.js Emscripten bridge.
 
 ### macOS
 
@@ -323,6 +341,7 @@ cmake --build "build" --config Release --parallel
 ```
 
 Artifacts are output to `dist_build/colopresso_macos_gui_{x64,arm64}.dmg`.
+The packaged Electron resources also include separated `pngx_bridge.js`, `pngx_bridge_bg.wasm`, and optional `snippets/` assets.
 
 ### Windows
 
@@ -344,6 +363,7 @@ cmake --build "build" --config Release --parallel
 ```
 
 Artifacts are output as `dist_build/colopresso_windows_gui_{x64,arm64}.exe`.
+The packaged Electron resources also include separated `pngx_bridge.js`, `pngx_bridge_bg.wasm`, and optional `snippets/` assets.
 
 ---
 
