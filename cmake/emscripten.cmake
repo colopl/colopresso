@@ -202,7 +202,7 @@ function(colopresso_configure_gui_target PLATFORM DISPLAY_NAME)
     add_dependencies(${TARGET_NAME} colopresso_gui_resources)
   endif()
 
-  if(TARGET pngx_bridge_wasm_build)
+  if(COLOPRESSO_ELECTRON_APP AND TARGET pngx_bridge_wasm_build)
     add_dependencies(${TARGET_NAME} pngx_bridge_wasm_build)
   endif()
 
@@ -227,7 +227,7 @@ function(colopresso_configure_gui_target PLATFORM DISPLAY_NAME)
     COMMAND ${CMAKE_COMMAND} -E remove_directory ${OUTPUT_DIR}/entries
   )
 
-  if(TARGET pngx_bridge_wasm_build)
+  if(COLOPRESSO_ELECTRON_APP AND TARGET pngx_bridge_wasm_build)
     set(_pngx_bridge_wasm_out_dir "${CMAKE_BINARY_DIR}/pngx_bridge_wasm/pkg")
     list(APPEND _post_build_commands
       COMMAND ${CMAKE_COMMAND} -E copy_if_different

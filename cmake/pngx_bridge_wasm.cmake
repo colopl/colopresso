@@ -12,6 +12,8 @@ set(PNGX_BRIDGE_WASM_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/pngx_bridge_wasm")
 set(PNGX_BRIDGE_WASM_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/pngx_bridge_wasm/pkg")
 option(COLOPRESSO_PNGX_WASM_DISABLE_THREADING "Disable Rayon threading in pngx_bridge WASM module" OFF)
 
+message(STATUS "pngx_bridge_wasm: Configuring separated pngx_bridge WASM assets for Electron packaging")
+
 find_program(WASM_PACK_EXECUTABLE wasm-pack)
 if(NOT WASM_PACK_EXECUTABLE)
   message(FATAL_ERROR "wasm-pack not found.")
@@ -129,7 +131,7 @@ if(COLOPRESSO_PNGX_WASM_DISABLE_THREADING)
   )
 
 else()
-  message(STATUS "pngx_bridge_wasm: Building with nightly Rust (integrated mode with threading)")
+  message(STATUS "pngx_bridge_wasm: Building separated assets with nightly Rust and wasm-bindgen-rayon threading")
 
   list(APPEND _pngx_bridge_wasm_env
     "ZSTD_SYS_USE_PKG_CONFIG=0"

@@ -93,12 +93,16 @@ cd colopresso
 - ✅ フォルダ内のすべての PNG ファイルを一括変換
 - ✅ 変換後に元ファイルを自動削除するオプション
 - ✅ プロファイル機能でワークフローを効率化
+- ✅ `wasm-bindgen-rayon` のスレッド対応を維持した分離 `pngx_bridge.js` / `pngx_bridge_bg.wasm` 資産を利用
 
 ### Node.js (WebAssembly)
 
 Node.js 環境で動作する WASM 版 CLI です。
 
 - ✅ Node.js 18 以降で `colopresso.js` を直接実行可能
+- ✅ 安定版 Rust の `wasm32-unknown-emscripten` に統合された `pngx_bridge` を利用
+- ✅ 個別の `pngx_bridge.js` / `pngx_bridge_bg.wasm` 資産を生成しない
+- ✅ このモードでは Rayon を無効にし、Rust の panic 動作を `abort` に固定
 - ✅ サーバーサイドでの画像処理に最適
 
 ### Python
@@ -160,6 +164,14 @@ git clone --recursive "https://github.com/colopl/colopresso.git"
 | `COLOPRESSO_USE_UTILS` | OFF | `library/utils/` 以下のコードをビルドします。`COLOPRESSO_WITH_FILE_OPS=OFF` の場合、自動的に無効になります。 |
 | `COLOPRESSO_USE_TESTS` | OFF | `library/tests/` 以下のコードをビルドします。 |
 | `COLOPRESSO_WITH_FILE_OPS` | ON | ファイル I/O API (`cpres_encode_*_file`) を有効にします。Electron ビルドを有効にすると、強制的に `OFF` になります。 |
+
+### Emscripten ビルドマトリクス
+
+| オプション | モード | 詳細 |
+|-----------|--------|------|
+| `COLOPRESSO_NODE_BUILD=ON` | 安定版の統合 Node.js/WebAssembly モード | `pngx_bridge` を `wasm32-unknown-emscripten` 向けの統合 static library としてビルドします。外部の `pngx_bridge.js` / `pngx_bridge_bg.wasm` 資産は生成されません。Rayon は無効のままで、リンク互換性のため Rust の panic 動作は `abort` に固定されます。 |
+| `COLOPRESSO_ELECTRON_APP=ON` | nightly の分離 Electron モード | メインアプリは `wasm32-unknown-emscripten` のままですが、`pngx_bridge.js`、`pngx_bridge_bg.wasm`、必要に応じて `snippets/` を nightly Rust の `wasm32-unknown-unknown` + `wasm-bindgen-rayon` で別生成します。 |
+| `COLOPRESSO_NODE_WASM_SEPARATION` | 互換性維持用の旧トグル | Electron パッケージング時は強制的に `ON`、それ以外の Emscripten ビルドでは無視されます。非 Electron の Emscripten ビルドは常に安定版の統合モードを使用します。 |
 
 ### GCC && Debug モード
 
@@ -272,6 +284,9 @@ ctest --test-dir "build" --output-on-failure --parallel
 2. Dev Containers を使用してアタッチします
 3. 以下のコマンドを実行します:
 
+> [!NOTE]
+> これは安定版の統合 Emscripten モードです。`pngx_bridge` は `wasm32-unknown-emscripten` 向け static library としてビルドされ、個別の `pngx_bridge.js` / `pngx_bridge_bg.wasm` は生成されません。Rayon は無効で、統合ブリッジのため Rust の panic 動作は `abort` に固定されます。
+
 ```bash
 rm -rf "build" && emcmake cmake -B "build" -DCMAKE_BUILD_TYPE=Release \
   -DCOLOPRESSO_USE_UTILS=ON -DCOLOPRESSO_USE_TESTS=ON \
@@ -288,7 +303,7 @@ ctest --test-dir "build" --output-on-failure --parallel
 
 - Node.js
 - pnpm
-- Rust nightly
+- 分離 `pngx_bridge` 資産ビルド用の Rust nightly
   ```bash
   rustup toolchain install nightly
   rustup component add "rust-src" --toolchain nightly
@@ -302,6 +317,9 @@ ctest --test-dir "build" --output-on-failure --parallel
 
 > [!NOTE]
 > Electron ビルドではファイル I/O API が自動的に無効になり、メモリ API のみが利用可能になります。
+
+> [!NOTE]
+> Electron は nightly の分離モードです。メインアプリ自体は `emcmake` で構成されますが、レンダラ向けの `pngx_bridge` は `pngx_bridge.js`、`pngx_bridge_bg.wasm`、必要に応じて `snippets/` として別生成されます。この経路では既存の `wasm-bindgen-rayon` スレッド対応を維持し、Node.js 側の統合 `panic=abort` 制約は適用されません。
 
 ### macOS
 
@@ -323,6 +341,7 @@ cmake --build "build" --config Release --parallel
 ```
 
 成果物は `dist_build/colopresso_macos_gui_{x64,arm64}.dmg` に出力されます。
+パッケージされた Electron リソースには、分離された `pngx_bridge.js`、`pngx_bridge_bg.wasm`、必要に応じて `snippets/` も含まれます。
 
 ### Windows
 
@@ -344,6 +363,7 @@ cmake --build "build" --config Release --parallel
 ```
 
 成果物は `dist_build/colopresso_windows_gui_{x64,arm64}.exe` として出力されます。
+パッケージされた Electron リソースには、分離された `pngx_bridge.js`、`pngx_bridge_bg.wasm`、必要に応じて `snippets/` も含まれます。
 
 ---
 

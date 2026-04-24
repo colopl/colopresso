@@ -33,18 +33,20 @@ endmacro()
 
 if(EMSCRIPTEN)
   if(COLOPRESSO_ELECTRON_APP)
-    set(COLOPRESSO_NODE_WASM_SEPARATION ON CACHE BOOL "Use WASM separation (forced ON for Electron)" FORCE)
-    message(STATUS "pngx_bridge: WASM separation forced ON for Electron build")
+    set(COLOPRESSO_NODE_WASM_SEPARATION ON CACHE BOOL "Legacy separated pngx_bridge asset toggle (forced ON for Electron)" FORCE)
+    message(STATUS "pngx_bridge: Electron build uses separated pngx_bridge WASM assets (nightly wasm-bindgen path)")
   else()
-    option(COLOPRESSO_NODE_WASM_SEPARATION "Use WASM separation for Node.js build (enables separate pngx_bridge WASM module)" OFF)
+    if(COLOPRESSO_NODE_WASM_SEPARATION)
+      message(WARNING "pngx_bridge: COLOPRESSO_NODE_WASM_SEPARATION is reserved for Electron builds and is ignored for non-Electron Emscripten builds")
+    endif()
+    set(COLOPRESSO_NODE_WASM_SEPARATION OFF CACHE BOOL "Legacy separated pngx_bridge asset toggle (non-Electron Emscripten builds always use the integrated bridge)" FORCE)
   endif()
 
   if(COLOPRESSO_NODE_WASM_SEPARATION)
-    message(STATUS "pngx_bridge: Using WASM separation mode")
     _pngx_bridge_create_wasm_stub()
     return()
   else()
-    message(STATUS "pngx_bridge: Building pngx_bridge for wasm32-unknown-emscripten (integrated mode, no Rayon)")
+    message(STATUS "pngx_bridge: Node.js build uses the integrated stable pngx_bridge static library (wasm32-unknown-emscripten, no Rayon)")
   endif()
 endif()
 
@@ -204,6 +206,14 @@ set(PNGX_BRIDGE_TARGET_RUSTFLAGS "")
 if(EMSCRIPTEN)
   if(COLOPRESSO_ENABLE_WASM_SIMD)
     set(PNGX_BRIDGE_TARGET_RUSTFLAGS "-C target-feature=+simd128")
+  endif()
+
+  if(NOT COLOPRESSO_NODE_WASM_SEPARATION)
+    if(PNGX_BRIDGE_TARGET_RUSTFLAGS)
+      string(APPEND PNGX_BRIDGE_TARGET_RUSTFLAGS " ")
+    endif()
+    string(APPEND PNGX_BRIDGE_TARGET_RUSTFLAGS "-C panic=abort")
+    message(STATUS "pngx_bridge: Integrated Emscripten build forces Rust panic=abort")
   endif()
 endif()
 
@@ -366,9 +376,18 @@ set(_pngx_bridge_build_comment "Building pngx_bridge (Rust target: ${PNGX_BRIDGE
 
 set(_pngx_bridge_cargo_toml "${PNGX_BRIDGE_BUILD_DIR}/Cargo.toml")
 set(_pngx_bridge_cargo_toml_staticlib_only_script "${PNGX_BRIDGE_BUILD_DIR}/set_staticlib_only.cmake")
+set(_pngx_bridge_integrated_panic_marker "# colopresso-integrated-emscripten-panic-abort")
+set(_pngx_bridge_manifest_panic_profile_snippet "")
+if(EMSCRIPTEN AND NOT PNGX_BRIDGE_USE_WASM_SEPARATION)
+  set(_pngx_bridge_manifest_panic_profile_snippet
+"if(NOT \"\${_content}\" MATCHES \"${_pngx_bridge_integrated_panic_marker}\")
+  string(APPEND _content \"\\n\\n${_pngx_bridge_integrated_panic_marker}\\n[profile.dev]\\npanic = \\\"abort\\\"\\n\\n[profile.release]\\npanic = \\\"abort\\\"\\n\")
+endif()")
+endif()
 file(WRITE "${_pngx_bridge_cargo_toml_staticlib_only_script}"
 "file(READ \"${_pngx_bridge_cargo_toml}\" _content)
 string(REPLACE \"crate-type = [\\\"staticlib\\\", \\\"cdylib\\\"]\" \"crate-type = [\\\"staticlib\\\"]\" _content \"\${_content}\")
+${_pngx_bridge_manifest_panic_profile_snippet}
 file(WRITE \"${_pngx_bridge_cargo_toml}\" \"\${_content}\")
 ")
 
@@ -379,14 +398,14 @@ string(REPLACE \"crate-type = [\\\"staticlib\\\"]\" \"crate-type = [\\\"staticli
 file(WRITE \"${_pngx_bridge_cargo_toml}\" \"\${_content}\")
 ")
 
-if(NOT COLOPRESSO_PNGX_WASM_SEPARATION)
+if(NOT PNGX_BRIDGE_USE_WASM_SEPARATION)
   set(_pngx_bridge_pre_build_commands
     COMMAND ${CMAKE_COMMAND} -P "${_pngx_bridge_cargo_toml_staticlib_only_script}"
   )
   set(_pngx_bridge_post_build_commands
     COMMAND ${CMAKE_COMMAND} -P "${_pngx_bridge_cargo_toml_restore_script}"
   )
-  set(_pngx_bridge_build_comment "Building pngx_bridge (Rust target: ${PNGX_BRIDGE_RUST_TARGET}, crate-type: staticlib only, flags: ${_pngx_bridge_cargo_flags_str})")
+  set(_pngx_bridge_build_comment "Building pngx_bridge (Rust target: ${PNGX_BRIDGE_RUST_TARGET}, crate-type: staticlib only, integrated manifest panic policy applied, flags: ${_pngx_bridge_cargo_flags_str})")
 else()
   set(_pngx_bridge_pre_build_commands)
   set(_pngx_bridge_post_build_commands)

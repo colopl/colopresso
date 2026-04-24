@@ -16,8 +16,9 @@ option(COLOPRESSO_ENABLE_SIMD "Enable SIMD optimizations" ON)
 option(COLOPRESSO_PYTHON_BINDINGS "Build Python bindings" OFF)
 
 if(EMSCRIPTEN)
-  option(COLOPRESSO_ELECTRON_APP "Build for Electron" OFF)
-  option(COLOPRESSO_NODE_BUILD "Build for Node.js" ON)
+  option(COLOPRESSO_ELECTRON_APP "Build the Electron app with separated pngx_bridge WASM assets" OFF)
+  option(COLOPRESSO_NODE_BUILD "Build the integrated stable Node.js/WebAssembly mode" ON)
+  option(COLOPRESSO_NODE_WASM_SEPARATION "Legacy separated pngx_bridge asset toggle. Forced ON for Electron and ignored for non-Electron Emscripten builds." OFF)
   option(COLOPRESSO_ENABLE_WASM_SIMD "Enable WASM SIMD128 optimizations" ON)
   set(COLOPRESSO_ELECTRON_TARGETS "" CACHE STRING "Comma-separated electron-builder targets (e.g. --mac,--win)")
 

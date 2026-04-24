@@ -89,7 +89,7 @@ jobs:
             --target "builder" \
             --tag "ci" \
             .
-      - name: Build and test on container
+      - name: Build and test native and integrated Node/WebAssembly modes
         run: |
           docker run \
             --rm \
@@ -129,6 +129,11 @@ jobs:
                 -DCOLOPRESSO_USE_TESTS=ON \
                 -DCOLOPRESSO_USE_UTILS=ON \
                 -DCOLOPRESSO_USE_CLI=ON
+              cmake --build "build" --target "pngx_bridge_build" --parallel="$(($(nproc)-1))"
+              if emnm "build/pngx_bridge/target/wasm32-unknown-emscripten/release/libpngx_bridge.a" | grep -Eq "(_Unwind_|__cxa_throw|__cxa_begin_catch|__gxx_personality_v0|__clang_call_terminate)"; then
+                echo "pngx_bridge archive still depends on unwind exception symbols"
+                exit 1
+              fi
               cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
               ctest --test-dir "build" --output-on-failure --parallel
             '
@@ -231,7 +236,7 @@ jobs:
           "$env:EMSDK" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           "$env:EMSDK\upstream\emscripten" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           "$env:EMSDK\node\$(Get-ChildItem "$env:EMSDK\node" | Select-Object -First 1 -ExpandProperty Name)_64bit\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      - name: Build Electron app
+      - name: Build Electron app (nightly separated pngx_bridge assets)
         shell: pwsh
         run: |
           emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--win"
@@ -287,7 +292,7 @@ jobs:
           echo "${EMSDK}" >> "${GITHUB_PATH}"
           echo "${EMSDK}/upstream/emscripten" >> "${GITHUB_PATH}"
           echo "${EMSDK}/node/$(ls "${EMSDK}/node" | head -n 1)_64bit/bin" >> "${GITHUB_PATH}"
-      - name: Build Electron app
+      - name: Build Electron app (nightly separated pngx_bridge assets)
         run: |
           emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--mac"
           cmake --build "build" --config "Release" --parallel
