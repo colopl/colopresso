@@ -4,4 +4,4 @@ components = ["rustfmt", "clippy"]
 
 [colopresso]
 nightly = "nightly-2026-05-06"
-wasm-pack = "0.14.0"
+wasm-pack = "0.15.0"
