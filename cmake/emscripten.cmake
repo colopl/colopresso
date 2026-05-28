@@ -423,24 +423,47 @@ if(COLOPRESSO_ELECTRON_APP)
   colopresso_configure_gui_target("electron" "Electron app")
   file(RELATIVE_PATH COLOPRESSO_ELECTRON_OUT_DIR_REL "${CMAKE_SOURCE_DIR}" "${COLOPRESSO_ELECTRON_OUT_DIR}")
 
-  set(ELECTRON_BUILDER_ARGS exec electron-builder --publish never)
-  list(APPEND ELECTRON_BUILDER_ARGS
+  set(ELECTRON_BUILDER_BASE_ARGS exec electron-builder --publish never)
+  list(APPEND ELECTRON_BUILDER_BASE_ARGS
     "-c.extraMetadata.main=${COLOPRESSO_ELECTRON_OUT_DIR_REL}/main.js"
     "-c.files=${COLOPRESSO_ELECTRON_OUT_DIR_REL}/**/*"
   )
+  set(ELECTRON_BUILDER_COMMANDS)
+  set(ELECTRON_BUILDER_TARGET_ARGS)
+  set(_electron_builder_has_mac_target OFF)
   if(COLOPRESSO_ELECTRON_TARGETS)
     message(STATUS "Electron packaging targets: ${COLOPRESSO_ELECTRON_TARGETS}")
     string(REPLACE "," ";" COLOPRESSO_ELECTRON_TARGETS_EACH "${COLOPRESSO_ELECTRON_TARGETS}")
     foreach(ELECTRON_TARGET ${COLOPRESSO_ELECTRON_TARGETS_EACH})
       string(STRIP "${ELECTRON_TARGET}" ELECTRON_TARGET_TRIMMED)
       if(ELECTRON_TARGET_TRIMMED)
-        list(APPEND ELECTRON_BUILDER_ARGS "${ELECTRON_TARGET_TRIMMED}")
+        if(ELECTRON_TARGET_TRIMMED STREQUAL "--mac")
+          set(_electron_builder_has_mac_target ON)
+        else()
+          list(APPEND ELECTRON_BUILDER_TARGET_ARGS "${ELECTRON_TARGET_TRIMMED}")
+        endif()
       endif()
     endforeach()
   endif()
 
+  if(_electron_builder_has_mac_target)
+    foreach(_electron_builder_mac_arch --arm64 --x64)
+      foreach(_electron_builder_mac_target dmg zip)
+        list(APPEND ELECTRON_BUILDER_COMMANDS
+          COMMAND ${PNPM_EXECUTABLE} ${ELECTRON_BUILDER_BASE_ARGS} --mac "${_electron_builder_mac_target}" "${_electron_builder_mac_arch}"
+        )
+      endforeach()
+    endforeach()
+  endif()
+
+  if(ELECTRON_BUILDER_TARGET_ARGS OR NOT COLOPRESSO_ELECTRON_TARGETS)
+    list(APPEND ELECTRON_BUILDER_COMMANDS
+      COMMAND ${PNPM_EXECUTABLE} ${ELECTRON_BUILDER_BASE_ARGS} ${ELECTRON_BUILDER_TARGET_ARGS}
+    )
+  endif()
+
   add_custom_target(colopresso_electron_package ALL
-    COMMAND ${PNPM_EXECUTABLE} ${ELECTRON_BUILDER_ARGS}
+    ${ELECTRON_BUILDER_COMMANDS}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMENT "Packaging Electron application"
     VERBATIM
