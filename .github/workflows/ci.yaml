@@ -12,7 +12,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  Approval:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.pull_request.user.login == 'renovate[bot]' && 'renovate-ci-approval' || '' }}
+    steps:
+      - name: Approved
+        run: echo "CI execution approved (or no approval gate required for this event)."
   Prepare:
+    needs: Approval
     runs-on: ubuntu-latest
     outputs:
       emsdk_version: ${{ steps.get_emsdk_version.outputs.emsdk_version }}
