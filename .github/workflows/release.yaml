@@ -99,7 +99,7 @@ jobs:
           echo "internal_release_tag=${INTERNAL_TAG}" >> "${GITHUB_OUTPUT}"
           echo "internal_is_prerelease=${INTERNAL_IS_PRERELEASE}" >> "${GITHUB_OUTPUT}"
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
           fetch-depth: 1
@@ -918,7 +918,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: false
           fetch-depth: 1
