@@ -144,7 +144,12 @@ add_custom_command(
   OUTPUT ${COLOPRESSO_ELECTRON_NODE_MODULES_STAMP}
   DEPENDS ${COLOPRESSO_ELECTRON_PACKAGE_FILES}
   COMMAND ${CMAKE_COMMAND} -E remove "${COLOPRESSO_ELECTRON_NODE_MODULES_STAMP}"
-  COMMAND ${PNPM_EXECUTABLE} install --frozen-lockfile
+  # Invoke pnpm through "cmake -E env" so that on Windows the MSBuild custom-build
+  # batch script keeps running after pnpm: pnpm resolves to pnpm.cmd, and calling
+  # a .cmd directly (without CALL) transfers control and aborts the remaining
+  # commands (the vite resource builds and the stamp touch), leaving main.js
+  # unbuilt. Launching via cmake.exe returns control to the script.
+  COMMAND ${CMAKE_COMMAND} -E env ${PNPM_EXECUTABLE} install --frozen-lockfile
   COMMAND ${CMAKE_COMMAND} -E touch "${COLOPRESSO_ELECTRON_NODE_MODULES_STAMP}"
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   COMMENT "Installing Electron dependencies"
