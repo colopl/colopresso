@@ -155,6 +155,20 @@ elseif(WIN32)
   )
   target_link_options(colopresso_native PRIVATE "/DELAYLOAD:node.exe")
   target_compile_definitions(colopresso_native PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+
+  # The colopresso and third-party (libaom/libavif, libpng, ...) libraries are
+  # built against the dynamic CRT (/MD). Pin this module to the same runtime and
+  # exclude the static CRT that the delay-load helper (delayimp) otherwise pulls
+  # in, which caused a CRT mismatch (LNK4098 / unresolved __imp_* CRT symbols).
+  set_target_properties(colopresso_native PROPERTIES
+    MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
+  )
+  target_link_options(colopresso_native PRIVATE
+    "/NODEFAULTLIB:libcmt"
+    "/NODEFAULTLIB:libcmtd"
+    "/NODEFAULTLIB:libucrt"
+    "/NODEFAULTLIB:libucrtd"
+  )
 endif()
 
 message(STATUS "Electron native addon output: ${COLOPRESSO_ELECTRON_NATIVE_ADDON_OUTPUT_DIR}")
