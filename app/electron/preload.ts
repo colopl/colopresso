@@ -66,6 +66,10 @@ const api: ElectronAPI = {
   restartApp: () => ipcRenderer.invoke('restart-app'),
   getUpdateChannel: () => ipcRenderer.invoke('get-update-channel'),
   getArchitecture: () => ipcRenderer.invoke('get-architecture'),
+  isNativeConversionAvailable: () => ipcRenderer.invoke('is-native-conversion-available'),
+  getNativeVersionInfo: () => ipcRenderer.invoke('get-native-version-info'),
+  getNativeThreadInfo: () => ipcRenderer.invoke('get-native-thread-info'),
+  convertNative: (payload) => ipcRenderer.invoke('convert-native', payload),
   getPngxBridgeUrl: () => ipcRenderer.invoke('get-pngx-bridge-url'),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
 };

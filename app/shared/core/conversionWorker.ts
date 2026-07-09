@@ -10,7 +10,7 @@
  */
 
 import { FormatOptions } from '../types';
-import { initializeModule, prewarmThreadPool, isThreadsEnabled, getVersionInfo, ModuleWithHelpers } from './converter';
+import { initializeModule, prewarmThreadPool, isThreadsEnabled, getVersionInfo, getDefaultThreads, getMaxThreads, ModuleWithHelpers } from './converter';
 import { initPngxBridge, isPngxBridgeInitialized, pngxOxipngVersion, pngxLibimagequantVersion, pngxRustVersionString } from './pngxBridge';
 import { getFormat, getDefaultFormat, normalizeFormatOptions } from '../formats';
 
@@ -30,6 +30,8 @@ export interface ConversionWorkerResponse {
   id: number;
   success: boolean;
   threadsEnabled?: boolean;
+  defaultThreads?: number;
+  maxThreads?: number;
   pngxBridgeEnabled?: boolean;
   version?: number;
   libwebpVersion?: number;
@@ -132,14 +134,17 @@ const handleInit = async (request: ConversionWorkerRequest) => {
     modulePromise = null;
     threadsEnabled = isThreadsEnabled(Module);
 
+    const defaultThreads = getDefaultThreads(Module);
+    const maxThreads = getMaxThreads(Module);
+    const requestedThreads = typeof request.pngxThreads === 'number' && request.pngxThreads > 0 ? request.pngxThreads : defaultThreads;
+
     if (threadsEnabled) {
-      const hardwareConcurrency = typeof navigator !== 'undefined' && navigator.hardwareConcurrency > 0 ? navigator.hardwareConcurrency : 1;
-      prewarmThreadPool(Module, hardwareConcurrency);
+      prewarmThreadPool(Module, requestedThreads);
     }
 
     if (request.pngxBridgeUrl) {
       try {
-        await initPngxBridge(request.pngxBridgeUrl, request.pngxThreads);
+        await initPngxBridge(request.pngxBridgeUrl, requestedThreads);
         pngxBridgeEnabled = isPngxBridgeInitialized();
       } catch (pngxError) {
         throw new Error('pngx_bridge init failed.');
@@ -178,6 +183,8 @@ const handleInit = async (request: ConversionWorkerRequest) => {
       id: request.id,
       success: true,
       threadsEnabled,
+      defaultThreads,
+      maxThreads,
       pngxBridgeEnabled,
       ...cachedVersionInfo,
     });

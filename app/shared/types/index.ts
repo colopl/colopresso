@@ -159,6 +159,8 @@ export const SETTINGS_SCHEMA_VERSION_STORAGE_KEY = 'settingsSchemaVersion';
 export interface SettingsState {
   deletePng?: boolean;
   createZip?: boolean;
+  conversionThreads?: number;
+  disableWebpMultithread?: boolean;
   useOriginalOutput?: boolean;
   outputDirectoryPath?: string | null;
 }
@@ -175,6 +177,10 @@ export interface BuildInfoPayload {
   buildtime?: number;
   releaseChannel?: string;
   architecture?: string;
+  backend?: string;
+  threadsEnabled?: boolean;
+  defaultThreads?: number;
+  maxThreads?: number;
 }
 
 export interface BuildInfoState {

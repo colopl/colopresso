@@ -64,10 +64,12 @@ export type ModuleWithHelpers = ColopressoModule & {
   _emscripten_config_webp_exact?(configPtr: number, value: number): void;
   _emscripten_config_webp_use_delta_palette?(configPtr: number, value: number): void;
   _emscripten_config_webp_use_sharp_yuv?(configPtr: number, value: number): void;
+  _emscripten_config_webp_thread_level?(configPtr: number, value: number): void;
   _emscripten_config_avif_quality?(configPtr: number, value: number): void;
   _emscripten_config_avif_alpha_quality?(configPtr: number, value: number): void;
   _emscripten_config_avif_lossless?(configPtr: number, value: number): void;
   _emscripten_config_avif_speed?(configPtr: number, value: number): void;
+  _emscripten_config_avif_threads?(configPtr: number, value: number): void;
   _emscripten_config_pngx_level?(configPtr: number, value: number): void;
   _emscripten_config_pngx_strip_safe?(configPtr: number, value: number): void;
   _emscripten_config_pngx_optimize_alpha?(configPtr: number, value: number): void;
@@ -195,6 +197,9 @@ function createConfig(Module: ModuleWithHelpers, userConfig: FormatOptions = {})
     const compute = transform ?? ((v: unknown) => (typeof v === 'boolean' ? (v ? 1 : 0) : (v as number)));
     fn(configPtr, compute(value));
   };
+  const rawConversionThreads = getNumeric(userConfig.conversion_threads ?? userConfig.pngx_threads);
+  const conversionThreads = rawConversionThreads && rawConversionThreads > 0 ? Math.trunc(rawConversionThreads) : getDefaultThreads(Module);
+  const webpThreadLevel = rawConversionThreads === 1 ? 0 : conversionThreads > 1 ? 1 : 0;
 
   apply('_emscripten_config_webp_quality', userConfig.quality as number | undefined);
   apply('_emscripten_config_webp_lossless', userConfig.lossless as boolean | undefined);
@@ -220,11 +225,13 @@ function createConfig(Module: ModuleWithHelpers, userConfig: FormatOptions = {})
   apply('_emscripten_config_webp_exact', userConfig.exact as boolean | undefined);
   apply('_emscripten_config_webp_use_delta_palette', userConfig.use_delta_palette as boolean | undefined);
   apply('_emscripten_config_webp_use_sharp_yuv', userConfig.use_sharp_yuv as boolean | undefined);
+  apply('_emscripten_config_webp_thread_level', webpThreadLevel);
 
   apply('_emscripten_config_avif_quality', (userConfig.avif_quality ?? userConfig.quality) as number | undefined);
   apply('_emscripten_config_avif_alpha_quality', (userConfig.avif_alpha_quality ?? userConfig.alpha_quality) as number | undefined);
   apply('_emscripten_config_avif_lossless', (userConfig.avif_lossless ?? userConfig.lossless) as boolean | undefined);
   apply('_emscripten_config_avif_speed', (userConfig.avif_speed ?? userConfig.speed) as number | undefined);
+  apply('_emscripten_config_avif_threads', conversionThreads);
 
   apply('_emscripten_config_pngx_level', (userConfig.pngx_level ?? userConfig.level) as number | undefined);
   apply('_emscripten_config_pngx_strip_safe', userConfig.pngx_strip_safe as boolean | undefined);
@@ -295,7 +302,7 @@ function createConfig(Module: ModuleWithHelpers, userConfig: FormatOptions = {})
   apply('_emscripten_config_pngx_palette256_tune_speed_max', userConfig.pngx_palette256_tune_speed_max as number | undefined);
   apply('_emscripten_config_pngx_palette256_tune_quality_min_floor', userConfig.pngx_palette256_tune_quality_min_floor as number | undefined);
   apply('_emscripten_config_pngx_palette256_tune_quality_max_target', userConfig.pngx_palette256_tune_quality_max_target as number | undefined);
-  apply('_emscripten_config_pngx_threads', userConfig.pngx_threads as number | undefined);
+  apply('_emscripten_config_pngx_threads', conversionThreads);
 
   let protectedColorsPtr: number | null = null;
   const protectedColors = userConfig.pngx_protected_colors as ProtectedColor[] | undefined;

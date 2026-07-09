@@ -34,7 +34,7 @@ jobs:
           fetch-depth: 1
       - name: EMSDK require full checkout
         id: get_emsdk_version
-        working-directory: "third_party/emsdk"
+        working-directory: 'third_party/emsdk'
         run: |
           git fetch --tags
           echo "emsdk_version=$(git describe --tags --abbrev=0)" >> "${GITHUB_OUTPUT}"
@@ -199,7 +199,16 @@ jobs:
             '
   WindowsElectron:
     needs: Prepare
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch:
+          - electron: x64
+            cmake: x64
+            runs-on: windows-latest
+          - electron: arm64
+            cmake: ARM64
+            runs-on: windows-11-arm
+    runs-on: ${{ matrix.arch.runs-on }}
     steps:
       - name: Download dummy versioned code
         uses: actions/download-artifact@v8
@@ -221,39 +230,25 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
         with:
-          toolchain: ${{ needs.Prepare.outputs.rust_nightly }}
-          targets: wasm32-unknown-emscripten,wasm32-unknown-unknown
-          components: rust-src
-      - name: Set Rust default
-        run: rustup default ${{ needs.Prepare.outputs.rust_nightly }}
-      - name: Setup wasm-pack
-        run: |
-          cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
-          wasm-pack --version
-      - name: Setup emsdk
-        shell: pwsh
-        working-directory: "third_party/emsdk"
-        run: |
-          ./emsdk.ps1 install "${{ needs.Prepare.outputs.emsdk_version }}"
-          ./emsdk.ps1 activate "${{ needs.Prepare.outputs.emsdk_version }}"
-          . "./emsdk_env.ps1"
-          Get-ChildItem env: | Where-Object { $_.Name -match '^(EMSDK|EM_|BINARYEN)' } | ForEach-Object {
-            "$($_.Name)=$($_.Value)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          }
-          "$env:EMSDK" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          "$env:EMSDK\upstream\emscripten" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          "$env:EMSDK\node\$(Get-ChildItem "$env:EMSDK\node" | Select-Object -First 1 -ExpandProperty Name)_64bit\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      - name: Build Electron app (nightly separated pngx_bridge assets)
+          toolchain: ${{ needs.Prepare.outputs.rust_stable }}
+      - name: Build Electron app (native addon)
         shell: pwsh
         run: |
-          emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--win"
+          cmake -B "build" -A "${{ matrix.arch.cmake }}" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--win" -DCOLOPRESSO_ELECTRON_ARCH="${{ matrix.arch.electron }}"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build "build" --config "Release" --parallel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   macOSElectron:
     needs: Prepare
-    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch:
+          - electron: arm64
+            runs-on: macos-15
+          - electron: x64
+            runs-on: macos-15-intel
+    runs-on: ${{ matrix.arch.runs-on }}
     steps:
       - name: Download dummy versioned code
         uses: actions/download-artifact@v8
@@ -264,8 +259,6 @@ jobs:
         run: |
           tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
           rm -rf "dummy-versioned-code.tar.gz"
-      - name: Install LLVM (for wasm32 targets)
-        run: brew install "llvm"
       - name: Setup pnpm
         uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
         with:
@@ -278,30 +271,10 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
         with:
-          toolchain: ${{ needs.Prepare.outputs.rust_nightly }}
-          targets: wasm32-unknown-emscripten,wasm32-unknown-unknown
-          components: rust-src
-      - name: Set Rust default
-        run: rustup default ${{ needs.Prepare.outputs.rust_nightly }}
-      - name: Setup wasm-pack
+          toolchain: ${{ needs.Prepare.outputs.rust_stable }}
+      - name: Build Electron app (native addon)
         run: |
-          cargo install "wasm-pack" --version "${{ needs.Prepare.outputs.wasm_pack_version }}" --locked
-          wasm-pack --version
-      - name: Setup emsdk
-        working-directory: "third_party/emsdk"
-        run: |
-          ./emsdk install "${{ needs.Prepare.outputs.emsdk_version }}"
-          ./emsdk activate "${{ needs.Prepare.outputs.emsdk_version }}"
-          . "./emsdk_env.sh"
-          env | grep -E '^(EMSDK|EM_|BINARYEN)' | while IFS='=' read -r KEY VALUE; do
-            echo "${KEY}=${VALUE}" >> "${GITHUB_ENV}"
-          done
-          echo "${EMSDK}" >> "${GITHUB_PATH}"
-          echo "${EMSDK}/upstream/emscripten" >> "${GITHUB_PATH}"
-          echo "${EMSDK}/node/$(ls "${EMSDK}/node" | head -n 1)_64bit/bin" >> "${GITHUB_PATH}"
-      - name: Build Electron app (nightly separated pngx_bridge assets)
-        run: |
-          emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--mac"
+          cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--mac" -DCOLOPRESSO_ELECTRON_ARCH="${{ matrix.arch.electron }}"
           cmake --build "build" --config "Release" --parallel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

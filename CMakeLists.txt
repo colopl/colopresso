@@ -181,6 +181,18 @@ target_include_directories(colopresso PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/library/src
 )
 
+if(COLOPRESSO_ELECTRON_APP AND NOT EMSCRIPTEN AND NOT COLOPRESSO_ELECTRON_NATIVE_ADDON_OUTPUT_DIR)
+  set(COLOPRESSO_ELECTRON_NATIVE_ADDON_OUTPUT_DIR "${CMAKE_BINARY_DIR}/electron_native" CACHE PATH "Output directory for the Electron native addon before packaging" FORCE)
+endif()
+
+if(COLOPRESSO_ELECTRON_NATIVE_ADDON)
+  include(cmake/electron_native_addon.cmake)
+endif()
+
+if(COLOPRESSO_ELECTRON_APP AND NOT EMSCRIPTEN)
+  include(cmake/electron_app.cmake)
+endif()
+
 # ==============================================================================
 # Optional Components
 # ==============================================================================

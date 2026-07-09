@@ -168,6 +168,14 @@ const bundle: TranslationBundle = {
     electron: {
       title: 'colopresso',
       settings: {
+        conversionThreadsLabel: 'Conversion threads',
+        conversionThreadsSpecifyLabel: 'Specify conversion thread count',
+        conversionThreadsDescription: 'Assigning more CPU threads can make conversion faster.',
+        conversionThreadsRangeDescription: 'This PC supports values from 1 to {max}.',
+        conversionThreadsAutoDescription: 'When unspecified, colopresso uses half of all threads available on this PC.',
+        conversionThreadsRangeError: 'Enter a conversion thread count from 1 to {max}.',
+        disableWebpMultithreadLabel: 'Disable multithreaded encoding',
+        disableWebpMultithreadDescription: 'Turns off faster encoding with multithreading. Enable this if you want to reduce PC load while encoding.',
         deletePngLabel: 'Delete original PNG files after folder processing',
         deletePngDescription: 'When processing folders, delete the original PNG files after conversion.',
         createZipLabel: 'Save ZIP when processing multiple PNG files',
