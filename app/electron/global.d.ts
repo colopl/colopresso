@@ -61,6 +61,48 @@ interface ElectronConfirmInstallUpdateResult {
   confirmed: boolean;
 }
 
+interface ElectronNativeAvailabilityResult {
+  available: boolean;
+  error?: string;
+}
+
+interface ElectronNativeConversionPayload {
+  formatId: string;
+  options: Record<string, unknown>;
+  inputBytes: Uint8Array;
+  threadCount?: number;
+}
+
+interface ElectronNativeConversionResult {
+  success: boolean;
+  result?: {
+    outputBytes: Uint8Array;
+    inputSize: number;
+    outputSize: number;
+    threadCount?: number;
+  };
+  error?: string;
+  errorCode?: string;
+  inputSize?: number;
+  outputSize?: number;
+}
+
+interface ElectronNativeVersionInfoResult {
+  success: boolean;
+  versionInfo?: Record<string, unknown>;
+  error?: string;
+}
+
+interface ElectronNativeThreadInfoResult {
+  success: boolean;
+  threadInfo?: {
+    enabled: boolean;
+    defaultThreads: number;
+    maxThreads: number;
+  };
+  error?: string;
+}
+
 interface ElectronAPI {
   getPathForFile?: (file: File) => string | undefined;
   saveJsonDialog?: (defaultFileName: string) => Promise<ElectronSaveDialogResult>;
@@ -85,6 +127,10 @@ interface ElectronAPI {
   restartApp?: () => Promise<void>;
   getUpdateChannel?: () => Promise<string | undefined>;
   getArchitecture?: () => Promise<string | undefined>;
+  isNativeConversionAvailable?: () => Promise<ElectronNativeAvailabilityResult>;
+  getNativeVersionInfo?: () => Promise<ElectronNativeVersionInfoResult>;
+  getNativeThreadInfo?: () => Promise<ElectronNativeThreadInfoResult>;
+  convertNative?: (payload: ElectronNativeConversionPayload) => Promise<ElectronNativeConversionResult>;
   getPngxBridgeUrl?: () => Promise<string | undefined>;
   checkForUpdates?: () => Promise<{ success: boolean; error?: string }>;
 }

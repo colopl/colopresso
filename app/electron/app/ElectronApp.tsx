@@ -45,6 +45,8 @@ const loadColopressoModuleFactory = async (): Promise<ColopressoModuleFactoryTyp
 };
 
 const defaultElectronSettings: SettingsState = {
+  conversionThreads: 0,
+  disableWebpMultithread: false,
   useOriginalOutput: false,
 };
 
@@ -75,7 +77,37 @@ const sanitizeRelativeOutputPath = (input: string): string => {
   return sanitized.join('/');
 };
 
-type ElectronSettingKey = 'deletePng' | 'createZip';
+const getNavigatorThreadCount = (): number => {
+  const hardwareConcurrency = typeof navigator !== 'undefined' && Number.isFinite(navigator.hardwareConcurrency) && navigator.hardwareConcurrency > 0 ? navigator.hardwareConcurrency : 64;
+  return Math.max(1, Math.min(64, Math.trunc(hardwareConcurrency)));
+};
+
+const normalizeConversionThreadSetting = (value: unknown): number => {
+  const numericValue = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : 0;
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return 0;
+  }
+  return Math.trunc(numericValue);
+};
+
+const normalizeThreadLimit = (value: unknown): number | null => {
+  const numericValue = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return null;
+  }
+  return Math.trunc(numericValue);
+};
+
+const readLegacyPngxThreads = (config: FormatOptions): number | undefined => {
+  const value = (config as Record<string, unknown>).pngx_threads;
+  const numericValue = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : undefined;
+  if (numericValue === undefined || !Number.isFinite(numericValue) || numericValue < 0) {
+    return undefined;
+  }
+  return normalizeConversionThreadSetting(numericValue);
+};
+
+type ElectronBooleanSettingKey = 'deletePng' | 'createZip' | 'disableWebpMultithread';
 
 interface FolderFileEntry {
   name: string;
@@ -113,8 +145,13 @@ const ElectronAppInner: React.FC = () => {
   const modulePromiseRef = useRef<Promise<ModuleWithHelpers> | null>(null);
   const workerClientRef = useRef<ConversionWorkerClient | null>(null);
   const workerClientPromiseRef = useRef<Promise<ConversionWorkerClient> | null>(null);
+  const workerConversionThreadsRef = useRef<number | null>(null);
+  const nativeBackendAvailableRef = useRef<boolean | null>(null);
+  const nativeThreadInfoRef = useRef<{ enabled: boolean; defaultThreads: number; maxThreads: number } | null>(null);
   const workerInitResultRef = useRef<{
     threadsEnabled: boolean;
+    defaultThreads?: number;
+    maxThreads?: number;
     pngxBridgeEnabled: boolean;
     version?: number;
     libwebpVersion?: number;
@@ -122,6 +159,8 @@ const ElectronAppInner: React.FC = () => {
     libavifVersion?: number;
     pngxOxipngVersion?: number;
     pngxLibimagequantVersion?: number;
+    compilerVersionString?: string;
+    rustVersionString?: string;
     buildtime?: number;
   } | null>(null);
   const threadsEnabledRef = useRef<boolean>(true);
@@ -137,6 +176,53 @@ const ElectronAppInner: React.FC = () => {
   const normalizedOutputDirectoryPath = typeof state.settings.outputDirectoryPath === 'string' ? state.settings.outputDirectoryPath.trim() : '';
   const useOriginalOutput = state.settings.useOriginalOutput === true;
   const isFixedOutputActive = useOriginalOutput && normalizedOutputDirectoryPath.length > 0;
+  const conversionThreadMax = useMemo(
+    () => normalizeThreadLimit(state.buildInfo.payload?.maxThreads) ?? normalizeThreadLimit(nativeThreadInfoRef.current?.maxThreads) ?? getNavigatorThreadCount(),
+    [state.buildInfo.payload?.maxThreads]
+  );
+  const defaultConversionThreads = useMemo(
+    () =>
+      Math.min(
+        conversionThreadMax,
+        normalizeThreadLimit(state.buildInfo.payload?.defaultThreads) ?? normalizeThreadLimit(nativeThreadInfoRef.current?.defaultThreads) ?? Math.max(1, Math.floor(conversionThreadMax / 2))
+      ),
+    [conversionThreadMax, state.buildInfo.payload?.defaultThreads]
+  );
+  const conversionThreads = useMemo(() => normalizeConversionThreadSetting(state.settings.conversionThreads), [state.settings.conversionThreads]);
+  const isConversionThreadsSpecified = conversionThreads > 0;
+  const isWebpFormatSelected = currentFormat.id === 'webp';
+  const conversionThreadsErrorKey = !isWebpFormatSelected && isConversionThreadsSpecified && conversionThreads > conversionThreadMax ? 'electron.settings.conversionThreadsRangeError' : null;
+
+  const ensureNativeBackendAvailable = useCallback(async (): Promise<boolean> => {
+    if (nativeBackendAvailableRef.current !== null) {
+      return nativeBackendAvailableRef.current;
+    }
+
+    const api = window.electronAPI;
+    if (!api?.isNativeConversionAvailable || !api.convertNative) {
+      nativeBackendAvailableRef.current = false;
+      return false;
+    }
+
+    try {
+      const availability = await api.isNativeConversionAvailable();
+      nativeBackendAvailableRef.current = availability.available;
+
+      if (availability.available && api.getNativeThreadInfo) {
+        const threadInfoResult = await api.getNativeThreadInfo();
+        if (threadInfoResult.success && threadInfoResult.threadInfo) {
+          threadsEnabledRef.current = threadInfoResult.threadInfo.enabled;
+          nativeThreadInfoRef.current = threadInfoResult.threadInfo;
+        }
+      }
+
+      return nativeBackendAvailableRef.current;
+    } catch (error) {
+      console.warn('[native] availability check failed', error);
+      nativeBackendAvailableRef.current = false;
+      return false;
+    }
+  }, []);
 
   const ensureModule = useCallback(async (): Promise<ModuleWithHelpers> => {
     if (moduleRef.current) {
@@ -176,7 +262,12 @@ const ElectronAppInner: React.FC = () => {
 
   const ensureWorkerClient = useCallback(async (): Promise<ConversionWorkerClient> => {
     if (workerClientRef.current) {
-      return workerClientRef.current;
+      if (workerConversionThreadsRef.current === conversionThreads) {
+        return workerClientRef.current;
+      }
+      workerClientRef.current.terminate();
+      workerClientRef.current = null;
+      workerConversionThreadsRef.current = null;
     }
     if (workerClientPromiseRef.current) {
       return workerClientPromiseRef.current;
@@ -184,27 +275,17 @@ const ElectronAppInner: React.FC = () => {
 
     const creation = (async () => {
       const pngxBridgeUrl = await window.electronAPI?.getPngxBridgeUrl?.();
-      let pngxThreads: number | undefined;
-
-      try {
-        const pngxFormat = getFormat('pngx');
-        if (pngxFormat) {
-          const pngxConfig = await loadFormatConfig(pngxFormat);
-          pngxThreads = typeof pngxConfig.pngx_threads === 'number' ? pngxConfig.pngx_threads : undefined;
-        }
-      } catch {
-        /* NOP */
-      }
 
       const client = createConversionWorkerClient(COLOPRESSO_WORKER_URL, COLOPRESSO_MODULE_URL.href, {
         pngxBridgeUrl,
-        pngxThreads,
+        conversionThreads,
       });
       const initResult = await client.init();
 
       threadsEnabledRef.current = initResult.threadsEnabled;
       workerInitResultRef.current = initResult;
       workerClientRef.current = client;
+      workerConversionThreadsRef.current = conversionThreads;
 
       return client;
     })();
@@ -216,17 +297,10 @@ const ElectronAppInner: React.FC = () => {
     } finally {
       workerClientPromiseRef.current = null;
     }
-  }, []);
+  }, [conversionThreads]);
 
   const loadBuildInfoFromModule = useCallback(async (): Promise<BuildInfoPayload | null> => {
-    try {
-      await ensureWorkerClient();
-
-      const initResult = workerInitResultRef.current;
-      if (!initResult) {
-        return null;
-      }
-
+    const appendReleaseMetadata = async (base: BuildInfoPayload): Promise<BuildInfoPayload> => {
       const getUpdateChannel = window.electronAPI?.getUpdateChannel;
       const getArchitecture = window.electronAPI?.getArchitecture;
       let releaseChannel: string | undefined;
@@ -246,6 +320,50 @@ const ElectronAppInner: React.FC = () => {
         }
       }
 
+      if (releaseChannel || architecture) {
+        return {
+          ...base,
+          ...(releaseChannel ? { releaseChannel } : {}),
+          ...(architecture ? { architecture } : {}),
+        };
+      }
+
+      return base;
+    };
+
+    try {
+      if ((await ensureNativeBackendAvailable()) && window.electronAPI?.getNativeVersionInfo) {
+        const nativeVersionInfo = await window.electronAPI.getNativeVersionInfo();
+        if (nativeVersionInfo.success && nativeVersionInfo.versionInfo) {
+          let threadInfo = nativeThreadInfoRef.current;
+          if (!threadInfo && window.electronAPI.getNativeThreadInfo) {
+            const threadInfoResult = await window.electronAPI.getNativeThreadInfo();
+            if (threadInfoResult.success && threadInfoResult.threadInfo) {
+              threadInfo = threadInfoResult.threadInfo;
+              nativeThreadInfoRef.current = threadInfo;
+            }
+          }
+          return appendReleaseMetadata({
+            ...(nativeVersionInfo.versionInfo as BuildInfoPayload),
+            backend: 'native',
+            ...(threadInfo
+              ? {
+                  threadsEnabled: threadInfo.enabled,
+                  defaultThreads: threadInfo.defaultThreads,
+                  maxThreads: threadInfo.maxThreads,
+                }
+              : {}),
+          });
+        }
+      }
+
+      await ensureWorkerClient();
+
+      const initResult = workerInitResultRef.current;
+      if (!initResult) {
+        return null;
+      }
+
       const base: BuildInfoPayload = {
         version: initResult.version,
         libavifVersion: initResult.libavifVersion,
@@ -256,21 +374,17 @@ const ElectronAppInner: React.FC = () => {
         compilerVersionString: initResult.compilerVersionString,
         rustVersionString: initResult.rustVersionString,
         buildtime: initResult.buildtime,
+        backend: 'wasm',
+        threadsEnabled: initResult.threadsEnabled,
+        defaultThreads: initResult.defaultThreads,
+        maxThreads: initResult.maxThreads,
       };
 
-      if (releaseChannel || architecture) {
-        return {
-          ...base,
-          ...(releaseChannel ? { releaseChannel } : {}),
-          ...(architecture ? { architecture } : {}),
-        };
-      }
-
-      return base;
+      return appendReleaseMetadata(base);
     } catch (_error) {
       return null;
     }
-  }, [ensureWorkerClient]);
+  }, [ensureNativeBackendAvailable, ensureWorkerClient]);
 
   const applyStatus = useCallback(
     (status: StatusMessage | null) => {
@@ -705,6 +819,7 @@ const ElectronAppInner: React.FC = () => {
         workerClientRef.current = null;
       }
       workerClientPromiseRef.current = null;
+      workerConversionThreadsRef.current = null;
     };
   }, []);
 
@@ -733,14 +848,42 @@ const ElectronAppInner: React.FC = () => {
         activateFormat(initialFormat.id);
         dispatch({ type: 'setActiveFormat', id: initialFormat.id });
 
+        const storedSettings = await Storage.getJSON<SettingsState>(ELECTRON_SETTINGS_STORAGE_KEY, {});
+        const nextSettings = applyElectronSettingDefaults(storedSettings);
+        const normalizedStoredThreads = normalizeConversionThreadSetting(nextSettings.conversionThreads);
+        let shouldPersistSettings = nextSettings.conversionThreads !== normalizedStoredThreads;
+
+        nextSettings.conversionThreads = normalizedStoredThreads;
+
+        if (storedSettings?.conversionThreads == null) {
+          const pngxFormat = getFormat('pngx');
+          if (pngxFormat) {
+            const pngxConfig = await loadFormatConfig(pngxFormat);
+            const legacyPngxThreads = readLegacyPngxThreads(pngxConfig);
+            const pngxConfigRecord = pngxConfig as Record<string, unknown>;
+            if (legacyPngxThreads !== undefined) {
+              nextSettings.conversionThreads = legacyPngxThreads;
+              shouldPersistSettings = true;
+            }
+            if ('pngx_threads' in pngxConfigRecord || 'conversion_threads' in pngxConfigRecord) {
+              const cleanedPngxConfig: FormatOptions = { ...pngxConfig };
+              delete (cleanedPngxConfig as Record<string, unknown>).pngx_threads;
+              delete (cleanedPngxConfig as Record<string, unknown>).conversion_threads;
+              await saveFormatConfig(pngxFormat, cleanedPngxConfig);
+            }
+          }
+        }
+
+        if (shouldPersistSettings) {
+          await Storage.setItem(ELECTRON_SETTINGS_STORAGE_KEY, nextSettings);
+        }
+        if (!cancelled) {
+          dispatch({ type: 'setSettings', settings: nextSettings });
+        }
+
         const config = await loadFormatConfig(initialFormat);
         if (!cancelled) {
           setFormatConfigs((prev) => ({ ...prev, [initialFormat.id]: config }));
-        }
-
-        const storedSettings = await Storage.getJSON<SettingsState>(ELECTRON_SETTINGS_STORAGE_KEY, {});
-        if (!cancelled) {
-          dispatch({ type: 'setSettings', settings: applyElectronSettingDefaults(storedSettings) });
         }
 
         const buildInfo = await loadBuildInfoFromModule();
@@ -815,11 +958,34 @@ const ElectronAppInner: React.FC = () => {
   );
 
   const handleSettingToggle = useCallback(
-    async (key: ElectronSettingKey, value: boolean) => {
+    async (key: ElectronBooleanSettingKey, value: boolean) => {
       await persistSettings({ [key]: value } as Partial<SettingsState>);
     },
     [persistSettings]
   );
+
+  const handleConversionThreadsChange = useCallback(
+    async (value: number | string) => {
+      await persistSettings({ conversionThreads: normalizeConversionThreadSetting(value) });
+    },
+    [persistSettings]
+  );
+
+  const handleConversionThreadsSpecifiedChange = useCallback(
+    async (enabled: boolean) => {
+      await persistSettings({ conversionThreads: enabled ? (conversionThreads > 0 ? conversionThreads : defaultConversionThreads) : 0 });
+    },
+    [conversionThreads, defaultConversionThreads, persistSettings]
+  );
+
+  const validateConversionThreadsForProcessing = useCallback((): boolean => {
+    if (!conversionThreadsErrorKey) {
+      return true;
+    }
+
+    applyStatus({ type: 'error', messageKey: conversionThreadsErrorKey, durationMs: 5000, params: { max: conversionThreadMax } });
+    return false;
+  }, [applyStatus, conversionThreadMax, conversionThreadsErrorKey]);
 
   const handleAdvancedSettingsClick = useCallback(async () => {
     if (state.isProcessing) {
@@ -990,17 +1156,46 @@ const ElectronAppInner: React.FC = () => {
 
   const convertPngBytes = useCallback(
     async (pngData: Uint8Array): Promise<{ result: Uint8Array; conversionTimeMs: number }> => {
-      const workerClient = await ensureWorkerClient();
       const format = getFormat(state.activeFormatId) ?? getDefaultFormat();
       const options = normalizeFormatOptions(format, formatConfigs[format.id]);
+      const effectiveConversionThreads = format.id === 'webp' && state.settings.disableWebpMultithread ? 1 : format.id === 'webp' ? 0 : conversionThreads;
+      const conversionOptions = {
+        ...options,
+        conversion_threads: effectiveConversionThreads,
+      };
       const startTime = performance.now();
-      const { outputBytes } = await workerClient.convert(format.id, options, pngData);
+
+      if (await ensureNativeBackendAvailable()) {
+        const electron = ensureElectronAPI();
+        const nativeResult = await electron.convertNative?.({
+          formatId: format.id,
+          options: conversionOptions,
+          inputBytes: pngData,
+          threadCount: effectiveConversionThreads,
+        });
+
+        if (!nativeResult || !nativeResult.success || !nativeResult.result) {
+          const error = new Error(nativeResult?.error ?? 'Native conversion failed') as Error & { code?: string; inputSize?: number; outputSize?: number };
+          error.code = nativeResult?.errorCode;
+          error.inputSize = nativeResult?.inputSize ?? pngData.length;
+          error.outputSize = nativeResult?.outputSize;
+          throw error;
+        }
+
+        const endTime = performance.now();
+        const conversionTimeMs = Math.round(endTime - startTime);
+
+        return { result: nativeResult.result.outputBytes, conversionTimeMs };
+      }
+
+      const workerClient = await ensureWorkerClient();
+      const { outputBytes } = await workerClient.convert(format.id, conversionOptions, pngData);
       const endTime = performance.now();
       const conversionTimeMs = Math.round(endTime - startTime);
 
       return { result: outputBytes, conversionTimeMs };
     },
-    [ensureWorkerClient, formatConfigs, state.activeFormatId]
+    [conversionThreads, ensureElectronAPI, ensureNativeBackendAvailable, ensureWorkerClient, formatConfigs, state.activeFormatId, state.settings.disableWebpMultithread]
   );
 
   const downloadZipFile = useCallback(
@@ -1068,6 +1263,9 @@ const ElectronAppInner: React.FC = () => {
       }
       if (state.isProcessing) {
         applyStatus({ type: 'info', messageKey: 'common.processingWait', durationMs: 4000 });
+        return;
+      }
+      if (!validateConversionThreadsForProcessing()) {
         return;
       }
 
@@ -1218,6 +1416,7 @@ const ElectronAppInner: React.FC = () => {
       state.settings.createZip,
       isFixedOutputActive,
       updateProgress,
+      validateConversionThreadsForProcessing,
     ]
   );
 
@@ -1225,6 +1424,9 @@ const ElectronAppInner: React.FC = () => {
     async (folderPath: string) => {
       if (state.isProcessing) {
         applyStatus({ type: 'info', messageKey: 'common.processingWait', durationMs: 4000 });
+        return;
+      }
+      if (!validateConversionThreadsForProcessing()) {
         return;
       }
 
@@ -1361,6 +1563,7 @@ const ElectronAppInner: React.FC = () => {
       writeToFixedDirectory,
       t,
       updateProgress,
+      validateConversionThreadsForProcessing,
     ]
   );
 
@@ -1393,10 +1596,8 @@ const ElectronAppInner: React.FC = () => {
   }, [applyStatus, processFolder, t]);
 
   const handleLanguageChange = useCallback(
-    async (event: React.ChangeEvent<HTMLSelectElement>) => {
-      const next = event.target.value;
-
-      await setLanguage(next as typeof language);
+    async (next: typeof language) => {
+      await setLanguage(next);
     },
     [setLanguage]
   );
@@ -1453,6 +1654,64 @@ const ElectronAppInner: React.FC = () => {
 
   const settingsItems: SettingItemConfig[] = useMemo(
     () => [
+      isWebpFormatSelected
+        ? {
+            id: 'disableWebpMultithreadCheckbox',
+            type: 'checkbox',
+            labelKey: 'electron.settings.disableWebpMultithreadLabel',
+            descriptionKey: 'electron.settings.disableWebpMultithreadDescription',
+            value: Boolean(state.settings.disableWebpMultithread),
+            onChange: (value) => handleSettingToggle('disableWebpMultithread', value as boolean),
+          }
+        : {
+            id: 'conversionThreadsInput',
+            type: 'custom',
+            labelKey: 'electron.settings.conversionThreadsLabel',
+            customContent: (
+              <>
+                <label htmlFor="conversionThreadsEnabled" className={styles.conversionThreadsLabel}>
+                  <span className={styles.conversionThreadsCheckboxLabel}>
+                    <input
+                      id="conversionThreadsEnabled"
+                      type="checkbox"
+                      checked={isConversionThreadsSpecified}
+                      disabled={state.isProcessing}
+                      onChange={(event) => {
+                        void handleConversionThreadsSpecifiedChange(event.target.checked);
+                      }}
+                    />
+                    <span>{t('electron.settings.conversionThreadsSpecifyLabel')}</span>
+                  </span>
+                  <input
+                    id="conversionThreadsInput"
+                    className={styles.conversionThreadsInput}
+                    type="number"
+                    min={1}
+                    max={conversionThreadMax}
+                    step={1}
+                    value={isConversionThreadsSpecified ? conversionThreads : ''}
+                    placeholder={String(defaultConversionThreads)}
+                    disabled={state.isProcessing || !isConversionThreadsSpecified}
+                    aria-invalid={conversionThreadsErrorKey ? 'true' : undefined}
+                    aria-describedby="conversionThreadsDescription conversionThreadsError"
+                    onChange={(event) => {
+                      void handleConversionThreadsChange(event.target.value);
+                    }}
+                  />
+                </label>
+                <div id="conversionThreadsDescription" className={styles.settingsDescription}>
+                  <div>{t('electron.settings.conversionThreadsDescription')}</div>
+                  <div>{t('electron.settings.conversionThreadsRangeDescription', { max: conversionThreadMax })}</div>
+                  <div>{t('electron.settings.conversionThreadsAutoDescription')}</div>
+                </div>
+                {conversionThreadsErrorKey && (
+                  <div id="conversionThreadsError" className={styles.settingsError} role="alert">
+                    {t(conversionThreadsErrorKey, { max: conversionThreadMax })}
+                  </div>
+                )}
+              </>
+            ),
+          },
       {
         id: 'outputDirectoryCheckbox',
         type: 'custom',
@@ -1511,10 +1770,19 @@ const ElectronAppInner: React.FC = () => {
     [
       isFixedOutputActive,
       isSelectingOutputDirectory,
+      conversionThreadMax,
+      conversionThreads,
+      conversionThreadsErrorKey,
+      defaultConversionThreads,
+      isConversionThreadsSpecified,
+      isWebpFormatSelected,
       state.isProcessing,
       state.settings.deletePng,
       state.settings.createZip,
+      state.settings.disableWebpMultithread,
       normalizedOutputDirectoryPath,
+      handleConversionThreadsChange,
+      handleConversionThreadsSpecifiedChange,
       handleOutputModeToggle,
       handleOutputDirectoryReselect,
       handleSettingToggle,

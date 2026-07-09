@@ -262,6 +262,7 @@ function(colopresso_configure_gui_target PLATFORM DISPLAY_NAME)
 
   list(APPEND _post_build_commands
     COMMAND ${CMAKE_COMMAND} -E rm -f ${_cleanup_files}
+    COMMAND ${CMAKE_COMMAND} -E remove_directory ${OUTPUT_DIR}/native
     COMMAND ${CMAKE_COMMAND} -E remove_directory ${OUTPUT_DIR}/resources
   )
 
@@ -309,10 +310,12 @@ set(WASM_EXPORTED_FUNCTIONS
   _emscripten_config_webp_exact
   _emscripten_config_webp_use_delta_palette
   _emscripten_config_webp_use_sharp_yuv
+  _emscripten_config_webp_thread_level
   _emscripten_config_avif_quality
   _emscripten_config_avif_alpha_quality
   _emscripten_config_avif_lossless
   _emscripten_config_avif_speed
+  _emscripten_config_avif_threads
   _emscripten_config_pngx_level
   _emscripten_config_pngx_strip_safe
   _emscripten_config_pngx_optimize_alpha

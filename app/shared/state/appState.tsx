@@ -26,6 +26,8 @@ interface AppState {
 }
 
 const defaultSettings: SettingsState = {
+  conversionThreads: 0,
+  disableWebpMultithread: false,
   useOriginalOutput: true,
 };
 

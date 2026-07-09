@@ -14,6 +14,8 @@ import type { ConversionWorkerRequest, ConversionWorkerResponse } from './conver
 
 export interface ConversionWorkerInitResult {
   threadsEnabled: boolean;
+  defaultThreads?: number;
+  maxThreads?: number;
   pngxBridgeEnabled: boolean;
   version?: number;
   libwebpVersion?: number;
@@ -49,6 +51,7 @@ class ConversionWorkerError extends Error {
 
 export interface ConversionWorkerClientOptions {
   pngxBridgeUrl?: string;
+  conversionThreads?: number;
   pngxThreads?: number;
 }
 
@@ -97,7 +100,7 @@ export function createConversionWorkerClient(workerUrl: URL, moduleUrl: string, 
         type: 'init',
         moduleUrl,
         pngxBridgeUrl: options?.pngxBridgeUrl,
-        pngxThreads: options?.pngxThreads,
+        pngxThreads: options?.conversionThreads ?? options?.pngxThreads,
       });
       if (!response.success) {
         throw new ConversionWorkerError(response.error ?? 'Init failed');
@@ -105,6 +108,8 @@ export function createConversionWorkerClient(workerUrl: URL, moduleUrl: string, 
 
       return {
         threadsEnabled: response.threadsEnabled ?? false,
+        defaultThreads: response.defaultThreads,
+        maxThreads: response.maxThreads,
         pngxBridgeEnabled: response.pngxBridgeEnabled ?? false,
         version: response.version,
         libwebpVersion: response.libwebpVersion,

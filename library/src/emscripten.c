@@ -214,6 +214,13 @@ void emscripten_config_webp_use_sharp_yuv(cpres_config_t *config, int use_sharp_
 }
 
 EMSCRIPTEN_KEEPALIVE
+void emscripten_config_webp_thread_level(cpres_config_t *config, int thread_level) {
+  if (config) {
+    config->webp_thread_level = thread_level > 0 ? 1 : 0;
+  }
+}
+
+EMSCRIPTEN_KEEPALIVE
 void emscripten_config_avif_quality(cpres_config_t *config, float quality) {
   if (config) {
     config->avif_quality = quality;
@@ -238,6 +245,13 @@ EMSCRIPTEN_KEEPALIVE
 void emscripten_config_avif_speed(cpres_config_t *config, int speed) {
   if (config) {
     config->avif_speed = speed;
+  }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void emscripten_config_avif_threads(cpres_config_t *config, int threads) {
+  if (config) {
+    config->avif_threads = threads > 0 ? threads : 1;
   }
 }
 

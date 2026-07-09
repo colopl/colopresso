@@ -42,6 +42,7 @@
     "@vitejs/plugin-react": "^6.0.0",
     "electron": "^42.0.0",
     "electron-builder": "^26.3.6",
+    "node-api-headers": "^1.9.0",
     "prettier": "^3.7.4",
     "tslib": "^2.8.1",
     "typescript": "^6.0.0",
@@ -71,7 +72,8 @@
     ],
     "asarUnpack": [
       "build/electron/pngx_bridge.js",
-      "build/electron/pngx_bridge_bg.wasm"
+      "build/electron/pngx_bridge_bg.wasm",
+      "build/electron/**/*.node"
     ],
     "directories": {
       "output": "dist_build"

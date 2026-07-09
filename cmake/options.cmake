@@ -14,13 +14,27 @@ option(COLOPRESSO_WITH_FILE_OPS "Enable file operation functions (fopen, fwrite,
 option(COLOPRESSO_ENABLE_THREADS "Enable threads support" ON)
 option(COLOPRESSO_ENABLE_SIMD "Enable SIMD optimizations" ON)
 option(COLOPRESSO_PYTHON_BINDINGS "Build Python bindings" OFF)
+option(COLOPRESSO_ELECTRON_NATIVE_ADDON "Build Electron Node-API native addon" OFF)
+option(COLOPRESSO_ELECTRON_APP "Build the Electron app" OFF)
+set(COLOPRESSO_ELECTRON_TARGETS "" CACHE STRING "Comma-separated electron-builder targets (e.g. --mac,--win)")
+set(COLOPRESSO_ELECTRON_ARCH "" CACHE STRING "Electron package architecture (x64 or arm64; defaults to the host architecture)")
+set(COLOPRESSO_ELECTRON_NATIVE_ADDON_OUTPUT_DIR "" CACHE PATH "Output directory for the Electron native addon before packaging")
+
+if(COLOPRESSO_ELECTRON_APP AND NOT EMSCRIPTEN)
+  # Electron native builds keep SIMD enabled like the other native builds
+  # (CLI / Python Wheel). This requires AVX2 on x86_64 and NEON on arm64 as a
+  # baseline, which is an accepted requirement for the distributed app.
+  set(COLOPRESSO_ELECTRON_NATIVE_ADDON ON CACHE BOOL "Build Electron Node-API native addon" FORCE)
+endif()
+
+if(COLOPRESSO_ELECTRON_APP)
+  set(COLOPRESSO_WITH_FILE_OPS OFF CACHE BOOL "Enable file operation functions (fopen, fwrite, etc.)" FORCE)
+endif()
 
 if(EMSCRIPTEN)
-  option(COLOPRESSO_ELECTRON_APP "Build the Electron app with separated pngx_bridge WASM assets" OFF)
   option(COLOPRESSO_NODE_BUILD "Build the integrated stable Node.js/WebAssembly mode" ON)
   option(COLOPRESSO_NODE_WASM_SEPARATION "Legacy separated pngx_bridge asset toggle. Forced ON for Electron and ignored for non-Electron Emscripten builds." OFF)
   option(COLOPRESSO_ENABLE_WASM_SIMD "Enable WASM SIMD128 optimizations" ON)
-  set(COLOPRESSO_ELECTRON_TARGETS "" CACHE STRING "Comma-separated electron-builder targets (e.g. --mac,--win)")
 
   set(AOM_TARGET_CPU "generic" CACHE STRING "Target CPU for libaom" FORCE)
   set(ENABLE_NASM OFF CACHE BOOL "Disable NASM for libaom" FORCE)

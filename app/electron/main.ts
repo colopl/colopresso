@@ -15,6 +15,7 @@ import { autoUpdater, UpdateDownloadedEvent, UpdateInfo } from 'electron-updater
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { promises as fs } from 'node:fs';
+import { createRequire } from 'node:module';
 import packageJson from '../../package.json';
 import { bundles as languageBundles, translateForLanguage as translateForLanguageCore } from '../shared/i18n/core';
 import { LanguageCode, TranslationParams } from '../shared/types';
@@ -30,6 +31,10 @@ let updateCheckTimer: ReturnType<typeof setInterval> | null = null;
 let quittingForUpdate = false;
 let pendingUpdateEvent: UpdateDownloadedEvent | null = null;
 let pendingAvailableUpdateInfo: UpdateInfo | null = null;
+const nativeRequire = createRequire(__filename);
+let nativeAddonLoadAttempted = false;
+let nativeAddon: ColopressoNativeAddon | null = null;
+let nativeAddonLoadError: string | null = null;
 
 app.commandLine.appendSwitch('enable-features', 'SharedArrayBuffer');
 
@@ -94,6 +99,53 @@ interface ElectronSaveDialogResult {
 
 interface ElectronConfirmInstallUpdateResult {
   confirmed: boolean;
+}
+
+interface NativeConversionPayload {
+  formatId?: unknown;
+  options?: unknown;
+  inputBytes?: unknown;
+  threadCount?: unknown;
+}
+
+interface NativeConversionResult {
+  outputBytes: Uint8Array;
+  inputSize: number;
+  outputSize: number;
+  threadCount?: number;
+}
+
+interface NativeConversionIpcResult {
+  success: boolean;
+  result?: NativeConversionResult;
+  error?: string;
+  errorCode?: string;
+  inputSize?: number;
+  outputSize?: number;
+}
+
+interface NativeThreadInfo {
+  enabled: boolean;
+  defaultThreads: number;
+  maxThreads: number;
+}
+
+interface NativeVersionInfo {
+  version?: number;
+  libwebpVersion?: number;
+  libpngVersion?: number;
+  libavifVersion?: number;
+  pngxOxipngVersion?: number;
+  pngxLibimagequantVersion?: number;
+  compilerVersionString?: string;
+  rustVersionString?: string;
+  buildtime?: number;
+}
+
+interface ColopressoNativeAddon {
+  getVersionInfo(): NativeVersionInfo;
+  getThreadInfo(): NativeThreadInfo;
+  convert(formatId: string, options: Record<string, unknown>, inputBytes: Uint8Array, threadCount?: number): Promise<NativeConversionResult>;
 }
 
 interface ResolvedUpdateConfig {
@@ -209,6 +261,98 @@ function extractErrorMessage(error: unknown): string {
     return error.message;
   }
   return 'Unknown error';
+}
+
+function resolveNativeAddonPath(): string {
+  const addonPath = path.join(__dirname, 'native', 'colopresso_native.node');
+  if (addonPath.includes('app.asar')) {
+    return addonPath.replace('app.asar', 'app.asar.unpacked');
+  }
+  return addonPath;
+}
+
+function loadNativeAddon(): ColopressoNativeAddon | null {
+  if (nativeAddonLoadAttempted) {
+    return nativeAddon;
+  }
+
+  nativeAddonLoadAttempted = true;
+  try {
+    const addonPath = resolveNativeAddonPath();
+    const loaded = nativeRequire(addonPath) as Partial<ColopressoNativeAddon>;
+    if (typeof loaded.getVersionInfo !== 'function' || typeof loaded.getThreadInfo !== 'function' || typeof loaded.convert !== 'function') {
+      throw new Error('Native addon does not expose the expected API');
+    }
+    nativeAddon = loaded as ColopressoNativeAddon;
+    nativeAddonLoadError = null;
+  } catch (error) {
+    nativeAddon = null;
+    nativeAddonLoadError = extractErrorMessage(error);
+  }
+
+  return nativeAddon;
+}
+
+function normalizeIpcBytes(value: unknown): Uint8Array | null {
+  if (value instanceof Uint8Array) {
+    return value;
+  }
+  if (value instanceof ArrayBuffer) {
+    return new Uint8Array(value);
+  }
+  if (ArrayBuffer.isView(value)) {
+    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  }
+  return null;
+}
+
+function extractNativeErrorCode(error: unknown): string | undefined {
+  const typed = error as { code?: unknown } | null;
+  return typeof typed?.code === 'string' ? typed.code : undefined;
+}
+
+function extractNativeErrorNumber(error: unknown, key: 'inputSize' | 'outputSize'): number | undefined {
+  const typed = error as Record<string, unknown> | null;
+  const value = typed?.[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+async function handleNativeConvert(_event: IpcMainInvokeEvent, payload: NativeConversionPayload): Promise<NativeConversionIpcResult> {
+  const addon = loadNativeAddon();
+  if (!addon) {
+    return { success: false, error: nativeAddonLoadError ?? 'Native addon is unavailable' };
+  }
+
+  const typed = payload ?? {};
+  const formatId = typeof typed.formatId === 'string' ? typed.formatId : '';
+  const inputBytes = normalizeIpcBytes(typed.inputBytes);
+  const options = typed.options && typeof typed.options === 'object' && !Array.isArray(typed.options) ? (typed.options as Record<string, unknown>) : {};
+  const threadCount = typeof typed.threadCount === 'number' && Number.isFinite(typed.threadCount) ? typed.threadCount : undefined;
+
+  if (!formatId || !inputBytes) {
+    return { success: false, error: 'Invalid native conversion request', errorCode: 'invalid_argument' };
+  }
+
+  try {
+    const result = await addon.convert(formatId, options, inputBytes, threadCount);
+    return {
+      success: true,
+      result: {
+        outputBytes: new Uint8Array(result.outputBytes),
+        inputSize: result.inputSize,
+        outputSize: result.outputSize,
+        threadCount: result.threadCount,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: extractErrorMessage(error),
+      errorCode: extractNativeErrorCode(error),
+      inputSize: extractNativeErrorNumber(error, 'inputSize') ?? inputBytes.length,
+      outputSize: extractNativeErrorNumber(error, 'outputSize'),
+    };
+  }
 }
 
 function resolveUpdateConfig(): ResolvedUpdateConfig {
@@ -660,6 +804,19 @@ function registerIpcHandlers(): void {
   ipcMain.handle('save-json-dialog', handleSaveJsonDialog);
   ipcMain.handle('get-update-channel', () => getUpdateChannel());
   ipcMain.handle('get-architecture', () => process.arch);
+  ipcMain.handle('is-native-conversion-available', () => {
+    const addon = loadNativeAddon();
+    return { available: Boolean(addon), error: addon ? undefined : nativeAddonLoadError };
+  });
+  ipcMain.handle('get-native-version-info', () => {
+    const addon = loadNativeAddon();
+    return addon ? { success: true, versionInfo: addon.getVersionInfo() } : { success: false, error: nativeAddonLoadError ?? 'Native addon is unavailable' };
+  });
+  ipcMain.handle('get-native-thread-info', () => {
+    const addon = loadNativeAddon();
+    return addon ? { success: true, threadInfo: addon.getThreadInfo() } : { success: false, error: nativeAddonLoadError ?? 'Native addon is unavailable' };
+  });
+  ipcMain.handle('convert-native', handleNativeConvert);
   ipcMain.handle('check-for-updates', async () => {
     if (!autoUpdateInitialized || !app.isPackaged || process.platform === 'linux') {
       return { success: false, error: 'Auto update is not available' };

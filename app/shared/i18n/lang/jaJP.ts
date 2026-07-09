@@ -167,6 +167,14 @@ const bundle: TranslationBundle = {
     electron: {
       title: 'colopresso',
       settings: {
+        conversionThreadsLabel: '変換スレッド数',
+        conversionThreadsSpecifyLabel: '変換スレッド数を指定する',
+        conversionThreadsDescription: 'CPU スレッドを多く割り当てることで、変換を高速に行うことができます。',
+        conversionThreadsRangeDescription: 'この PC では 1 〜 {max} まで指定できます。',
+        conversionThreadsAutoDescription: '指定しない場合、PC で利用できる全体のうち半分のスレッドを利用します。',
+        conversionThreadsRangeError: '変換スレッド数は 1 〜 {max} の範囲で指定してください。',
+        disableWebpMultithreadLabel: 'マルチスレッドエンコードをオフにする',
+        disableWebpMultithreadDescription: 'マルチスレッドを用いて高速にエンコードを行う機能をオフにします。エンコード中に PC の負荷を低減したい場合有効にしてください',
         deletePngLabel: 'フォルダ処理後に元の PNG ファイルを削除',
         deletePngDescription: 'フォルダ処理時、変換後に元の PNG ファイルを削除します',
         createZipLabel: '複数 PNG ファイル処理時は ZIP で保存',

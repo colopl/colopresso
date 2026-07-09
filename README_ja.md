@@ -38,7 +38,7 @@
 - 🖥️ **マルチプラットフォーム** — Windows, macOS, Linux に対応
 - 🎛️ **柔軟な利用形態** — CLI, Electron アプリ, Node.js から選択可能
 - ⚙️ **プロファイル機能** — フォーマットごとのパラメータを保存・エクスポート・インポート
-- 🌐 **WebAssembly 対応** — Electron と Node.js 向けの WASM ビルドをサポート
+- 🌐 **WebAssembly 対応** — Node.js と従来の Electron フォールバック経路向けの WASM ビルドをサポート
 
 ## 📥 クイックスタート
 
@@ -50,28 +50,28 @@ cd colopresso
 詳細なビルド手順は [ビルドガイド](#ビルド-linux) を参照してください。
 
 > [!IMPORTANT]
-> **CLI (ネイティブビルド) および Python Wheel は、x86_64 (amd64) 環境で AVX2 命令セットのサポートが必須です。**
+> **CLI (ネイティブビルド)、Electron ネイティブビルド、および Python Wheel は、x86_64 (amd64) 環境で AVX2 命令セットのサポートが必須です。**
 > 2013年以降の Intel Haswell 以降、または AMD Excavator 以降のプロセッサが必要です。
-> Electron は WebAssembly を使用するため、AVX2 は不要です。
+> arm64 (aarch64) 環境 (Apple Silicon を含む) では NEON を使用します (対応するすべての ARMv8 プロセッサで利用可能です)。
 
 ## 🎯 対応フォーマット
 
-| フォーマット | モード | 説明 |
-|-------------|--------|------|
-| **WebP** | 圧縮 / ロスレス | 広く対応した次世代フォーマット |
-| **AVIF** | 圧縮 / ロスレス | 最高品質の次世代フォーマット |
-| **PNG** | 256色パレット | 256色量子化 (保護色指定あり) |
-| **PNG** | Reduced RGBA32 | ビット深度削減 (8-bit RGBA 出力を維持) |
-| **PNG** | Limited RGBA4444 | RGBA16bit, RGBA4444 でのバンディング対策 |
-| **PNG** | ロスレス | メタデータ削除による最適化 |
+| フォーマット | モード           | 説明                                     |
+| ------------ | ---------------- | ---------------------------------------- |
+| **WebP**     | 圧縮 / ロスレス  | 広く対応した次世代フォーマット           |
+| **AVIF**     | 圧縮 / ロスレス  | 最高品質の次世代フォーマット             |
+| **PNG**      | 256色パレット    | 256色量子化 (保護色指定あり)             |
+| **PNG**      | Reduced RGBA32   | ビット深度削減 (8-bit RGBA 出力を維持)   |
+| **PNG**      | Limited RGBA4444 | RGBA16bit, RGBA4444 でのバンディング対策 |
+| **PNG**      | ロスレス         | メタデータ削除による最適化               |
 
 ### 📱 フォーマット選択ガイド
 
-| 対応デバイス | 推奨フォーマット |
-|-------------|-----------------|
-| iOS 16+ | **AVIF** (最高品質) |
-| iOS 14+ | **WebP** |
-| iOS 14 未満 | **PNG** |
+| 対応デバイス | 推奨フォーマット    |
+| ------------ | ------------------- |
+| iOS 16+      | **AVIF** (最高品質) |
+| iOS 14+      | **WebP**            |
+| iOS 14 未満  | **PNG**             |
 
 > [!NOTE]
 > Android 5.x 以降は常に Chromium (Google Chrome) に依存しているため、すべてのフォーマットがサポートされています。
@@ -93,7 +93,7 @@ cd colopresso
 - ✅ フォルダ内のすべての PNG ファイルを一括変換
 - ✅ 変換後に元ファイルを自動削除するオプション
 - ✅ プロファイル機能でワークフローを効率化
-- ✅ `wasm-bindgen-rayon` のスレッド対応を維持した分離 `pngx_bridge.js` / `pngx_bridge_bg.wasm` 資産を利用
+- ✅ WebP / AVIF / PNG 変換に native Node-API addon を利用
 
 ### Node.js (WebAssembly)
 
@@ -158,34 +158,38 @@ git clone --recursive "https://github.com/colopl/colopresso.git"
 
 ### 常に利用可能
 
-| オプション | デフォルト | 説明 |
-|-----------|-----------|------|
-| `COLOPRESSO_USE_CLI` | OFF | CLI バイナリのビルドを有効にします。`COLOPRESSO_WITH_FILE_OPS=ON` が必要です。 |
-| `COLOPRESSO_USE_UTILS` | OFF | `library/utils/` 以下のコードをビルドします。`COLOPRESSO_WITH_FILE_OPS=OFF` の場合、自動的に無効になります。 |
-| `COLOPRESSO_USE_TESTS` | OFF | `library/tests/` 以下のコードをビルドします。 |
-| `COLOPRESSO_WITH_FILE_OPS` | ON | ファイル I/O API (`cpres_encode_*_file`) を有効にします。Electron ビルドを有効にすると、強制的に `OFF` になります。 |
+| オプション                         | デフォルト           | 説明                                                                                                                   |
+| ---------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `COLOPRESSO_USE_CLI`               | OFF                  | CLI バイナリのビルドを有効にします。`COLOPRESSO_WITH_FILE_OPS=ON` が必要です。                                         |
+| `COLOPRESSO_USE_UTILS`             | OFF                  | `library/utils/` 以下のコードをビルドします。`COLOPRESSO_WITH_FILE_OPS=OFF` の場合、自動的に無効になります。           |
+| `COLOPRESSO_USE_TESTS`             | OFF                  | `library/tests/` 以下のコードをビルドします。                                                                          |
+| `COLOPRESSO_WITH_FILE_OPS`         | ON                   | ファイル I/O API (`cpres_encode_*_file`) を有効にします。Electron ビルドを有効にすると、強制的に `OFF` になります。    |
+| `COLOPRESSO_ELECTRON_APP`          | OFF                  | `colopresso_native.node` を使うネイティブ Electron アプリをビルドします。                                              |
+| `COLOPRESSO_ELECTRON_ARCH`         | ホスト arch          | Electron パッケージのアーキテクチャ (`x64` または `arm64`)。各パッケージには一致する native addon がステージされます。 |
+| `COLOPRESSO_ELECTRON_TARGETS`      | プラットフォーム既定 | `--mac` や `--win` などの electron-builder ターゲットをカンマ区切りで指定します。                                      |
+| `COLOPRESSO_ELECTRON_NATIVE_ADDON` | OFF                  | Node-API native addon のみをビルドします。ネイティブ Electron ビルドでは強制的に `ON` になります。                     |
 
 ### Emscripten ビルドマトリクス
 
-| オプション | モード | 詳細 |
-|-----------|--------|------|
-| `COLOPRESSO_NODE_BUILD=ON` | 安定版の統合 Node.js/WebAssembly モード | `pngx_bridge` を `wasm32-unknown-emscripten` 向けの統合 static library としてビルドします。外部の `pngx_bridge.js` / `pngx_bridge_bg.wasm` 資産は生成されません。Rayon は無効のままで、リンク互換性のため Rust の panic 動作は `abort` に固定されます。 |
-| `COLOPRESSO_ELECTRON_APP=ON` | nightly の分離 Electron モード | メインアプリは `wasm32-unknown-emscripten` のままですが、`pngx_bridge.js`、`pngx_bridge_bg.wasm`、必要に応じて `snippets/` を nightly Rust の `wasm32-unknown-unknown` + `wasm-bindgen-rayon` で別生成します。 |
-| `COLOPRESSO_NODE_WASM_SEPARATION` | 互換性維持用の旧トグル | Electron パッケージング時は強制的に `ON`、それ以外の Emscripten ビルドでは無視されます。非 Electron の Emscripten ビルドは常に安定版の統合モードを使用します。 |
+| オプション                        | モード                                  | 詳細                                                                                                                                                                                                                                                                                                    |
+| --------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `COLOPRESSO_NODE_BUILD=ON`        | 安定版の統合 Node.js/WebAssembly モード | `pngx_bridge` を `wasm32-unknown-emscripten` 向けの統合 static library としてビルドします。外部の `pngx_bridge.js` / `pngx_bridge_bg.wasm` 資産は生成されません。Rayon は無効のままで、リンク互換性のため Rust の panic 動作は `abort` に固定されます。                                                 |
+| `COLOPRESSO_ELECTRON_APP=ON`      | 従来の分離 Electron/WebAssembly モード  | `emcmake` で構成した場合のみ、メインアプリを `wasm32-unknown-emscripten` に保ち、`pngx_bridge.js`、`pngx_bridge_bg.wasm`、必要に応じて `snippets/` を nightly Rust の `wasm32-unknown-unknown` + `wasm-bindgen-rayon` で生成します。ネイティブ Electron パッケージは通常の `cmake` を使用してください。 |
+| `COLOPRESSO_NODE_WASM_SEPARATION` | 互換性維持用の旧トグル                  | Electron パッケージング時は強制的に `ON`、それ以外の Emscripten ビルドでは無視されます。非 Electron の Emscripten ビルドは常に安定版の統合モードを使用します。                                                                                                                                          |
 
 ### GCC && Debug モード
 
-| オプション | 説明 |
-|-----------|------|
-| `COLOPRESSO_USE_VALGRIND` | 利用可能な場合、Valgrind 統合を有効にします。 |
+| オプション                | 説明                                              |
+| ------------------------- | ------------------------------------------------- |
+| `COLOPRESSO_USE_VALGRIND` | 利用可能な場合、Valgrind 統合を有効にします。     |
 | `COLOPRESSO_USE_COVERAGE` | 利用可能な場合、`gcov` カバレッジを有効にします。 |
 
 ### Clang && Debug モード
 
-| オプション | 説明 |
-|-----------|------|
-| `COLOPRESSO_USE_ASAN` | AddressSanitizer を有効にします。 |
-| `COLOPRESSO_USE_MSAN` | MemorySanitizer を有効にします。 |
+| オプション             | 説明                                        |
+| ---------------------- | ------------------------------------------- |
+| `COLOPRESSO_USE_ASAN`  | AddressSanitizer を有効にします。           |
+| `COLOPRESSO_USE_MSAN`  | MemorySanitizer を有効にします。            |
 | `COLOPRESSO_USE_UBSAN` | UndefinedBehaviorSanitizer を有効にします。 |
 
 ## ビルド (Linux)
@@ -228,12 +232,12 @@ ctest --test-dir "build" --output-on-failure --parallel
 
 Valgrind のテストはエンコーダのエンドツーエンド系テストを含むため、CI 環境では非常に時間がかかる場合があります。
 
-| オプション | デフォルト | 説明 |
-|-----------|-----------|------|
-| `COLOPRESSO_VALGRIND_TRACK_ORIGINS` | OFF | `ON` にすると `--track-origins=yes` を付与。**非常に遅くなります**が、未初期化値の発生源追跡に有効です。 |
-| `COLOPRESSO_VALGRIND_RAYON_NUM_THREADS` | 1 | Valgrind テスト実行時の `RAYON_NUM_THREADS` を設定します。 |
-| `COLOPRESSO_VALGRIND_LEAK_CHECK` | full | Valgrind の `--leak-check` を指定します (`no|summary|full`)。 |
-| `COLOPRESSO_VALGRIND_SHOW_LEAK_KINDS` | all | Valgrind の `--show-leak-kinds` を指定します。 |
+| オプション                              | デフォルト | 説明                                                                                                     |
+| --------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------- |
+| `COLOPRESSO_VALGRIND_TRACK_ORIGINS`     | OFF        | `ON` にすると `--track-origins=yes` を付与。**非常に遅くなります**が、未初期化値の発生源追跡に有効です。 |
+| `COLOPRESSO_VALGRIND_RAYON_NUM_THREADS` | 1          | Valgrind テスト実行時の `RAYON_NUM_THREADS` を設定します。                                               |
+| `COLOPRESSO_VALGRIND_LEAK_CHECK`        | full       | Valgrind の `--leak-check` を指定します (`no\|summary\|full`)。                                          |
+| `COLOPRESSO_VALGRIND_SHOW_LEAK_KINDS`   | all        | Valgrind の `--show-leak-kinds` を指定します。                                                           |
 
 **例: CI 向け (高速) の Valgrind 実行:**
 
@@ -303,23 +307,17 @@ ctest --test-dir "build" --output-on-failure --parallel
 
 - Node.js
 - pnpm
-- 分離 `pngx_bridge` 資産ビルド用の Rust nightly
-  ```bash
-  rustup toolchain install nightly
-  rustup component add "rust-src" --toolchain nightly
-  rustup target add "wasm32-unknown-emscripten"
-  rustup target add "wasm32-unknown-unknown"
-  ```
-- `wasm32-unknown-unknown` をサポートする LLVM / Clang
-  - macOS: `brew install llvm`
-- `third_party/emsdk` と同じタグでインストールされた EMSDK
-- `PATH` 経由でアクセス可能な `emcmake` / `cmake`
+- `rust-toolchain.toml` の stable Rust toolchain
+- `PATH` 経由でアクセス可能な CMake
 
 > [!NOTE]
 > Electron ビルドではファイル I/O API が自動的に無効になり、メモリ API のみが利用可能になります。
 
 > [!NOTE]
-> Electron は nightly の分離モードです。メインアプリ自体は `emcmake` で構成されますが、レンダラ向けの `pngx_bridge` は `pngx_bridge.js`、`pngx_bridge_bg.wasm`、必要に応じて `snippets/` として別生成されます。この経路では既存の `wasm-bindgen-rayon` スレッド対応を維持し、Node.js 側の統合 `panic=abort` 制約は適用されません。
+> ネイティブ Electron パッケージでは、1つのパッケージアーキテクチャに一致する `build/electron/native/colopresso_native.node` だけをステージします。`x64` と `arm64` の成果物は別々の CMake ビルドディレクトリまたは job で作成してください。
+
+> [!NOTE]
+> Linux での Electron パッケージングは現時点ではサポートしていません。
 
 ### macOS
 
@@ -327,21 +325,16 @@ ctest --test-dir "build" --output-on-failure --parallel
 > 信頼できる最新の手順が必要な場合は、常に `release.yaml` を参照してください。
 
 ```bash
-# 1. EMSDK のセットアップ
-cd third_party/emsdk
-./emsdk install <tag>
-./emsdk activate <tag>
-source ./emsdk_env.sh
-cd ../..
-
-# 2. ビルド
-rm -rf "build" && emcmake cmake -B "build" \
-  -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--mac"
+# 1つのビルドディレクトリにつき1つのアーキテクチャをビルドします
+rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Release \
+  -DCOLOPRESSO_ELECTRON_APP=ON \
+  -DCOLOPRESSO_ELECTRON_TARGETS="--mac" \
+  -DCOLOPRESSO_ELECTRON_ARCH="arm64"
 cmake --build "build" --config Release --parallel
 ```
 
-成果物は `dist_build/colopresso_macos_gui_{x64,arm64}.dmg` に出力されます。
-パッケージされた Electron リソースには、分離された `pngx_bridge.js`、`pngx_bridge_bg.wasm`、必要に応じて `snippets/` も含まれます。
+成果物は `dist_build/colopresso_macos_gui_{arm64,x64}.{dmg,zip}` に出力されます。
+Intel 向け成果物は、Intel runner または別の x64 ビルド環境で `-DCOLOPRESSO_ELECTRON_ARCH="x64"` を指定して同じコマンドを実行してください。
 
 ### Windows
 
@@ -349,21 +342,16 @@ cmake --build "build" --config Release --parallel
 > cmd (コマンドプロンプト) ではなく、常に `pwsh` を使用してください。
 
 ```powershell
-# 1. EMSDK のセットアップ
-cd third_party/emsdk
-.\emsdk.ps1 install <tag>
-.\emsdk.ps1 activate <tag>
-. .\emsdk_env.ps1
-cd ..\..
-
-# 2. ビルド
 rm -rf "build"
-emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--win"
+cmake -B "build" -A "x64" `
+  -DCOLOPRESSO_ELECTRON_APP=ON `
+  -DCOLOPRESSO_ELECTRON_TARGETS="--win" `
+  -DCOLOPRESSO_ELECTRON_ARCH="x64"
 cmake --build "build" --config Release --parallel
 ```
 
 成果物は `dist_build/colopresso_windows_gui_{x64,arm64}.exe` として出力されます。
-パッケージされた Electron リソースには、分離された `pngx_bridge.js`、`pngx_bridge_bg.wasm`、必要に応じて `snippets/` も含まれます。
+ARM64 向け成果物は、別のビルドディレクトリまたは job で `-A "ARM64"` と `-DCOLOPRESSO_ELECTRON_ARCH="arm64"` を指定してください。
 
 ---
 

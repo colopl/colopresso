@@ -43,6 +43,18 @@ const BuildInfoPanel: React.FC<BuildInfoPanelProps> = ({ title, buildInfo, t }) 
     const buildtime = formatBuildtime(payload.buildtime);
     const releaseChannel = (payload.releaseChannel ?? '').trim();
     const architecture = (payload.architecture ?? '').trim();
+    const threadDetails = (() => {
+      if (typeof payload.threadsEnabled !== 'boolean') {
+        return '';
+      }
+      if (!payload.threadsEnabled) {
+        return 'disabled';
+      }
+      if (typeof payload.defaultThreads === 'number' && typeof payload.maxThreads === 'number') {
+        return `enabled (default: ${payload.defaultThreads}, max: ${payload.maxThreads})`;
+      }
+      return 'enabled';
+    })();
 
     return (
       <div className={styles.buildInfo}>
@@ -54,6 +66,7 @@ const BuildInfoPanel: React.FC<BuildInfoPanelProps> = ({ title, buildInfo, t }) 
           <div className={styles.buildInfoItem}>- libavif: {libavifVersion}</div>
           <div className={styles.buildInfoItem}>- oxipng: {oxipngVersion}</div>
           <div className={styles.buildInfoItem}>- libimagequant: {libimagequantVersion}</div>
+          {threadDetails && <div className={styles.buildInfoItem}>- Threads: {threadDetails}</div>}
           <div className={styles.buildInfoItem}>- C / C++: {compilerVersion}</div>
           <div className={styles.buildInfoItem}>- Rust: {rustVersion}</div>
           {releaseChannel && <div className={styles.buildInfoItem}>- Release Channel: {releaseChannel}</div>}

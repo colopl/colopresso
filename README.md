@@ -38,7 +38,7 @@
 - 🖥️ **Cross-Platform** — Supports Windows, macOS, and Linux
 - 🎛️ **Flexible Deployment** — Choose from CLI, Electron app, or Node.js
 - ⚙️ **Profile System** — Save, export, and import per-format parameters
-- 🌐 **WebAssembly Support** — WASM builds for Electron and Node.js
+- 🌐 **WebAssembly Support** — WASM builds for Node.js and legacy Electron fallback paths
 
 ## 📥 Quick Start
 
@@ -50,28 +50,28 @@ cd colopresso
 For detailed build instructions, see the [Build Guide](#build-linux).
 
 > [!IMPORTANT]
-> **AVX2 instruction set support is required on x86_64 (amd64) platforms for CLI (native builds) and Python Wheel.**
+> **AVX2 instruction set support is required on x86_64 (amd64) platforms for CLI (native builds), Electron native builds, and Python Wheel.**
 > Intel Haswell (2013) or later, or AMD Excavator or later processors are required.
-> Electron uses WebAssembly and does not require AVX2.
+> On arm64 (aarch64) platforms, including Apple Silicon, NEON is used (available on all supported ARMv8 processors).
 
 ## 🎯 Supported Formats
 
-| Format | Mode | Description |
-|--------|------|-------------|
-| **WebP** | Lossy / Lossless | Widely supported next-gen format |
-| **AVIF** | Lossy / Lossless | Best quality next-gen format |
-| **PNG** | 256-color Palette | 256-color quantization (with protected colors) |
-| **PNG** | Reduced RGBA32 | Bit depth reduction (preserves 8-bit RGBA output) |
-| **PNG** | Limited RGBA4444 | Prevents banding artifacts in RGBA16bit and RGBA4444 |
-| **PNG** | Lossless | Optimization through metadata removal |
+| Format   | Mode              | Description                                          |
+| -------- | ----------------- | ---------------------------------------------------- |
+| **WebP** | Lossy / Lossless  | Widely supported next-gen format                     |
+| **AVIF** | Lossy / Lossless  | Best quality next-gen format                         |
+| **PNG**  | 256-color Palette | 256-color quantization (with protected colors)       |
+| **PNG**  | Reduced RGBA32    | Bit depth reduction (preserves 8-bit RGBA output)    |
+| **PNG**  | Limited RGBA4444  | Prevents banding artifacts in RGBA16bit and RGBA4444 |
+| **PNG**  | Lossless          | Optimization through metadata removal                |
 
 ### 📱 Format Selection Guide
 
-| Target Device | Recommended Format |
-|--------------|-------------------|
-| iOS 16+ | **AVIF** (Best quality) |
-| iOS 14+ | **WebP** |
-| Earlier than iOS 14 | **PNG** |
+| Target Device       | Recommended Format      |
+| ------------------- | ----------------------- |
+| iOS 16+             | **AVIF** (Best quality) |
+| iOS 14+             | **WebP**                |
+| Earlier than iOS 14 | **PNG**                 |
 
 > [!NOTE]
 > Android 5.x and later rely on Chromium (Google Chrome), so all formats are supported.
@@ -93,7 +93,7 @@ A desktop application with intuitive drag & drop interface.
 - ✅ Batch convert all PNG files in a folder
 - ✅ Option to automatically delete original files after conversion
 - ✅ Streamline workflows with profile functionality
-- ✅ Uses separated nightly `pngx_bridge.js` / `pngx_bridge_bg.wasm` assets with `wasm-bindgen-rayon` threading
+- ✅ Uses a native Node-API addon for WebP / AVIF / PNG conversion
 
 ### Node.js (WebAssembly)
 
@@ -158,34 +158,38 @@ Open the cloned `colopresso` directory with Visual Studio Code and attach to the
 
 ### Always Available
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `COLOPRESSO_USE_CLI` | OFF | Enables building the CLI binary. Requires `COLOPRESSO_WITH_FILE_OPS=ON`. |
-| `COLOPRESSO_USE_UTILS` | OFF | Builds code under `library/utils/`. Automatically disabled if `COLOPRESSO_WITH_FILE_OPS=OFF`. |
-| `COLOPRESSO_USE_TESTS` | OFF | Builds code under `library/tests/`. |
-| `COLOPRESSO_WITH_FILE_OPS` | ON | Enables file I/O APIs (`cpres_encode_*_file`). Forced to `OFF` when Electron builds are enabled. |
+| Option                             | Default          | Description                                                                                      |
+| ---------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------ |
+| `COLOPRESSO_USE_CLI`               | OFF              | Enables building the CLI binary. Requires `COLOPRESSO_WITH_FILE_OPS=ON`.                         |
+| `COLOPRESSO_USE_UTILS`             | OFF              | Builds code under `library/utils/`. Automatically disabled if `COLOPRESSO_WITH_FILE_OPS=OFF`.    |
+| `COLOPRESSO_USE_TESTS`             | OFF              | Builds code under `library/tests/`.                                                              |
+| `COLOPRESSO_WITH_FILE_OPS`         | ON               | Enables file I/O APIs (`cpres_encode_*_file`). Forced to `OFF` when Electron builds are enabled. |
+| `COLOPRESSO_ELECTRON_APP`          | OFF              | Builds the native Electron app with `colopresso_native.node`.                                    |
+| `COLOPRESSO_ELECTRON_ARCH`         | host arch        | Electron package architecture (`x64` or `arm64`). Each package stages a matching native addon.   |
+| `COLOPRESSO_ELECTRON_TARGETS`      | platform default | Comma-separated electron-builder targets such as `--mac` or `--win`.                             |
+| `COLOPRESSO_ELECTRON_NATIVE_ADDON` | OFF              | Builds only the Node-API native addon. Forced `ON` by native Electron builds.                    |
 
 ### Emscripten Build Matrix
 
-| Option | Mode | Details |
-|--------|------|---------|
-| `COLOPRESSO_NODE_BUILD=ON` | Stable integrated Node.js/WebAssembly mode | Builds `pngx_bridge` as an integrated `wasm32-unknown-emscripten` static library. No external `pngx_bridge.js` / `pngx_bridge_bg.wasm` assets are emitted. Rayon stays disabled and Rust panic behavior is forced to `abort` for link compatibility. |
-| `COLOPRESSO_ELECTRON_APP=ON` | Nightly separated Electron mode | Keeps the main app on `wasm32-unknown-emscripten`, but builds `pngx_bridge.js`, `pngx_bridge_bg.wasm`, and optional `snippets/` separately with nightly Rust on `wasm32-unknown-unknown` via `wasm-bindgen-rayon`. |
-| `COLOPRESSO_NODE_WASM_SEPARATION` | Legacy compatibility toggle | Forced `ON` for Electron packaging and ignored for non-Electron Emscripten builds. Non-Electron Emscripten builds always use the integrated stable mode. |
+| Option                            | Mode                                       | Details                                                                                                                                                                                                                                                                                                   |
+| --------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `COLOPRESSO_NODE_BUILD=ON`        | Stable integrated Node.js/WebAssembly mode | Builds `pngx_bridge` as an integrated `wasm32-unknown-emscripten` static library. No external `pngx_bridge.js` / `pngx_bridge_bg.wasm` assets are emitted. Rayon stays disabled and Rust panic behavior is forced to `abort` for link compatibility.                                                      |
+| `COLOPRESSO_ELECTRON_APP=ON`      | Legacy separated Electron/WebAssembly mode | Only when configured through `emcmake`, keeps the main app on `wasm32-unknown-emscripten` and emits `pngx_bridge.js`, `pngx_bridge_bg.wasm`, and optional `snippets/` with nightly Rust on `wasm32-unknown-unknown` via `wasm-bindgen-rayon`. Native Electron packages should use normal `cmake` instead. |
+| `COLOPRESSO_NODE_WASM_SEPARATION` | Legacy compatibility toggle                | Forced `ON` for Electron packaging and ignored for non-Electron Emscripten builds. Non-Electron Emscripten builds always use the integrated stable mode.                                                                                                                                                  |
 
 ### GCC && Debug Mode
 
-| Option | Description |
-|--------|-------------|
+| Option                    | Description                                |
+| ------------------------- | ------------------------------------------ |
 | `COLOPRESSO_USE_VALGRIND` | Enables Valgrind integration if available. |
-| `COLOPRESSO_USE_COVERAGE` | Enables `gcov` coverage if available. |
+| `COLOPRESSO_USE_COVERAGE` | Enables `gcov` coverage if available.      |
 
 ### Clang && Debug Mode
 
-| Option | Description |
-|--------|-------------|
-| `COLOPRESSO_USE_ASAN` | Enables AddressSanitizer. |
-| `COLOPRESSO_USE_MSAN` | Enables MemorySanitizer. |
+| Option                 | Description                         |
+| ---------------------- | ----------------------------------- |
+| `COLOPRESSO_USE_ASAN`  | Enables AddressSanitizer.           |
+| `COLOPRESSO_USE_MSAN`  | Enables MemorySanitizer.            |
 | `COLOPRESSO_USE_UBSAN` | Enables UndefinedBehaviorSanitizer. |
 
 ## Build (Linux)
@@ -228,12 +232,12 @@ ctest --test-dir "build" --output-on-failure --parallel
 
 The Valgrind test suite includes encoder end-to-end tests and can be extremely slow in CI environments.
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `COLOPRESSO_VALGRIND_TRACK_ORIGINS` | OFF | When `ON`, adds `--track-origins=yes`. **Very slow**, but helps trace uninitialized value origins. |
-| `COLOPRESSO_VALGRIND_RAYON_NUM_THREADS` | 1 | Sets `RAYON_NUM_THREADS` for Valgrind tests. |
-| `COLOPRESSO_VALGRIND_LEAK_CHECK` | full | Controls Valgrind `--leak-check` (`no|summary|full`). |
-| `COLOPRESSO_VALGRIND_SHOW_LEAK_KINDS` | all | Controls Valgrind `--show-leak-kinds`. |
+| Option                                  | Default | Description                                                                                        |
+| --------------------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
+| `COLOPRESSO_VALGRIND_TRACK_ORIGINS`     | OFF     | When `ON`, adds `--track-origins=yes`. **Very slow**, but helps trace uninitialized value origins. |
+| `COLOPRESSO_VALGRIND_RAYON_NUM_THREADS` | 1       | Sets `RAYON_NUM_THREADS` for Valgrind tests.                                                       |
+| `COLOPRESSO_VALGRIND_LEAK_CHECK`        | full    | Controls Valgrind `--leak-check` (`no\|summary\|full`).                                            |
+| `COLOPRESSO_VALGRIND_SHOW_LEAK_KINDS`   | all     | Controls Valgrind `--show-leak-kinds`.                                                             |
 
 **Example: Fast CI-like Valgrind run:**
 
@@ -303,23 +307,17 @@ ctest --test-dir "build" --output-on-failure --parallel
 
 - Node.js
 - pnpm
-- Rust nightly for the separated `pngx_bridge` asset build
-  ```bash
-  rustup toolchain install nightly
-  rustup component add "rust-src" --toolchain nightly
-  rustup target add "wasm32-unknown-emscripten"
-  rustup target add "wasm32-unknown-unknown"
-  ```
-- LLVM / Clang with `wasm32-unknown-unknown` support
-  - macOS: `brew install llvm`
-- EMSDK installed at the same tag as `third_party/emsdk`
-- `emcmake` / `cmake` accessible via `PATH`
+- Rust stable toolchain from `rust-toolchain.toml`
+- CMake accessible via `PATH`
 
 > [!NOTE]
 > File I/O APIs are automatically disabled for Electron builds; only memory APIs remain available.
 
 > [!NOTE]
-> Electron is the separated nightly mode. The main app is still configured through `emcmake`, while `pngx_bridge` is emitted separately as `pngx_bridge.js`, `pngx_bridge_bg.wasm`, and optional `snippets/` assets for the renderer. This path keeps the existing `wasm-bindgen-rayon` threading behavior; the integrated Node.js `panic=abort` restriction only applies to the Node.js Emscripten bridge.
+> Native Electron packages stage `build/electron/native/colopresso_native.node` for exactly one package architecture. Build `x64` and `arm64` artifacts in separate CMake build directories or jobs.
+
+> [!NOTE]
+> Linux Electron packaging is not currently supported.
 
 ### macOS
 
@@ -327,21 +325,16 @@ ctest --test-dir "build" --output-on-failure --parallel
 > Refer to `release.yaml` whenever you need the authoritative, up-to-date sequence of steps.
 
 ```bash
-# 1. Set up EMSDK
-cd third_party/emsdk
-./emsdk install <tag>
-./emsdk activate <tag>
-source ./emsdk_env.sh
-cd ../..
-
-# 2. Build
-rm -rf "build" && emcmake cmake -B "build" \
-  -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--mac"
+# Build one architecture per build directory.
+rm -rf "build" && cmake -B "build" -DCMAKE_BUILD_TYPE=Release \
+  -DCOLOPRESSO_ELECTRON_APP=ON \
+  -DCOLOPRESSO_ELECTRON_TARGETS="--mac" \
+  -DCOLOPRESSO_ELECTRON_ARCH="arm64"
 cmake --build "build" --config Release --parallel
 ```
 
-Artifacts are output to `dist_build/colopresso_macos_gui_{x64,arm64}.dmg`.
-The packaged Electron resources also include separated `pngx_bridge.js`, `pngx_bridge_bg.wasm`, and optional `snippets/` assets.
+Artifacts are output to `dist_build/colopresso_macos_gui_{arm64,x64}.{dmg,zip}`.
+Run the same command with `-DCOLOPRESSO_ELECTRON_ARCH="x64"` on an Intel runner or in a separate x64 build environment for Intel artifacts.
 
 ### Windows
 
@@ -349,21 +342,16 @@ The packaged Electron resources also include separated `pngx_bridge.js`, `pngx_b
 > Always use `pwsh` instead of cmd (Command Prompt).
 
 ```powershell
-# 1. Set up EMSDK
-cd third_party/emsdk
-.\emsdk.ps1 install <tag>
-.\emsdk.ps1 activate <tag>
-. .\emsdk_env.ps1
-cd ..\..
-
-# 2. Build
 rm -rf "build"
-emcmake cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--win"
+cmake -B "build" -A "x64" `
+  -DCOLOPRESSO_ELECTRON_APP=ON `
+  -DCOLOPRESSO_ELECTRON_TARGETS="--win" `
+  -DCOLOPRESSO_ELECTRON_ARCH="x64"
 cmake --build "build" --config Release --parallel
 ```
 
 Artifacts are output as `dist_build/colopresso_windows_gui_{x64,arm64}.exe`.
-The packaged Electron resources also include separated `pngx_bridge.js`, `pngx_bridge_bg.wasm`, and optional `snippets/` assets.
+For ARM64 artifacts, use `-A "ARM64"` and `-DCOLOPRESSO_ELECTRON_ARCH="arm64"` in a separate build directory or job.
 
 ---
 
