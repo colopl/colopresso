@@ -20,6 +20,17 @@ if(NOT PNPM_EXECUTABLE)
   message(FATAL_ERROR "pnpm executable not found. Please install pnpm before building the Electron app.")
 endif()
 
+# On Windows pnpm resolves to pnpm.cmd. Inside an MSBuild custom-build batch
+# script, invoking a .cmd directly transfers control (like a batch GOTO) and
+# aborts any commands that follow it, and "cmake -E env" cannot exec a .cmd at
+# all. Route it through "cmd /c call" so pnpm runs in a child shell and control
+# returns to the build script.
+if(WIN32)
+  set(COLOPRESSO_PNPM_COMMAND cmd /c call ${PNPM_EXECUTABLE})
+else()
+  set(COLOPRESSO_PNPM_COMMAND ${PNPM_EXECUTABLE})
+endif()
+
 find_program(NODE_EXECUTABLE NAMES node node.exe)
 if(NOT NODE_EXECUTABLE)
   message(FATAL_ERROR "node executable not found. Please install Node.js before building the Electron app.")
@@ -144,12 +155,7 @@ add_custom_command(
   OUTPUT ${COLOPRESSO_ELECTRON_NODE_MODULES_STAMP}
   DEPENDS ${COLOPRESSO_ELECTRON_PACKAGE_FILES}
   COMMAND ${CMAKE_COMMAND} -E remove "${COLOPRESSO_ELECTRON_NODE_MODULES_STAMP}"
-  # Invoke pnpm through "cmake -E env" so that on Windows the MSBuild custom-build
-  # batch script keeps running after pnpm: pnpm resolves to pnpm.cmd, and calling
-  # a .cmd directly (without CALL) transfers control and aborts the remaining
-  # commands (the vite resource builds and the stamp touch), leaving main.js
-  # unbuilt. Launching via cmake.exe returns control to the script.
-  COMMAND ${CMAKE_COMMAND} -E env ${PNPM_EXECUTABLE} install --frozen-lockfile
+  COMMAND ${COLOPRESSO_PNPM_COMMAND} install --frozen-lockfile
   COMMAND ${CMAKE_COMMAND} -E touch "${COLOPRESSO_ELECTRON_NODE_MODULES_STAMP}"
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   COMMENT "Installing Electron dependencies"
