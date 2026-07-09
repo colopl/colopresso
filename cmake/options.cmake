@@ -21,8 +21,10 @@ set(COLOPRESSO_ELECTRON_ARCH "" CACHE STRING "Electron package architecture (x64
 set(COLOPRESSO_ELECTRON_NATIVE_ADDON_OUTPUT_DIR "" CACHE PATH "Output directory for the Electron native addon before packaging")
 
 if(COLOPRESSO_ELECTRON_APP AND NOT EMSCRIPTEN)
+  # Electron native builds keep SIMD enabled like the other native builds
+  # (CLI / Python Wheel). This requires AVX2 on x86_64 and NEON on arm64 as a
+  # baseline, which is an accepted requirement for the distributed app.
   set(COLOPRESSO_ELECTRON_NATIVE_ADDON ON CACHE BOOL "Build Electron Node-API native addon" FORCE)
-  set(COLOPRESSO_ENABLE_SIMD OFF CACHE BOOL "Enable SIMD optimizations" FORCE)
 endif()
 
 if(COLOPRESSO_ELECTRON_APP)

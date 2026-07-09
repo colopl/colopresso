@@ -50,9 +50,9 @@ cd colopresso
 詳細なビルド手順は [ビルドガイド](#ビルド-linux) を参照してください。
 
 > [!IMPORTANT]
-> **CLI (ネイティブビルド) および Python Wheel は、x86_64 (amd64) 環境で AVX2 命令セットのサポートが必須です。**
+> **CLI (ネイティブビルド)、Electron ネイティブビルド、および Python Wheel は、x86_64 (amd64) 環境で AVX2 命令セットのサポートが必須です。**
 > 2013年以降の Intel Haswell 以降、または AMD Excavator 以降のプロセッサが必要です。
-> Electron ネイティブビルドでは CPU 固有 SIMD をデフォルトで無効化するため、AVX2 は不要です。
+> arm64 (aarch64) 環境 (Apple Silicon を含む) では NEON を使用します (対応するすべての ARMv8 プロセッサで利用可能です)。
 
 ## 🎯 対応フォーマット
 

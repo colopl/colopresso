@@ -50,9 +50,9 @@ cd colopresso
 For detailed build instructions, see the [Build Guide](#build-linux).
 
 > [!IMPORTANT]
-> **AVX2 instruction set support is required on x86_64 (amd64) platforms for CLI (native builds) and Python Wheel.**
+> **AVX2 instruction set support is required on x86_64 (amd64) platforms for CLI (native builds), Electron native builds, and Python Wheel.**
 > Intel Haswell (2013) or later, or AMD Excavator or later processors are required.
-> Electron native builds disable CPU-specific SIMD by default and do not require AVX2.
+> On arm64 (aarch64) platforms, including Apple Silicon, NEON is used (available on all supported ARMv8 processors).
 
 ## 🎯 Supported Formats
 
