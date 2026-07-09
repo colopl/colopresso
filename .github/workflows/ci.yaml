@@ -231,6 +231,9 @@ jobs:
         uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
         with:
           toolchain: ${{ needs.Prepare.outputs.rust_stable }}
+      - name: Install dependencies
+        shell: pwsh
+        run: pnpm install --frozen-lockfile
       - name: Build Electron app (native addon)
         shell: pwsh
         run: |
@@ -272,9 +275,11 @@ jobs:
         uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
         with:
           toolchain: ${{ needs.Prepare.outputs.rust_stable }}
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
       - name: Build Electron app (native addon)
         run: |
-          cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--mac" -DCOLOPRESSO_ELECTRON_ARCH="${{ matrix.arch.electron }}"
+          cmake -B "build" -DCOLOPRESSO_ELECTRON_APP=ON -DCOLOPRESSO_ELECTRON_TARGETS="--mac" -DCOLOPRESSO_ELECTRON_ARCH="${{ matrix.arch.electron }}" ${{ matrix.arch.electron == 'x64' && '-DAOM_TARGET_CPU=generic' || '' }}
           cmake --build "build" --config "Release" --parallel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
