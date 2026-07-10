@@ -3,5 +3,5 @@ channel = "1.96.0"
 components = ["rustfmt", "clippy"]
 
 [colopresso]
-nightly = "nightly-2026-05-31"
+nightly = "nightly-2026-07-10"
 wasm-pack = "0.15.0"
