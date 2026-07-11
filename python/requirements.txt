@@ -1,2 +1,2 @@
 # Build tooling requirements
-cibuildwheel>=3.3,<4
+cibuildwheel>=4.1,<5
