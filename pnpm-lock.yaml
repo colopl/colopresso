@@ -26,7 +26,7 @@ importers:
     devDependencies:
       '@types/node':
         specifier: ^24.10.3
-        version: 24.12.4
+        version: 24.13.3
       '@types/react':
         specifier: ^19.2.7
         version: 19.2.16
@@ -35,7 +35,7 @@ importers:
         version: 19.2.3(@types/react@19.2.16)
       '@vitejs/plugin-react':
         specifier: ^6.0.0
-        version: 6.0.2(vite@8.0.16(@types/node@24.12.4)(jiti@2.7.0))
+        version: 6.0.2(vite@8.0.16(@types/node@24.13.3)(jiti@2.7.0))
       electron:
         specifier: ^42.0.0
         version: 42.4.1
@@ -56,7 +56,7 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^8.0.0
-        version: 8.0.16(@types/node@24.12.4)(jiti@2.7.0)
+        version: 8.0.16(@types/node@24.13.3)(jiti@2.7.0)
 
 packages:
 
@@ -300,11 +300,11 @@ packages:
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
-  '@types/node@24.12.4':
-    resolution: {integrity: sha512-GUUEShf+PBCGW2KaXwcIt3Yk+e3pkKwWKb9GSyM9WQVE+ep2jzmHdGsHzu4wgcZy5fN9FBdVzjpBQsYlpfpgLA==}
-
   '@types/node@24.13.2':
     resolution: {integrity: sha512-fRa09kZTgu8o71KFcDjUFuc7F+dEbZYZmkI0mg5YBTRs0yMKjYHsq/c0urDKeDb+D5qVgXOdFcuu+DZPKOITwA==}
+
+  '@types/node@24.13.3':
+    resolution: {integrity: sha512-Dh8vAsV36ig5wa9OX4pXvMc9D3Veibfw2wix0CUwYODLD8nkj9UsLjASr49nPg+2eKzxhBV+v7L8pXvT4e639Q==}
 
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
@@ -1330,9 +1330,6 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  undici-types@7.16.0:
-    resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
-
   undici-types@7.18.2:
     resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
@@ -1726,11 +1723,11 @@ snapshots:
 
   '@types/ms@2.1.0': {}
 
-  '@types/node@24.12.4':
-    dependencies:
-      undici-types: 7.16.0
-
   '@types/node@24.13.2':
+    dependencies:
+      undici-types: 7.18.2
+
+  '@types/node@24.13.3':
     dependencies:
       undici-types: 7.18.2
 
@@ -1748,10 +1745,10 @@ snapshots:
 
   '@types/use-sync-external-store@0.0.6': {}
 
-  '@vitejs/plugin-react@6.0.2(vite@8.0.16(@types/node@24.12.4)(jiti@2.7.0))':
+  '@vitejs/plugin-react@6.0.2(vite@8.0.16(@types/node@24.13.3)(jiti@2.7.0))':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
-      vite: 8.0.16(@types/node@24.12.4)(jiti@2.7.0)
+      vite: 8.0.16(@types/node@24.13.3)(jiti@2.7.0)
 
   '@xmldom/xmldom@0.8.13': {}
 
@@ -2098,7 +2095,7 @@ snapshots:
     dependencies:
       '@electron-internal/extract-zip': 1.0.3
       '@electron/get': 5.0.0
-      '@types/node': 24.12.4
+      '@types/node': 24.13.3
     transitivePeerDependencies:
       - supports-color
 
@@ -2805,8 +2802,6 @@ snapshots:
 
   typescript@6.0.3: {}
 
-  undici-types@7.16.0: {}
-
   undici-types@7.18.2: {}
 
   undici@6.27.0: {}
@@ -2834,7 +2829,7 @@ snapshots:
 
   util-deprecate@1.0.2: {}
 
-  vite@8.0.16(@types/node@24.12.4)(jiti@2.7.0):
+  vite@8.0.16(@types/node@24.13.3)(jiti@2.7.0):
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.4
@@ -2842,7 +2837,7 @@ snapshots:
       rolldown: 1.0.3
       tinyglobby: 0.2.17
     optionalDependencies:
-      '@types/node': 24.12.4
+      '@types/node': 24.13.3
       fsevents: 2.3.3
       jiti: 2.7.0
 
