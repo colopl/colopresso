@@ -51,7 +51,6 @@ fn extract_toml_string_value(line: &str) -> Option<String> {
 }
 
 fn main() {
-    println!("cargo:rustc-check-cfg=cfg(pngx_bridge_msan)");
     println!("cargo:rerun-if-changed=src/lib.rs");
     println!("cargo:rerun-if-changed=cbindgen.toml");
     println!("cargo:rerun-if-changed=Cargo.lock");
@@ -91,11 +90,7 @@ fn main() {
     {
         let version_output = String::from_utf8_lossy(&output.stdout);
         if let Some(version_part) = version_output.split_whitespace().nth(1) {
-            if version_part.contains("nightly") {
-                format!("nightly ({})", version_part)
-            } else {
-                format!("stable ({})", rust_stable)
-            }
+            format!("stable ({})", version_part)
         } else {
             format!("stable ({})", rust_stable)
         }

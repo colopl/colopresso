@@ -10,7 +10,6 @@
 set(PNGX_BRIDGE_WASM_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/library/pngx_bridge")
 set(PNGX_BRIDGE_WASM_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/pngx_bridge_wasm")
 set(PNGX_BRIDGE_WASM_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/pngx_bridge_wasm/pkg")
-option(COLOPRESSO_PNGX_WASM_DISABLE_THREADING "Disable Rayon threading in pngx_bridge WASM module" OFF)
 
 message(STATUS "pngx_bridge_wasm: Configuring separated pngx_bridge WASM assets for Electron packaging")
 
@@ -103,63 +102,30 @@ if(_pngx_bridge_wasm_ar)
   )
 endif()
 
-if(COLOPRESSO_PNGX_WASM_DISABLE_THREADING)
-  message(STATUS "pngx_bridge_wasm: Building with stable Rust (no threading)")
+message(STATUS "pngx_bridge_wasm: Building with stable Rust (no threading)")
 
-  if(COLOPRESSO_ENABLE_WASM_SIMD)
-    set(_pngx_bridge_wasm_target_rustflags "-C target-feature=+simd128")
-    if(DEFINED ENV{CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS} AND NOT "$ENV{CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS}" STREQUAL "")
-      string(APPEND _pngx_bridge_wasm_target_rustflags " $ENV{CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS}")
-    endif()
-    list(APPEND _pngx_bridge_wasm_env
-      "CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS=${_pngx_bridge_wasm_target_rustflags}"
-    )
+if(COLOPRESSO_ENABLE_WASM_SIMD)
+  set(_pngx_bridge_wasm_target_rustflags "-C target-feature=+simd128")
+  if(DEFINED ENV{CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS} AND NOT "$ENV{CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS}" STREQUAL "")
+    string(APPEND _pngx_bridge_wasm_target_rustflags " $ENV{CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS}")
   endif()
-
-  set(_pngx_bridge_wasm_feature "wasm-bindgen")
-  set(_pngx_bridge_wasm_build_comment "Building pngx_bridge WASM module (stable Rust, no threading)")
-
-  list(APPEND _pngx_bridge_wasm_build_commands
-    COMMAND ${CMAKE_COMMAND} -E echo "Building pngx_bridge WASM module (stable Rust, no threading)"
-    COMMAND ${CMAKE_COMMAND} -E env ${_pngx_bridge_wasm_env}
-      wasm-pack build
-      --target web
-      --out-dir "${PNGX_BRIDGE_WASM_OUT_DIR}"
-      --out-name pngx_bridge
-      --
-      --features ${_pngx_bridge_wasm_feature}
-  )
-
-else()
-  message(STATUS "pngx_bridge_wasm: Building separated assets with nightly Rust and wasm-bindgen-rayon threading")
-
   list(APPEND _pngx_bridge_wasm_env
-    "ZSTD_SYS_USE_PKG_CONFIG=0"
+    "CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS=${_pngx_bridge_wasm_target_rustflags}"
   )
-
-  set(_pngx_bridge_wasm_feature "wasm-bindgen-rayon")
-  set(_pngx_bridge_wasm_build_comment "Building pngx_bridge WASM module (nightly Rust with wasm-bindgen-rayon)")
-
-  list(APPEND _pngx_bridge_wasm_build_commands
-    COMMAND ${CMAKE_COMMAND} -E echo "Configuring nightly Rust toolchain for WASM threading"
-    COMMAND ${CMAKE_COMMAND} -E copy
-      "${PNGX_BRIDGE_WASM_SOURCE_DIR}/rust-toolchain-nightly.toml"
-      "${PNGX_BRIDGE_WASM_BUILD_DIR}/rust-toolchain.toml"
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${PNGX_BRIDGE_WASM_BUILD_DIR}/.cargo"
-    COMMAND ${CMAKE_COMMAND} -E copy
-      "${PNGX_BRIDGE_WASM_SOURCE_DIR}/cargo-config-nightly.toml"
-      "${PNGX_BRIDGE_WASM_BUILD_DIR}/.cargo/config.toml"
-    COMMAND ${CMAKE_COMMAND} -E echo "Building pngx_bridge WASM module (nightly Rust, wasm-bindgen-rayon)"
-    COMMAND ${CMAKE_COMMAND} -E env ${_pngx_bridge_wasm_env}
-      wasm-pack build
-      --target web
-      --out-dir "${PNGX_BRIDGE_WASM_OUT_DIR}"
-      --out-name pngx_bridge
-      --
-      --features ${_pngx_bridge_wasm_feature}
-  )
-
 endif()
+
+set(_pngx_bridge_wasm_build_comment "Building pngx_bridge WASM module (stable Rust, no threading)")
+
+list(APPEND _pngx_bridge_wasm_build_commands
+  COMMAND ${CMAKE_COMMAND} -E echo "Building pngx_bridge WASM module (stable Rust, no threading)"
+  COMMAND ${CMAKE_COMMAND} -E env ${_pngx_bridge_wasm_env}
+    wasm-pack build
+    --target web
+    --out-dir "${PNGX_BRIDGE_WASM_OUT_DIR}"
+    --out-name pngx_bridge
+    --
+    --features wasm-bindgen
+)
 
 set(PNGX_BRIDGE_WASM_JS_PATH "${PNGX_BRIDGE_WASM_OUT_DIR}/pngx_bridge.js")
 set(PNGX_BRIDGE_WASM_PATH "${PNGX_BRIDGE_WASM_OUT_DIR}/pngx_bridge_bg.wasm")
@@ -178,11 +144,7 @@ add_custom_target(pngx_bridge_wasm_build
   DEPENDS "${PNGX_BRIDGE_WASM_JS_PATH}" "${PNGX_BRIDGE_WASM_PATH}"
 )
 
-# Export variables for use by other CMake files
-set(PNGX_BRIDGE_WASM_THREADING_ENABLED ON)
-if(COLOPRESSO_PNGX_WASM_DISABLE_THREADING)
-  set(PNGX_BRIDGE_WASM_THREADING_ENABLED OFF)
-endif()
+set(PNGX_BRIDGE_WASM_THREADING_ENABLED OFF)
 
 message(STATUS "pngx_bridge_wasm: Output directory: ${PNGX_BRIDGE_WASM_OUT_DIR}")
 message(STATUS "pngx_bridge_wasm: JS binding: ${PNGX_BRIDGE_WASM_JS_PATH}")

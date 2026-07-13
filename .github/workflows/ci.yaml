@@ -24,7 +24,6 @@ jobs:
     outputs:
       emsdk_version: ${{ steps.get_emsdk_version.outputs.emsdk_version }}
       rust_stable: ${{ steps.get_rust_versions.outputs.rust_stable }}
-      rust_nightly: ${{ steps.get_rust_versions.outputs.rust_nightly }}
       wasm_pack_version: ${{ steps.get_rust_versions.outputs.wasm_pack_version }}
     steps:
       - name: Checkout
@@ -42,10 +41,8 @@ jobs:
         id: get_rust_versions
         run: |
           RUST_STABLE=$(grep -E '^channel\s*=' rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')
-          RUST_NIGHTLY=$(grep -E '^nightly\s*=' rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')
           WASM_PACK=$(grep -E '^wasm-pack\s*=' rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')
           echo "rust_stable=${RUST_STABLE}" >> "${GITHUB_OUTPUT}"
-          echo "rust_nightly=${RUST_NIGHTLY}" >> "${GITHUB_OUTPUT}"
           echo "wasm_pack_version=${WASM_PACK}" >> "${GITHUB_OUTPUT}"
       - name: Dummy versioning
         run: |
@@ -115,7 +112,7 @@ jobs:
               cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
               ctest --test-dir "build" --output-on-failure --parallel
 
-              for OPTS in ASAN MSAN UBSAN; do
+              for OPTS in ASAN UBSAN; do
                 rm -rf "build"
                 cmake -B "build" \
                   -DCMAKE_C_COMPILER="$(command -v "clang")" \
@@ -220,8 +217,6 @@ jobs:
           Remove-Item "dummy-versioned-code.tar.gz" -Force
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-        with:
-          version: 11
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -264,8 +259,6 @@ jobs:
           rm -rf "dummy-versioned-code.tar.gz"
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-        with:
-          version: 11
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
