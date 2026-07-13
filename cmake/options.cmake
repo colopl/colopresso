@@ -48,13 +48,8 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT EMSCRIPTEN AND NOT MSVC)
   set(COLOPRESSO_VALGRIND_SHOW_LEAK_KINDS "all" CACHE STRING "Valgrind --show-leak-kinds")
   option(COLOPRESSO_USE_COVERAGE "Use coverage if available" OFF)
   option(COLOPRESSO_USE_ASAN "Use AddressSanitizer" OFF)
-  option(COLOPRESSO_USE_MSAN "Use MemorySanitizer" OFF)
   option(COLOPRESSO_USE_UBSAN "Use UndefinedBehaviorSanitizer" OFF)
 endif()
-
-option(PNGX_BRIDGE_ENABLE_RUST_ASAN "Enable AddressSanitizer for Rust pngx_bridge build" OFF)
-option(PNGX_BRIDGE_ENABLE_RUST_MSAN "Enable MemorySanitizer for Rust pngx_bridge build" ON)
-option(PNGX_BRIDGE_ENABLE_RUST_VALGRIND "Enable Valgrind for Rust pngx_bridge build" ON)
 
 # Buildtime
 set(_colopresso_timestamp_fields

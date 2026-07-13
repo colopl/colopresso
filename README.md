@@ -146,13 +146,7 @@ git clone --recursive "https://github.com/colopl/colopresso.git"
 Open the cloned `colopresso` directory with Visual Studio Code and attach to the Dev Container using the `Dev Containers` extension.
 
 > [!NOTE]
-> When MemorySanitizer runs on arm64 with SIMD (NEON) enabled, `libpng` might be flagged for reading uninitialized memory. We currently disable SIMD (NEON) during MemorySanitizer runs.
-
-> [!NOTE]
-> On i386 / amd64, enabling assembly while using MemorySanitizer may trigger false positives in `libaom`. We currently disable assembler code when running MemorySanitizer.
-
-> [!NOTE]
-> With multithreading enabled, Valgrind / MemorySanitizer may report uninitialized memory access or leaked resources because of Rayon's design. Suppression files are provided to mitigate this.
+> With multithreading enabled, Valgrind may report uninitialized memory access or leaked resources because of Rayon's design. Suppression files are provided to mitigate this.
 
 ## Build Options
 
@@ -174,7 +168,7 @@ Open the cloned `colopresso` directory with Visual Studio Code and attach to the
 | Option                            | Mode                                       | Details                                                                                                                                                                                                                                                                                                   |
 | --------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `COLOPRESSO_NODE_BUILD=ON`        | Stable integrated Node.js/WebAssembly mode | Builds `pngx_bridge` as an integrated `wasm32-unknown-emscripten` static library. No external `pngx_bridge.js` / `pngx_bridge_bg.wasm` assets are emitted. Rayon stays disabled and Rust panic behavior is forced to `abort` for link compatibility.                                                      |
-| `COLOPRESSO_ELECTRON_APP=ON`      | Legacy separated Electron/WebAssembly mode | Only when configured through `emcmake`, keeps the main app on `wasm32-unknown-emscripten` and emits `pngx_bridge.js`, `pngx_bridge_bg.wasm`, and optional `snippets/` with nightly Rust on `wasm32-unknown-unknown` via `wasm-bindgen-rayon`. Native Electron packages should use normal `cmake` instead. |
+| `COLOPRESSO_ELECTRON_APP=ON`      | Legacy separated Electron/WebAssembly mode | Only when configured through `emcmake`, keeps the main app on `wasm32-unknown-emscripten` and emits single-threaded `pngx_bridge.js` and `pngx_bridge_bg.wasm` assets with stable Rust on `wasm32-unknown-unknown`. Native Electron packages should use normal `cmake` instead.                                |
 | `COLOPRESSO_NODE_WASM_SEPARATION` | Legacy compatibility toggle                | Forced `ON` for Electron packaging and ignored for non-Electron Emscripten builds. Non-Electron Emscripten builds always use the integrated stable mode.                                                                                                                                                  |
 
 ### GCC && Debug Mode
@@ -189,7 +183,6 @@ Open the cloned `colopresso` directory with Visual Studio Code and attach to the
 | Option                 | Description                         |
 | ---------------------- | ----------------------------------- |
 | `COLOPRESSO_USE_ASAN`  | Enables AddressSanitizer.           |
-| `COLOPRESSO_USE_MSAN`  | Enables MemorySanitizer.            |
 | `COLOPRESSO_USE_UBSAN` | Enables UndefinedBehaviorSanitizer. |
 
 ## Build (Linux)

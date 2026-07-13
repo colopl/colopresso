@@ -40,11 +40,9 @@ COPY rust-toolchain.toml /tmp/rust-toolchain.toml
 RUN set -e; \
     RUST_STABLE_VERSION="$(grep -E '^channel\s*=' /tmp/rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')"; \
     RUST_STABLE_COMPONENTS="$(sed -n '/^components\s*=/p' /tmp/rust-toolchain.toml | grep -o '"[^"]*"' | tr -d '"' | paste -sd, -)"; \
-    RUST_NIGHTLY_VERSION="$(grep -E '^nightly\s*=' /tmp/rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')"; \
     WASM_PACK_VERSION="$(grep -E '^wasm-pack\s*=' /tmp/rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')"; \
     echo "RUST_STABLE_VERSION=${RUST_STABLE_VERSION}" > /tmp/rust-versions.env; \
     echo "RUST_STABLE_COMPONENTS=${RUST_STABLE_COMPONENTS}" >> /tmp/rust-versions.env; \
-    echo "RUST_NIGHTLY_VERSION=${RUST_NIGHTLY_VERSION}" >> /tmp/rust-versions.env; \
     echo "WASM_PACK_VERSION=${WASM_PACK_VERSION}" >> /tmp/rust-versions.env; \
     rm "/tmp/rust-toolchain.toml"
 
@@ -64,10 +62,6 @@ RUN --mount=type=cache,target=/opt/rust/cargo/registry,sharing=locked \
     fi && \
     rustup target add "wasm32-unknown-emscripten" && \
     rustup target add "wasm32-unknown-unknown" && \
-    rustup toolchain install "${RUST_NIGHTLY_VERSION}" && \
-    rustup component add "rust-src" --toolchain "${RUST_NIGHTLY_VERSION}" && \
-    rustup target add "wasm32-unknown-emscripten" --toolchain "${RUST_NIGHTLY_VERSION}" && \
-    rustup target add "wasm32-unknown-unknown" --toolchain "${RUST_NIGHTLY_VERSION}" && \
     cargo install "wasm-pack" --version "${WASM_PACK_VERSION}" --locked
 
 ARG ENABLE_CLANG

@@ -12,16 +12,9 @@
 #[cfg(all(
     target_arch = "wasm32",
     not(target_os = "emscripten"),
-    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+    feature = "wasm-bindgen"
 ))]
 mod wasm;
-
-#[cfg(all(
-    target_arch = "wasm32",
-    not(target_os = "emscripten"),
-    feature = "wasm-bindgen-rayon"
-))]
-pub use wasm_bindgen_rayon::init_thread_pool;
 
 use imagequant::{new as iq_new, Error as IqError, RGBA as IqRGBA};
 use oxipng::Options;
@@ -32,7 +25,7 @@ use std::collections::HashMap;
 #[cfg(not(all(
     target_arch = "wasm32",
     not(target_os = "emscripten"),
-    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+    feature = "wasm-bindgen"
 )))]
 use std::os::raw::c_int;
 #[cfg(all(
@@ -40,14 +33,14 @@ use std::os::raw::c_int;
     not(all(
         target_arch = "wasm32",
         not(target_os = "emscripten"),
-        any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+        feature = "wasm-bindgen"
     ))
 ))]
 use std::panic::{catch_unwind, AssertUnwindSafe};
 #[cfg(not(all(
     target_arch = "wasm32",
     not(target_os = "emscripten"),
-    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+    feature = "wasm-bindgen"
 )))]
 use std::ptr;
 use std::slice;
@@ -57,7 +50,7 @@ use std::sync::{Mutex, OnceLock};
 #[cfg(not(all(
     target_arch = "wasm32",
     not(target_os = "emscripten"),
-    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+    feature = "wasm-bindgen"
 )))]
 extern "C" {
     fn malloc(size: usize) -> *mut std::ffi::c_void;
@@ -142,7 +135,7 @@ pub(crate) fn convert_lossless_options(opts: &PngxBridgeLosslessOptions) -> Opti
 #[cfg(not(all(
     target_arch = "wasm32",
     not(target_os = "emscripten"),
-    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+    feature = "wasm-bindgen"
 )))]
 fn allocate_copy<T: Copy>(slice: &[T]) -> Result<*mut T, String> {
     if slice.is_empty() {
@@ -286,12 +279,7 @@ pub(crate) fn quantize_image(
     }
 
     if params.dithering_level >= 0.0 && params.dithering_level.is_finite() {
-        let dithering_level = if cfg!(pngx_bridge_msan) {
-            0.0
-        } else {
-            params.dithering_level
-        };
-        if result.set_dithering_level(dithering_level).is_err() {
+        if result.set_dithering_level(params.dithering_level).is_err() {
             return Err(QuantizeError::Generic);
         }
     }
@@ -311,7 +299,7 @@ pub(crate) fn quantize_image(
 #[cfg(not(all(
     target_arch = "wasm32",
     not(target_os = "emscripten"),
-    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+    feature = "wasm-bindgen"
 )))]
 #[no_mangle]
 pub unsafe extern "C" fn pngx_bridge_optimize_lossless(
@@ -339,7 +327,11 @@ pub unsafe extern "C" fn pngx_bridge_optimize_lossless(
 
     let rust_opts = convert_lossless_options(opts_ref);
 
-    #[cfg(all(feature = "rayon", not(target_arch = "wasm32"), not(target_os = "emscripten")))]
+    #[cfg(all(
+        feature = "rayon",
+        not(target_arch = "wasm32"),
+        not(target_os = "emscripten")
+    ))]
     let attempt = if let Some(pool) = get_current_thread_pool() {
         pool.install(|| {
             catch_unwind(AssertUnwindSafe(|| {
@@ -352,7 +344,10 @@ pub unsafe extern "C" fn pngx_bridge_optimize_lossless(
         }))
     };
 
-    #[cfg(all(not(target_os = "emscripten"), any(not(feature = "rayon"), target_arch = "wasm32")))]
+    #[cfg(all(
+        not(target_os = "emscripten"),
+        any(not(feature = "rayon"), target_arch = "wasm32")
+    ))]
     let attempt = catch_unwind(AssertUnwindSafe(|| {
         oxipng::optimize_from_memory(input_slice, &rust_opts)
     }));
@@ -392,7 +387,7 @@ pub unsafe extern "C" fn pngx_bridge_optimize_lossless(
 #[cfg(not(all(
     target_arch = "wasm32",
     not(target_os = "emscripten"),
-    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+    feature = "wasm-bindgen"
 )))]
 #[no_mangle]
 pub unsafe extern "C" fn pngx_bridge_quantize(
@@ -509,7 +504,7 @@ pub unsafe extern "C" fn pngx_bridge_quantize(
 #[cfg(not(all(
     target_arch = "wasm32",
     not(target_os = "emscripten"),
-    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+    feature = "wasm-bindgen"
 )))]
 #[no_mangle]
 pub unsafe extern "C" fn pngx_bridge_free(ptr: *mut u8) {
@@ -564,7 +559,7 @@ pub extern "C" fn pngx_bridge_rust_version_string() -> *const std::os::raw::c_ch
 #[cfg(not(all(
     target_arch = "wasm32",
     not(target_os = "emscripten"),
-    any(feature = "wasm-bindgen", feature = "wasm-bindgen-rayon")
+    feature = "wasm-bindgen"
 )))]
 #[no_mangle]
 pub extern "C" fn pngx_bridge_init_threads(num_threads: c_int) -> bool {

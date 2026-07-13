@@ -60,13 +60,6 @@ function(colopresso_register_test SOURCE)
   )
   add_test(NAME ${_test_name} COMMAND ${_test_name})
 
-  if(COLOPRESSO_USE_MSAN)
-    set_tests_properties(${_test_name} PROPERTIES
-      ENVIRONMENT "MSAN_OPTIONS=halt_on_error=0:track_origins=2"
-      TIMEOUT 7200
-    )
-  endif()
-
   if(COLOPRESSO_ENABLE_VALGRIND)
     set(_valgrind_supp "${CMAKE_SOURCE_DIR}/suppressions/valgrind.supp")
     set(_valgrind_args
