@@ -217,8 +217,6 @@ jobs:
           Remove-Item "dummy-versioned-code.tar.gz" -Force
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-        with:
-          version: 11
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -261,8 +259,6 @@ jobs:
           rm -rf "dummy-versioned-code.tar.gz"
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-        with:
-          version: 11
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
