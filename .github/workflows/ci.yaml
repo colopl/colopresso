@@ -31,6 +31,12 @@ jobs:
         with:
           submodules: true
           fetch-depth: 1
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+      - name: Test release metadata generator
+        run: node --test "utils/create_macos_update_metadata.test.mjs"
       - name: EMSDK require full checkout
         id: get_emsdk_version
         working-directory: 'third_party/emsdk'
