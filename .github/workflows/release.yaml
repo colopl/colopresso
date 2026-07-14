@@ -221,7 +221,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7.0.0
         with:
           node-version: '24'
           cache: 'pnpm'
@@ -391,7 +391,7 @@ jobs:
       - name: Copy artifacts
         run: |
           mkdir -p "dist"
-          find "dist_build" -type f \( -name '*.dmg' -o -name '*.dmg.blockmap' -o -name '*.zip' -o -name '*.zip.blockmap' -o -name '*.yml' \) \
+          find "dist_build" -type f \( -name '*.dmg' -o -name '*.dmg.blockmap' -o -name '*.zip' -o -name '*.zip.blockmap' \) \
             -exec cp {} "dist/" \;
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
@@ -892,6 +892,10 @@ jobs:
           submodules: false
           fetch-depth: 1
           ref: ${{ github.ref }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
       - name: Download Source Artifacts
         uses: actions/download-artifact@v8
         with:
@@ -915,6 +919,30 @@ jobs:
           pattern: colopresso-python-wheel-*
           merge-multiple: true
           path: artifacts/
+      - name: Create macOS update metadata
+        run: |
+          VERSION="${{ needs.Prepare.outputs.version }}"
+          CHANNEL="${{ needs.Prepare.outputs.update_channel }}"
+          mapfile -t ARM64_ZIPS < <(find "artifacts" -maxdepth 1 -type f -name '*_macos_gui_arm64.zip' -print)
+          mapfile -t X64_ZIPS < <(find "artifacts" -maxdepth 1 -type f -name '*_macos_gui_x64.zip' -print)
+
+          if test "${CHANNEL}" != "latest"; then
+            VERSION="${VERSION}-${CHANNEL}"
+          fi
+          if test "${#ARM64_ZIPS[@]}" -ne 1; then
+            echo "Expected exactly one macOS arm64 ZIP, found ${#ARM64_ZIPS[@]}" >&2
+            exit 1
+          fi
+          if test "${#X64_ZIPS[@]}" -ne 1; then
+            echo "Expected exactly one macOS x64 ZIP, found ${#X64_ZIPS[@]}" >&2
+            exit 1
+          fi
+
+          node "utils/create_macos_update_metadata.mjs" \
+            --version "${VERSION}" \
+            --arm64 "${ARM64_ZIPS[0]}" \
+            --x64 "${X64_ZIPS[0]}" \
+            --output "artifacts/${CHANNEL}-mac.yml"
       - name: Create Release (internal)
         if: ${{ needs.Prepare.outputs.internal_is_prerelease == 'true' }}
         env:
