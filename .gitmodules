@@ -22,7 +22,7 @@
 [submodule "third_party/unity"]
 	path = third_party/unity
 	url = https://github.com/ThrowTheSwitch/Unity.git
-	branch = v2.6.1
+	branch = v2.7.0
 [submodule "third_party/valgrind"]
 	path = third_party/valgrind
 	url = https://sourceware.org/git/valgrind.git
