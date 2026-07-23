@@ -1,7 +1,7 @@
 [submodule "third_party/emsdk"]
 	path = third_party/emsdk
 	url = https://github.com/emscripten-core/emsdk.git
-	branch = 6.0.2
+	branch = 6.0.3
 [submodule "third_party/libpng"]
 	path = third_party/libpng
 	url = https://github.com/pnggroup/libpng.git
@@ -22,7 +22,7 @@
 [submodule "third_party/unity"]
 	path = third_party/unity
 	url = https://github.com/ThrowTheSwitch/Unity.git
-	branch = v2.6.1
+	branch = v2.7.0
 [submodule "third_party/valgrind"]
 	path = third_party/valgrind
 	url = https://sourceware.org/git/valgrind.git

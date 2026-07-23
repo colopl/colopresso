@@ -470,7 +470,7 @@ jobs:
           tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
           Remove-Item "dummy-versioned-code.tar.gz" -Force
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.14'
           cache: 'pip'

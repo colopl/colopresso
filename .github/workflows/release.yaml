@@ -703,7 +703,7 @@ jobs:
           tar -xzf "versioned-code.tar.gz" --strip-components=1
           Remove-Item "versioned-code.tar.gz" -Force
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.14'
           cache: 'pip'
@@ -871,7 +871,7 @@ jobs:
         run: ls -alh dist/
       - name: Publish to PyPI
         if: needs.Prepare.outputs.update_channel == 'latest'
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247 # v1.14.1
         with:
           packages-dir: dist/
   Release:
