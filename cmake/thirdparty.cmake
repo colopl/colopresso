@@ -95,26 +95,6 @@ endif()
 # libavif
 add_subdirectory(third_party/libavif EXCLUDE_FROM_ALL)
 
-if(EMSCRIPTEN AND COLOPRESSO_ENABLE_WASM_SIMD AND TARGET aom_av1_encoder)
-  get_target_property(_aom_av1_encoder_sources aom_av1_encoder SOURCES)
-  foreach(_aom_source IN LISTS _aom_av1_encoder_sources)
-    if(_aom_source MATCHES "(^|/)av1/encoder/pass2_strategy\\.c$")
-      # LLVM 23 crashes during WebAssembly instruction selection when either
-      # vectorizer processes this source with SIMD128 enabled.
-      set_property(SOURCE "${_aom_source}"
-        TARGET_DIRECTORY aom_av1_encoder
-        APPEND PROPERTY COMPILE_OPTIONS
-          -fno-vectorize
-          -fno-slp-vectorize
-      )
-      message(STATUS "Disabling libaom pass2_strategy.c vectorization for Emscripten SIMD")
-      break()
-    endif()
-  endforeach()
-  unset(_aom_source)
-  unset(_aom_av1_encoder_sources)
-endif()
-
 set(BUILD_TESTING ${COLOPRESSO_BACKUP_BUILD_TESTING})
 
 # libwebp SIMD workaround for Emscripten
