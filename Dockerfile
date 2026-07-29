@@ -97,21 +97,34 @@ COPY . "/project"
 
 # Valgrind
 ARG ENABLE_VALGRIND
+# renovate: datasource=custom.valgrind depName=valgrind
+ARG VALGRIND_VERSION=3.27.1
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     set -e; \
     if test "${ENABLE_VALGRIND}" != "0"; then \
       apt-get update && \
       apt-get --no-install-recommends install -y \
-        "build-essential" "autotools-dev" "automake" "autoconf" "libtool" \
-        "libc6-dev" "linux-libc-dev" \
-        "libxml2-dev" && \
-      cd "/project/third_party/valgrind" && \
-      ./autogen.sh && \
+        "build-essential" "bzip2" \
+        "libc6-dev" "linux-libc-dev" && \
+      VALGRIND_SRC_DIR="$(mktemp -d "${TMPDIR:-/tmp}/valgrind_src.XXXXXX")" && \
+      if test -f "/project/valgrind-${VALGRIND_VERSION}.tar.bz2"; then \
+        echo "Using pre-fetched Valgrind tarball." >&2 && \
+        cp "/project/valgrind-${VALGRIND_VERSION}.tar.bz2" "${VALGRIND_SRC_DIR}/valgrind-${VALGRIND_VERSION}.tar.bz2"; \
+      else \
+        echo "Downloading Valgrind tarball from sourceware.org." >&2 && \
+        curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors \
+          -o "${VALGRIND_SRC_DIR}/valgrind-${VALGRIND_VERSION}.tar.bz2" \
+          "https://sourceware.org/pub/valgrind/valgrind-${VALGRIND_VERSION}.tar.bz2"; \
+      fi && \
+      tar -xjf "${VALGRIND_SRC_DIR}/valgrind-${VALGRIND_VERSION}.tar.bz2" -C "${VALGRIND_SRC_DIR}" && \
+      cd "${VALGRIND_SRC_DIR}/valgrind-${VALGRIND_VERSION}" && \
       ./configure && \
       make -j"$(nproc)" && \
       make install && \
-      cd -; \
+      cd - && \
+      rm -rf "${VALGRIND_SRC_DIR}" "/project/valgrind-${VALGRIND_VERSION}.tar.bz2" && \
+      valgrind --version; \
     fi
 
 # Emscripten SDK

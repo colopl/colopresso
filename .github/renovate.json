@@ -8,7 +8,27 @@
   "git-submodules": {
     "enabled": true
   },
+  "customDatasources": {
+    "valgrind": {
+      "defaultRegistryUrlTemplate": "https://sourceware.org/pub/valgrind/",
+      "format": "html"
+    }
+  },
   "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track Valgrind releases from the official download directory",
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=custom\\.valgrind depName=valgrind\\s*\\nARG VALGRIND_VERSION=(?<currentValue>\\d+\\.\\d+(?:\\.\\d+)?)"
+      ],
+      "depNameTemplate": "valgrind",
+      "datasourceTemplate": "custom.valgrind",
+      "extractVersionTemplate": "^valgrind-(?<version>\\d+\\.\\d+(?:\\.\\d+)?)\\.tar\\.bz2$",
+      "versioningTemplate": "semver-coerced"
+    },
     {
       "customType": "regex",
       "description": "Update stable Rust toolchain pins",
@@ -56,16 +76,6 @@
         "third_party/zlib"
       ],
       "versioning": "semver-coerced"
-    },
-    {
-      "description": "Custom tag format",
-      "matchManagers": [
-        "git-submodules"
-      ],
-      "matchDepNames": [
-        "third_party/valgrind"
-      ],
-      "versioning": "regex:^VALGRIND_(?<major>\\d+)_(?<minor>\\d+)_(?<patch>\\d+)$"
     },
     {
       "description": "Disable digest udates for git submodules",
