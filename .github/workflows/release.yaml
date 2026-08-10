@@ -219,7 +219,7 @@ jobs:
           tar -xzf "versioned-code.tar.gz" --strip-components=1
           Remove-Item "versioned-code.tar.gz" -Force
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
       - name: Setup Node.js
         uses: actions/setup-node@v7.0.0
         with:
@@ -300,7 +300,7 @@ jobs:
           tar -xzf "versioned-code.tar.gz" --strip-components=1
           rm -rf "versioned-code.tar.gz"
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -871,7 +871,7 @@ jobs:
         run: ls -alh dist/
       - name: Publish to PyPI
         if: needs.Prepare.outputs.update_channel == 'latest'
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247 # v1.14.1
         with:
           packages-dir: dist/
   Release:
