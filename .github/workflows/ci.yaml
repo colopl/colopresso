@@ -269,6 +269,12 @@ jobs:
           cmake --build "build" --config "Release" --parallel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Test native addon
+        shell: pwsh
+        run: node --test "app/electron/native/colopresso_native.test.mjs"
+        env:
+          COLOPRESSO_NATIVE_ADDON_PATH: ${{ github.workspace }}/build/electron/native/colopresso_native.node
+          COLOPRESSO_TEST_ASSETS_DIR: ${{ github.workspace }}/assets
   macOSElectron:
     needs: Prepare
     strategy:
@@ -308,6 +314,11 @@ jobs:
           cmake --build "build" --config "Release" --parallel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Test native addon
+        run: node --test "app/electron/native/colopresso_native.test.mjs"
+        env:
+          COLOPRESSO_NATIVE_ADDON_PATH: ${{ github.workspace }}/build/electron/native/colopresso_native.node
+          COLOPRESSO_TEST_ASSETS_DIR: ${{ github.workspace }}/assets
   WindowsCLI:
     needs: Prepare
     runs-on: windows-latest

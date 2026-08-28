@@ -16,8 +16,8 @@ import path from 'node:path';
 import { test } from 'node:test';
 
 const require = createRequire(import.meta.url);
-const addonPath = process.env.COLOPRESSO_NATIVE_ADDON_PATH ?? path.resolve(import.meta.dirname, '../../../build/electron/native/colopresso_native.node');
-const assetsDir = process.env.COLOPRESSO_TEST_ASSETS_DIR ?? path.resolve(import.meta.dirname, '../../../assets');
+const addonPath = path.resolve(process.env.COLOPRESSO_NATIVE_ADDON_PATH ?? path.join(import.meta.dirname, '../../../build/electron/native/colopresso_native.node'));
+const assetsDir = path.resolve(process.env.COLOPRESSO_TEST_ASSETS_DIR ?? path.join(import.meta.dirname, '../../../assets'));
 const addon = require(addonPath);
 const input = readFileSync(path.join(assetsDir, 'example.png'));
 
@@ -53,6 +53,16 @@ test('string-typed booleans are honored', async () => {
   assert.deepEqual(lossyText, lossy);
   assert.deepEqual(losslessText, lossless);
   assert.notDeepEqual(lossless, lossy);
+});
+
+test('numeric strings are accepted up to the scalar buffer limit and rejected beyond it', async () => {
+  const numeric = await convertPngx({ pngx_lossy_type: 1 });
+  const atLimit = await convertPngx({ pngx_lossy_type: '1'.padStart(63, '0') });
+  const beyondLimit = await convertPngx({ pngx_lossy_type: '1'.padStart(64, '0') });
+  const palette = await convertPngx({ pngx_lossy_type: 0 });
+
+  assert.deepEqual(atLimit, numeric);
+  assert.equal(beyondLimit[PNG_IHDR_COLOR_TYPE_OFFSET], palette[PNG_IHDR_COLOR_TYPE_OFFSET]);
 });
 
 test('non-numeric strings fall back to the default instead of failing', async () => {

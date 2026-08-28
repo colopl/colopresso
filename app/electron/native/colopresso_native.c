@@ -112,11 +112,11 @@ static bool get_named_property(napi_env env, napi_value object, const char *name
 static bool read_scalar_string(napi_env env, napi_value value, char *buffer, size_t buffer_size) {
   size_t length;
 
-  if (napi_get_value_string_utf8(env, value, buffer, buffer_size, &length) != napi_ok) {
+  if (napi_get_value_string_utf8(env, value, NULL, 0, &length) != napi_ok || length == 0 || length >= buffer_size) {
     return false;
   }
 
-  return length > 0 && length + 1 < buffer_size;
+  return napi_get_value_string_utf8(env, value, buffer, buffer_size, &length) == napi_ok;
 }
 
 static bool parse_numeric_string(const char *text, double *out_value) {
