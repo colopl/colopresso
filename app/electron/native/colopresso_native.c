@@ -12,6 +12,8 @@
 #include <node_api.h>
 
 #include <ctype.h>
+#include <float.h>
+#include <limits.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -52,6 +54,15 @@ static int clamp_int(int value, int min_value, int max_value) {
     return max_value;
   }
   return value;
+}
+
+static bool assign_float_value(double value, float *target) {
+  if (!(value >= -(double)FLT_MAX && value <= (double)FLT_MAX)) {
+    return false;
+  }
+
+  *target = (float)value;
+  return true;
 }
 
 static float clamp_float_value(double value, float min_value, float max_value) {
@@ -171,7 +182,7 @@ static bool read_double_property(napi_env env, napi_value object, const char *na
     return false;
   }
   if (value_type == napi_number) {
-    return napi_get_value_double(env, value, out_value) == napi_ok;
+    return napi_get_value_double(env, value, out_value) == napi_ok && isfinite(*out_value);
   }
   if (value_type == napi_string) {
     return read_scalar_string(env, value, text, sizeof(text)) && parse_numeric_string(text, out_value);
@@ -184,6 +195,9 @@ static bool read_int_property(napi_env env, napi_value object, const char *name,
   double value;
 
   if (!read_double_property(env, object, name, &value)) {
+    return false;
+  }
+  if (!(value >= (double)INT_MIN && value <= (double)INT_MAX)) {
     return false;
   }
 
@@ -239,7 +253,7 @@ static void apply_double_property(napi_env env, napi_value options, const char *
   double value;
 
   if (read_double_property(env, options, name, &value)) {
-    *target = (float)value;
+    assign_float_value(value, target);
   }
 }
 
@@ -407,7 +421,7 @@ static void apply_avif_options(napi_env env, napi_value options, cpres_config_t 
   bool bool_value;
 
   if (read_double_property(env, options, "avif_quality", &value) || read_double_property(env, options, "quality", &value)) {
-    config->avif_quality = (float)value;
+    assign_float_value(value, &config->avif_quality);
   }
   if (read_int_property(env, options, "avif_alpha_quality", &config->avif_alpha_quality) || read_int_property(env, options, "alpha_quality", &config->avif_alpha_quality)) {
     /* NOP */
@@ -473,7 +487,7 @@ static void apply_pngx_options(napi_env env, napi_value options, cpres_config_t 
     } else if (double_value <= 1.0) {
       config->pngx_lossy_dither_level = clamp_float_value(double_value, 0.0f, 1.0f);
     } else {
-      raw_dither_level = clamp_int((int)double_value, 0, 100);
+      raw_dither_level = (int)(double_value > 100.0 ? 100.0 : double_value);
       config->pngx_lossy_dither_level = (float)raw_dither_level / 100.0f;
     }
   }

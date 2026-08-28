@@ -65,6 +65,25 @@ test('numeric strings are accepted up to the scalar buffer limit and rejected be
   assert.equal(beyondLimit[PNG_IHDR_COLOR_TYPE_OFFSET], palette[PNG_IHDR_COLOR_TYPE_OFFSET]);
 });
 
+test('out-of-range and non-finite numbers are ignored instead of being converted', async () => {
+  const palette = await convertPngx({ pngx_lossy_type: 0 });
+  const reference = await convertPngx({ pngx_lossy_type: 1 });
+
+  for (const value of ['1e100', 1e100, -1e100, Number.NaN, Number.POSITIVE_INFINITY]) {
+    const ignoredType = await convertPngx({ pngx_lossy_type: value });
+    const ignoredFields = await convertPngx({ pngx_lossy_type: 1, pngx_lossy_quality_min: value, pngx_postprocess_smooth_importance_cutoff: value });
+
+    assert.equal(ignoredType[PNG_IHDR_COLOR_TYPE_OFFSET], palette[PNG_IHDR_COLOR_TYPE_OFFSET], `pngx_lossy_type=${value}`);
+    assert.ok(ignoredFields.equals(reference), `int/float fields=${value}`);
+  }
+
+  for (const value of [Number.NaN, Number.POSITIVE_INFINITY]) {
+    const ignoredDither = await convertPngx({ pngx_lossy_type: 1, pngx_lossy_dither_level: value });
+
+    assert.ok(ignoredDither.equals(reference), `pngx_lossy_dither_level=${value}`);
+  }
+});
+
 test('non-numeric strings fall back to the default instead of failing', async () => {
   const fallback = await convertPngx({ pngx_lossy_type: 'not-a-number' });
   const palette = await convertPngx({ pngx_lossy_type: 0 });
