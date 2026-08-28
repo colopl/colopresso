@@ -269,6 +269,8 @@ function normalizePngxOptions(raw?: FormatOptions): FormatOptions {
   const providedMax = getNumeric(normalizedRecord['pngx_lossy_max_colors']);
   const rawRecord = raw ? (raw as Record<string, unknown>) : undefined;
 
+  normalizedRecord['pngx_lossy_type'] = lossyType;
+
   if (lossyType === 2) {
     const source = legacyReduced ?? providedMax;
     if (source === undefined || source <= 1) {

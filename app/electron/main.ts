@@ -171,6 +171,38 @@ function resolveEffectiveUpdateChannel(config: ResolvedUpdateConfig): string {
   return normalizeUpdateChannelName(config.channel);
 }
 
+// An x64 build running under Rosetta 2 (macOS) or x64 emulation (Windows on ARM)
+// still reports process.arch === 'x64' although the machine itself is arm64.
+function getNativeArchitecture(): string {
+  if (process.arch === 'x64' && (process.platform === 'darwin' || process.platform === 'win32') && app.runningUnderARM64Translation) {
+    return 'arm64';
+  }
+  return process.arch;
+}
+
+function isRunningUnderArm64Translation(): boolean {
+  return getNativeArchitecture() !== process.arch;
+}
+
+// electron-updater only reports an update when the published version is newer. When the
+// x64 build runs under ARM64 translation, the arm64 build of the very same version is the
+// update we want, so the same version is treated as available as well.
+function enableSameVersionUpdateForNativeArchitecture(): void {
+  const internals = autoUpdater as unknown as { isUpdateAvailable?: (info: UpdateInfo) => Promise<boolean> | boolean };
+  const original = internals.isUpdateAvailable;
+  if (typeof original !== 'function') {
+    console.warn('[auto-update] electron-updater no longer exposes isUpdateAvailable; same-version architecture recovery is disabled');
+    return;
+  }
+
+  internals.isUpdateAvailable = async (info: UpdateInfo): Promise<boolean> => {
+    if (await original.call(autoUpdater, info)) {
+      return true;
+    }
+    return typeof info.version === 'string' && info.version === app.getVersion();
+  };
+}
+
 function selectWindowsUpdateFileForCurrentArch(info: UpdateInfo): void {
   if (process.platform !== 'win32') {
     return;
@@ -181,7 +213,7 @@ function selectWindowsUpdateFileForCurrentArch(info: UpdateInfo): void {
     return;
   }
 
-  const arch = process.arch;
+  const arch = getNativeArchitecture();
   const preferredNeedle = `_${arch}.exe`;
   const fallbackNeedle = `${arch}.exe`;
 
@@ -395,20 +427,24 @@ function showMessageBoxWithOptionalParent(options: MessageBoxOptions): Promise<M
 async function promptForUpdateDownload(info: UpdateInfo, config: ResolvedUpdateConfig): Promise<boolean> {
   const tag = typeof info.releaseName === 'string' && info.releaseName.trim().length > 0 ? info.releaseName : `v${info.version}`;
   const releaseUrl = `https://github.com/${config.owner}/${config.repo}/releases/tag/${encodeURIComponent(tag)}`;
+  const wrongArchitecture = isRunningUnderArm64Translation();
+  const nativeArchitecture = getNativeArchitecture();
+  const platform = `${process.platform} ${process.arch}`;
+  const dialogKey = wrongArchitecture ? 'updater.dialog.wrongArchitecture' : 'updater.dialog.updateAvailable';
   const detailLines = [
     translate('updater.dialog.updateAvailable.detail.currentVersion', { version: app.getVersion() }),
     translate('updater.dialog.updateAvailable.detail.availableVersion', { version: info.version }),
     translate('updater.dialog.updateAvailable.detail.channel', { channel: config.channel }),
-    translate('updater.dialog.updateAvailable.detail.platform', { platform: `${process.platform} ${process.arch}` }),
+    wrongArchitecture ? translate('updater.dialog.wrongArchitecture.detail.platform', { platform, nativeArchitecture }) : translate('updater.dialog.updateAvailable.detail.platform', { platform }),
   ];
 
   const { response } = await showMessageBoxWithOptionalParent({
-    type: 'info',
+    type: wrongArchitecture ? 'warning' : 'info',
     buttons: [translate('updater.dialog.updateAvailable.buttons.download'), translate('updater.dialog.updateAvailable.buttons.later')],
     defaultId: 0,
     cancelId: 1,
-    title: translate('updater.dialog.updateAvailable.title'),
-    message: translate('updater.dialog.updateAvailable.message', { version: info.version }),
+    title: translate(`${dialogKey}.title`),
+    message: translate(`${dialogKey}.message`, { version: info.version, architecture: process.arch, nativeArchitecture }),
     detail: detailLines.join('\n'),
   });
 
@@ -463,6 +499,14 @@ function setupAutoUpdate(): void {
   autoUpdater.channel = effectiveChannel;
   autoUpdater.allowDowngrade = false;
   autoUpdater.logger = console;
+
+  if (isRunningUnderArm64Translation()) {
+    console.warn('[auto-update] running under ARM64 translation; the native architecture build will be offered even for the current version', {
+      architecture: process.arch,
+      nativeArchitecture: getNativeArchitecture(),
+    });
+    enableSameVersionUpdateForNativeArchitecture();
+  }
 
   autoUpdater.on('download-progress', (progress) => {
     if (!mainWindow) {
@@ -804,6 +848,11 @@ function registerIpcHandlers(): void {
   ipcMain.handle('save-json-dialog', handleSaveJsonDialog);
   ipcMain.handle('get-update-channel', () => getUpdateChannel());
   ipcMain.handle('get-architecture', () => process.arch);
+  ipcMain.handle('get-architecture-info', () => ({
+    architecture: process.arch,
+    nativeArchitecture: getNativeArchitecture(),
+    runningUnderArm64Translation: isRunningUnderArm64Translation(),
+  }));
   ipcMain.handle('is-native-conversion-available', () => {
     const addon = loadNativeAddon();
     return { available: Boolean(addon), error: addon ? undefined : nativeAddonLoadError };

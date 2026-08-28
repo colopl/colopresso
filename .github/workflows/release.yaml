@@ -269,8 +269,18 @@ jobs:
       - name: Copy artifacts
         shell: pwsh
         run: |
+          # Only the installer built for this job's architecture may be shipped. The
+          # update metadata (*.yml) is regenerated in the Release job from both
+          # architectures, so per-job copies must not be uploaded.
+          $installers = @(Get-ChildItem -Path "dist_build" -File -Filter "*.exe")
+          $expectedSuffix = "_windows_gui_${{ matrix.arch.electron }}.exe"
+          if ($installers.Count -ne 1 -or -not $installers[0].Name.EndsWith($expectedSuffix)) {
+            Write-Error "Expected exactly one ${{ matrix.arch.electron }} installer in dist_build, found: $($installers.Name -join ', ')"
+            exit 1
+          }
+
           New-Item -ItemType Directory -Force -Path "dist" | Out-Null
-          Get-ChildItem -Path "dist_build" -Include "*.exe","*.yml","*.blockmap" -Recurse -File | ForEach-Object {
+          Get-ChildItem -Path "dist_build" -File | Where-Object { $_.Extension -in ".exe", ".blockmap" } | ForEach-Object {
             Copy-Item $_.FullName -Destination "dist\"
           }
       - name: Upload artifacts
@@ -943,6 +953,57 @@ jobs:
             --arm64 "${ARM64_ZIPS[0]}" \
             --x64 "${X64_ZIPS[0]}" \
             --output "artifacts/${CHANNEL}-mac.yml"
+      - name: Create Windows update metadata
+        run: |
+          VERSION="${{ needs.Prepare.outputs.version }}"
+          CHANNEL="${{ needs.Prepare.outputs.update_channel }}"
+          INTERNAL_RAW="${{ needs.Prepare.outputs.internal_channel_raw }}"
+          INTERNAL_SAFE="${{ needs.Prepare.outputs.internal_channel_safe }}"
+
+          PUBLIC_VERSION="${VERSION}"
+          if test "${CHANNEL}" != "latest"; then
+            PUBLIC_VERSION="${VERSION}-${CHANNEL}"
+          fi
+
+          mapfile -t PUBLIC_X64 < <(find "artifacts" -maxdepth 1 -type f -name '*_windows_gui_x64.exe' ! -name "*${INTERNAL_RAW}*" -print)
+          mapfile -t PUBLIC_ARM64 < <(find "artifacts" -maxdepth 1 -type f -name '*_windows_gui_arm64.exe' ! -name "*${INTERNAL_RAW}*" -print)
+          mapfile -t INTERNAL_X64 < <(find "artifacts" -maxdepth 1 -type f -name "*_${INTERNAL_RAW}_windows_gui_x64.exe" -print)
+          mapfile -t INTERNAL_ARM64 < <(find "artifacts" -maxdepth 1 -type f -name "*_${INTERNAL_RAW}_windows_gui_arm64.exe" -print)
+
+          if test "${#PUBLIC_X64[@]}" -ne 1; then
+            echo "Expected exactly one public Windows x64 installer, found ${#PUBLIC_X64[@]}" >&2
+            exit 1
+          fi
+          if test "${#PUBLIC_ARM64[@]}" -ne 1; then
+            echo "Expected exactly one public Windows arm64 installer, found ${#PUBLIC_ARM64[@]}" >&2
+            exit 1
+          fi
+          if test "${#INTERNAL_X64[@]}" -ne 1; then
+            echo "Expected exactly one internal Windows x64 installer, found ${#INTERNAL_X64[@]}" >&2
+            exit 1
+          fi
+          if test "${#INTERNAL_ARM64[@]}" -ne 1; then
+            echo "Expected exactly one internal Windows arm64 installer, found ${#INTERNAL_ARM64[@]}" >&2
+            exit 1
+          fi
+
+          node "utils/create_windows_update_metadata.mjs" \
+            --version "${PUBLIC_VERSION}" \
+            --x64 "${PUBLIC_X64[0]}" \
+            --arm64 "${PUBLIC_ARM64[0]}" \
+            --output "artifacts/${CHANNEL}.yml"
+          node "utils/create_windows_update_metadata.mjs" \
+            --version "${VERSION}-${INTERNAL_SAFE}" \
+            --x64 "${INTERNAL_X64[0]}" \
+            --arm64 "${INTERNAL_ARM64[0]}" \
+            --output "artifacts/${INTERNAL_SAFE}.yml"
+
+          for METADATA in "artifacts/${CHANNEL}.yml" "artifacts/${INTERNAL_SAFE}.yml"; do
+            if test ! -s "${METADATA}"; then
+              echo "Windows update metadata was not generated: ${METADATA}" >&2
+              exit 1
+            fi
+          done
       - name: Create Release (internal)
         if: ${{ needs.Prepare.outputs.internal_is_prerelease == 'true' }}
         env:

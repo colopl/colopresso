@@ -890,6 +890,12 @@
   margin-bottom: 0;
 }
 
+.buildInfoWarning {
+  color: var(--color-error-fg);
+  font-weight: 600;
+  white-space: normal;
+}
+
 .buildInfoLoading {
   color: var(--color-fg-muted);
   font-style: italic;

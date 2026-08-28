@@ -1332,9 +1332,12 @@ function readConfigFromModal(format: FormatDefinition): FormatOptions {
           result[field.id] = input.value === '' ? null : Number(input.value);
           break;
         }
-        case 'select':
-          result[field.id] = (element as HTMLSelectElement).value;
+        case 'select': {
+          const selectedValue = (element as HTMLSelectElement).value;
+          const option = field.options.find((candidate) => String(candidate.value) === selectedValue);
+          result[field.id] = option ? option.value : selectedValue;
           break;
+        }
         case 'color-array': {
           const container = element as HTMLDivElement;
           result[field.id] = JSON.parse(container.dataset.colors || '[]');
@@ -1353,7 +1356,7 @@ function readConfigFromModal(format: FormatDefinition): FormatOptions {
     result['pngx_lossy_dither_level'] = Math.min(100, Math.max(0, Math.round(value)));
   }
 
-  const lossyTypeValue = Number((result['pngx_lossy_type'] as string) ?? 0);
+  const lossyTypeValue = Number(result['pngx_lossy_type'] ?? 0);
   const ditherAuto = Boolean(result['pngx_lossy_dither_auto']);
   if (lossyTypeValue === 1 && ditherAuto) {
     result['pngx_lossy_dither_level'] = -1;

@@ -235,8 +235,12 @@ foreach(_electron_target IN LISTS _electron_target_list)
       )
     endforeach()
   elseif(_electron_target STREQUAL "--win")
+    # Name the NSIS target explicitly. Without a target name electron-builder
+    # falls back to the arch list declared in package.json (win.target[].arch)
+    # and ignores the CLI arch, which packages every architecture with the
+    # single-architecture colopresso_native.node staged by this build.
     list(APPEND ELECTRON_BUILDER_COMMANDS
-      COMMAND ${PNPM_EXECUTABLE} ${ELECTRON_BUILDER_BASE_ARGS} --win "--${COLOPRESSO_ELECTRON_ARCH}"
+      COMMAND ${PNPM_EXECUTABLE} ${ELECTRON_BUILDER_BASE_ARGS} --win nsis "--${COLOPRESSO_ELECTRON_ARCH}"
     )
   else()
     list(APPEND ELECTRON_BUILDER_COMMANDS

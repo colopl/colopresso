@@ -103,6 +103,12 @@ interface ElectronNativeThreadInfoResult {
   error?: string;
 }
 
+interface ElectronArchitectureInfo {
+  architecture: string;
+  nativeArchitecture: string;
+  runningUnderArm64Translation: boolean;
+}
+
 interface ElectronAPI {
   getPathForFile?: (file: File) => string | undefined;
   saveJsonDialog?: (defaultFileName: string) => Promise<ElectronSaveDialogResult>;
@@ -127,6 +133,7 @@ interface ElectronAPI {
   restartApp?: () => Promise<void>;
   getUpdateChannel?: () => Promise<string | undefined>;
   getArchitecture?: () => Promise<string | undefined>;
+  getArchitectureInfo?: () => Promise<ElectronArchitectureInfo | undefined>;
   isNativeConversionAvailable?: () => Promise<ElectronNativeAvailabilityResult>;
   getNativeVersionInfo?: () => Promise<ElectronNativeVersionInfoResult>;
   getNativeThreadInfo?: () => Promise<ElectronNativeThreadInfoResult>;

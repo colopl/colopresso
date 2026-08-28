@@ -11,6 +11,8 @@
 
 #include <node_api.h>
 
+#include <ctype.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -22,6 +24,7 @@
 #define COLOPRESSO_NATIVE_ERROR_INVALID_ARGUMENT "invalid_argument"
 #define COLOPRESSO_NATIVE_ERROR_CONVERSION_FAILED "conversion_failed"
 #define COLOPRESSO_NATIVE_ERROR_OUTPUT_NOT_SMALLER "output_larger_than_input"
+#define COLOPRESSO_NATIVE_SCALAR_STRING_MAX 64
 
 typedef struct {
   napi_env env;
@@ -101,18 +104,80 @@ static bool get_named_property(napi_env env, napi_value object, const char *name
   return value_type != napi_undefined && value_type != napi_null;
 }
 
+/*
+ * Option values may arrive as strings (e.g. values read from an HTML <select>
+ * element or imported settings JSON). Accept the same textual forms as the
+ * WebAssembly path so that both backends honor identical settings.
+ */
+static bool read_scalar_string(napi_env env, napi_value value, char *buffer, size_t buffer_size) {
+  size_t length;
+
+  if (napi_get_value_string_utf8(env, value, buffer, buffer_size, &length) != napi_ok) {
+    return false;
+  }
+
+  return length > 0 && length + 1 < buffer_size;
+}
+
+static bool parse_numeric_string(const char *text, double *out_value) {
+  const char *cursor;
+  char *end;
+  double parsed;
+
+  cursor = text;
+  while (isspace((unsigned char)*cursor)) {
+    ++cursor;
+  }
+  if (*cursor == '\0') {
+    return false;
+  }
+
+  parsed = strtod(cursor, &end);
+  if (end == cursor) {
+    return false;
+  }
+  while (isspace((unsigned char)*end)) {
+    ++end;
+  }
+  if (*end != '\0' || !isfinite(parsed)) {
+    return false;
+  }
+
+  *out_value = parsed;
+  return true;
+}
+
+static bool equals_ignore_case(const char *text, const char *expected) {
+  while (*text && *expected) {
+    if (tolower((unsigned char)*text) != tolower((unsigned char)*expected)) {
+      return false;
+    }
+    ++text;
+    ++expected;
+  }
+
+  return *text == '\0' && *expected == '\0';
+}
+
 static bool read_double_property(napi_env env, napi_value object, const char *name, double *out_value) {
   napi_value value;
   napi_valuetype value_type;
+  char text[COLOPRESSO_NATIVE_SCALAR_STRING_MAX];
 
   if (!get_named_property(env, object, name, &value)) {
     return false;
   }
-  if (napi_typeof(env, value, &value_type) != napi_ok || value_type != napi_number) {
+  if (napi_typeof(env, value, &value_type) != napi_ok) {
     return false;
   }
+  if (value_type == napi_number) {
+    return napi_get_value_double(env, value, out_value) == napi_ok;
+  }
+  if (value_type == napi_string) {
+    return read_scalar_string(env, value, text, sizeof(text)) && parse_numeric_string(text, out_value);
+  }
 
-  return napi_get_value_double(env, value, out_value) == napi_ok;
+  return false;
 }
 
 static bool read_int_property(napi_env env, napi_value object, const char *name, int *out_value) {
@@ -129,6 +194,8 @@ static bool read_int_property(napi_env env, napi_value object, const char *name,
 static bool read_bool_property(napi_env env, napi_value object, const char *name, bool *out_value) {
   napi_value value;
   napi_valuetype value_type;
+  double numeric_value;
+  char text[COLOPRESSO_NATIVE_SCALAR_STRING_MAX];
 
   if (!get_named_property(env, object, name, &value)) {
     return false;
@@ -140,8 +207,25 @@ static bool read_bool_property(napi_env env, napi_value object, const char *name
     return napi_get_value_bool(env, value, out_value) == napi_ok;
   }
   if (value_type == napi_number) {
-    double numeric_value;
     if (napi_get_value_double(env, value, &numeric_value) != napi_ok) {
+      return false;
+    }
+    *out_value = numeric_value != 0.0;
+    return true;
+  }
+  if (value_type == napi_string) {
+    if (!read_scalar_string(env, value, text, sizeof(text))) {
+      return false;
+    }
+    if (equals_ignore_case(text, "true")) {
+      *out_value = true;
+      return true;
+    }
+    if (equals_ignore_case(text, "false")) {
+      *out_value = false;
+      return true;
+    }
+    if (!parse_numeric_string(text, &numeric_value)) {
       return false;
     }
     *out_value = numeric_value != 0.0;

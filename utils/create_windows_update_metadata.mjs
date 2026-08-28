@@ -54,30 +54,33 @@ async function calculateSha512(filePath) {
   return hash.digest('base64');
 }
 
-async function inspectArchive(filePath, architecture) {
-  const archiveName = basename(filePath);
-  const expectedSuffix = `_macos_gui_${architecture}.zip`;
+async function inspectInstaller(filePath, architecture) {
+  const installerName = basename(filePath);
+  const expectedSuffix = `_windows_gui_${architecture}.exe`;
 
-  if (!archiveName.endsWith(expectedSuffix)) {
-    throw new Error(`Expected ${architecture} archive name to end with ${expectedSuffix}: ${archiveName}`);
+  if (!installerName.endsWith(expectedSuffix)) {
+    throw new Error(`Expected ${architecture} installer name to end with ${expectedSuffix}: ${installerName}`);
   }
 
   const [fileStat, sha512] = await Promise.all([stat(filePath), calculateSha512(filePath)]);
   if (!fileStat.isFile()) {
-    throw new Error(`Archive is not a regular file: ${filePath}`);
+    throw new Error(`Installer is not a regular file: ${filePath}`);
   }
 
   return {
-    url: archiveName,
+    url: installerName,
     sha512,
     size: fileStat.size,
   };
 }
 
+// x64 is listed first and used for the legacy path/sha512 fields: updaters that
+// do not pick a file by architecture take the first entry, and the x64 build
+// also runs on arm64 Windows through emulation.
 function renderMetadata(version, files, releaseDate) {
-  const fallback = files.find((file) => file.url.endsWith('_x64.zip'));
+  const fallback = files.find((file) => file.url.endsWith('_x64.exe'));
   if (!fallback) {
-    throw new Error('Missing x64 fallback archive');
+    throw new Error('Missing x64 fallback installer');
   }
 
   const lines = [`version: ${quoteYamlString(version)}`, 'files:'];
@@ -93,7 +96,7 @@ function renderMetadata(version, files, releaseDate) {
   return `${lines.join('\n')}\n`;
 }
 
-export async function createMacosUpdateMetadata({ version, arm64, x64, output, releaseDate = new Date().toISOString() }) {
+export async function createWindowsUpdateMetadata({ version, arm64, x64, output, releaseDate = new Date().toISOString() }) {
   if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
     throw new Error(`Invalid version: ${version}`);
   }
@@ -101,7 +104,7 @@ export async function createMacosUpdateMetadata({ version, arm64, x64, output, r
     throw new Error(`Invalid release date: ${releaseDate}`);
   }
 
-  const [x64File, arm64File] = await Promise.all([inspectArchive(x64, 'x64'), inspectArchive(arm64, 'arm64')]);
+  const [x64File, arm64File] = await Promise.all([inspectInstaller(x64, 'x64'), inspectInstaller(arm64, 'arm64')]);
   const metadata = renderMetadata(version, [x64File, arm64File], releaseDate);
   await writeFile(output, metadata, 'utf8');
 
@@ -110,7 +113,7 @@ export async function createMacosUpdateMetadata({ version, arm64, x64, output, r
 
 async function main() {
   const options = parseArguments(process.argv.slice(2));
-  await createMacosUpdateMetadata(options);
+  await createWindowsUpdateMetadata(options);
 }
 
 if (process.argv[1] && realpathSync(resolve(process.argv[1])) === fileURLToPath(import.meta.url)) {

@@ -116,6 +116,7 @@ const bundle: TranslationBundle = {
     buildInfo: {
       loading: '読み込み中...',
       error: 'ビルド情報の読み込み中にエラーが発生しました',
+      wrongArchitecture: '⚠️ この PC は {nativeArchitecture} ですが、{architecture} 版がエミュレーションで実行されています。アップデートで {nativeArchitecture} 版に切り替えてください。',
     },
     common: {
       dropPrompt: 'ファイルをドラッグ&ドロップするか、クリックして選択してください',
@@ -317,6 +318,14 @@ const bundle: TranslationBundle = {
             availableVersion: '利用可能なバージョン: {version}',
             channel: 'アップデートチャネル: {channel}',
             platform: 'プラットフォーム: {platform}',
+          },
+        },
+        wrongArchitecture: {
+          title: 'インストールされているバージョンのアーキテクチャが正しくありません',
+          message:
+            'この PC は {nativeArchitecture} ですが、現在 {architecture} 版がエミュレーションで動作しています。{nativeArchitecture} 版 (バージョン {version}) をダウンロードして切り替えますか？',
+          detail: {
+            platform: 'プラットフォーム: {platform} (この PC のアーキテクチャ: {nativeArchitecture})',
           },
         },
         readyToInstall: {

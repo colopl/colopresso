@@ -71,6 +71,9 @@ const BuildInfoPanel: React.FC<BuildInfoPanelProps> = ({ title, buildInfo, t }) 
           <div className={styles.buildInfoItem}>- Rust: {rustVersion}</div>
           {releaseChannel && <div className={styles.buildInfoItem}>- Release Channel: {releaseChannel}</div>}
           {architecture && <div className={styles.buildInfoItem}>- Architecture: {architecture}</div>}
+          {payload.runningUnderArm64Translation && (
+            <div className={`${styles.buildInfoItem} ${styles.buildInfoWarning}`}>{t('buildInfo.wrongArchitecture', { architecture, nativeArchitecture: payload.nativeArchitecture ?? 'arm64' })}</div>
+          )}
           <div className={styles.buildInfoItem}>- Build time: {buildtime}</div>
         </div>
       </div>

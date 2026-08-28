@@ -177,6 +177,8 @@ export interface BuildInfoPayload {
   buildtime?: number;
   releaseChannel?: string;
   architecture?: string;
+  nativeArchitecture?: string;
+  runningUnderArm64Translation?: boolean;
   backend?: string;
   threadsEnabled?: boolean;
   defaultThreads?: number;
