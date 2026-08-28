@@ -171,4 +171,14 @@ elseif(WIN32)
   )
 endif()
 
+if(COLOPRESSO_USE_TESTS)
+  add_test(
+    NAME test_electron_native_addon
+    COMMAND "${NODE_EXECUTABLE}" --test "${CMAKE_SOURCE_DIR}/app/electron/native/colopresso_native.test.mjs"
+  )
+  set_tests_properties(test_electron_native_addon PROPERTIES
+    ENVIRONMENT "COLOPRESSO_NATIVE_ADDON_PATH=$<TARGET_FILE:colopresso_native>;COLOPRESSO_TEST_ASSETS_DIR=${CMAKE_SOURCE_DIR}/assets"
+  )
+endif()
+
 message(STATUS "Electron native addon output: ${COLOPRESSO_ELECTRON_NATIVE_ADDON_OUTPUT_DIR}")

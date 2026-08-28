@@ -267,7 +267,8 @@ function normalizePngxOptions(raw?: FormatOptions): FormatOptions {
   const lossyType = getNumeric(normalizedRecord['pngx_lossy_type']) ?? 0;
   const legacyReduced = raw ? getNumeric((raw as Record<string, unknown>)['pngx_lossy_reduced_colors']) : undefined;
   const providedMax = getNumeric(normalizedRecord['pngx_lossy_max_colors']);
-  const rawRecord = raw ? (raw as Record<string, unknown>) : undefined;
+
+  normalizedRecord['pngx_lossy_type'] = lossyType;
 
   if (lossyType === 2) {
     const source = legacyReduced ?? providedMax;
@@ -284,7 +285,7 @@ function normalizePngxOptions(raw?: FormatOptions): FormatOptions {
 
   let sliderValue: number;
   const rawDitherValue = getNumeric(normalizedRecord['pngx_lossy_dither_level']);
-  const rawDitherAuto = rawRecord ? rawRecord['pngx_lossy_dither_auto'] : undefined;
+  const rawDitherAuto = normalizedRecord['pngx_lossy_dither_auto'];
   if (rawDitherValue === undefined || Number.isNaN(rawDitherValue)) {
     sliderValue = 60;
   } else if (rawDitherValue < 0) {

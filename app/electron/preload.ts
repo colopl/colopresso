@@ -66,6 +66,7 @@ const api: ElectronAPI = {
   restartApp: () => ipcRenderer.invoke('restart-app'),
   getUpdateChannel: () => ipcRenderer.invoke('get-update-channel'),
   getArchitecture: () => ipcRenderer.invoke('get-architecture'),
+  getArchitectureInfo: () => ipcRenderer.invoke('get-architecture-info'),
   isNativeConversionAvailable: () => ipcRenderer.invoke('is-native-conversion-available'),
   getNativeVersionInfo: () => ipcRenderer.invoke('get-native-version-info'),
   getNativeThreadInfo: () => ipcRenderer.invoke('get-native-thread-info'),

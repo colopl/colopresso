@@ -11,6 +11,10 @@
 
 #include <node_api.h>
 
+#include <ctype.h>
+#include <float.h>
+#include <limits.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -22,6 +26,7 @@
 #define COLOPRESSO_NATIVE_ERROR_INVALID_ARGUMENT "invalid_argument"
 #define COLOPRESSO_NATIVE_ERROR_CONVERSION_FAILED "conversion_failed"
 #define COLOPRESSO_NATIVE_ERROR_OUTPUT_NOT_SMALLER "output_larger_than_input"
+#define COLOPRESSO_NATIVE_SCALAR_STRING_MAX 64
 
 typedef struct {
   napi_env env;
@@ -49,6 +54,15 @@ static int clamp_int(int value, int min_value, int max_value) {
     return max_value;
   }
   return value;
+}
+
+static bool assign_float_value(double value, float *target) {
+  if (!(value >= -(double)FLT_MAX && value <= (double)FLT_MAX)) {
+    return false;
+  }
+
+  *target = (float)value;
+  return true;
 }
 
 static float clamp_float_value(double value, float min_value, float max_value) {
@@ -101,24 +115,89 @@ static bool get_named_property(napi_env env, napi_value object, const char *name
   return value_type != napi_undefined && value_type != napi_null;
 }
 
+/*
+ * Option values may arrive as strings (e.g. values read from an HTML <select>
+ * element or imported settings JSON). Accept the same textual forms as the
+ * WebAssembly path so that both backends honor identical settings.
+ */
+static bool read_scalar_string(napi_env env, napi_value value, char *buffer, size_t buffer_size) {
+  size_t length;
+
+  if (napi_get_value_string_utf8(env, value, NULL, 0, &length) != napi_ok || length == 0 || length >= buffer_size) {
+    return false;
+  }
+
+  return napi_get_value_string_utf8(env, value, buffer, buffer_size, &length) == napi_ok;
+}
+
+static bool parse_numeric_string(const char *text, double *out_value) {
+  const char *cursor;
+  char *end;
+  double parsed;
+
+  cursor = text;
+  while (isspace((unsigned char)*cursor)) {
+    ++cursor;
+  }
+  if (*cursor == '\0') {
+    return false;
+  }
+
+  parsed = strtod(cursor, &end);
+  if (end == cursor) {
+    return false;
+  }
+  while (isspace((unsigned char)*end)) {
+    ++end;
+  }
+  if (*end != '\0' || !isfinite(parsed)) {
+    return false;
+  }
+
+  *out_value = parsed;
+  return true;
+}
+
+static bool equals_ignore_case(const char *text, const char *expected) {
+  while (*text && *expected) {
+    if (tolower((unsigned char)*text) != tolower((unsigned char)*expected)) {
+      return false;
+    }
+    ++text;
+    ++expected;
+  }
+
+  return *text == '\0' && *expected == '\0';
+}
+
 static bool read_double_property(napi_env env, napi_value object, const char *name, double *out_value) {
   napi_value value;
   napi_valuetype value_type;
+  char text[COLOPRESSO_NATIVE_SCALAR_STRING_MAX];
 
   if (!get_named_property(env, object, name, &value)) {
     return false;
   }
-  if (napi_typeof(env, value, &value_type) != napi_ok || value_type != napi_number) {
+  if (napi_typeof(env, value, &value_type) != napi_ok) {
     return false;
   }
+  if (value_type == napi_number) {
+    return napi_get_value_double(env, value, out_value) == napi_ok && isfinite(*out_value);
+  }
+  if (value_type == napi_string) {
+    return read_scalar_string(env, value, text, sizeof(text)) && parse_numeric_string(text, out_value);
+  }
 
-  return napi_get_value_double(env, value, out_value) == napi_ok;
+  return false;
 }
 
 static bool read_int_property(napi_env env, napi_value object, const char *name, int *out_value) {
   double value;
 
   if (!read_double_property(env, object, name, &value)) {
+    return false;
+  }
+  if (!(value >= (double)INT_MIN && value <= (double)INT_MAX)) {
     return false;
   }
 
@@ -129,6 +208,8 @@ static bool read_int_property(napi_env env, napi_value object, const char *name,
 static bool read_bool_property(napi_env env, napi_value object, const char *name, bool *out_value) {
   napi_value value;
   napi_valuetype value_type;
+  double numeric_value;
+  char text[COLOPRESSO_NATIVE_SCALAR_STRING_MAX];
 
   if (!get_named_property(env, object, name, &value)) {
     return false;
@@ -140,8 +221,25 @@ static bool read_bool_property(napi_env env, napi_value object, const char *name
     return napi_get_value_bool(env, value, out_value) == napi_ok;
   }
   if (value_type == napi_number) {
-    double numeric_value;
-    if (napi_get_value_double(env, value, &numeric_value) != napi_ok) {
+    if (napi_get_value_double(env, value, &numeric_value) != napi_ok || !isfinite(numeric_value)) {
+      return false;
+    }
+    *out_value = numeric_value != 0.0;
+    return true;
+  }
+  if (value_type == napi_string) {
+    if (!read_scalar_string(env, value, text, sizeof(text))) {
+      return false;
+    }
+    if (equals_ignore_case(text, "true")) {
+      *out_value = true;
+      return true;
+    }
+    if (equals_ignore_case(text, "false")) {
+      *out_value = false;
+      return true;
+    }
+    if (!parse_numeric_string(text, &numeric_value)) {
       return false;
     }
     *out_value = numeric_value != 0.0;
@@ -155,7 +253,7 @@ static void apply_double_property(napi_env env, napi_value options, const char *
   double value;
 
   if (read_double_property(env, options, name, &value)) {
-    *target = (float)value;
+    assign_float_value(value, target);
   }
 }
 
@@ -323,7 +421,7 @@ static void apply_avif_options(napi_env env, napi_value options, cpres_config_t 
   bool bool_value;
 
   if (read_double_property(env, options, "avif_quality", &value) || read_double_property(env, options, "quality", &value)) {
-    config->avif_quality = (float)value;
+    assign_float_value(value, &config->avif_quality);
   }
   if (read_int_property(env, options, "avif_alpha_quality", &config->avif_alpha_quality) || read_int_property(env, options, "alpha_quality", &config->avif_alpha_quality)) {
     /* NOP */
@@ -389,7 +487,7 @@ static void apply_pngx_options(napi_env env, napi_value options, cpres_config_t 
     } else if (double_value <= 1.0) {
       config->pngx_lossy_dither_level = clamp_float_value(double_value, 0.0f, 1.0f);
     } else {
-      raw_dither_level = clamp_int((int)double_value, 0, 100);
+      raw_dither_level = (int)(double_value > 100.0 ? 100.0 : double_value);
       config->pngx_lossy_dither_level = (float)raw_dither_level / 100.0f;
     }
   }
@@ -685,9 +783,9 @@ static napi_value convert(napi_env env, napi_callback_info info) {
   has_argument_threads = false;
   if (argc >= 4 && napi_typeof(env, args[3], &thread_arg_type) == napi_ok && thread_arg_type != napi_undefined && thread_arg_type != napi_null) {
     double numeric_threads;
-    if (thread_arg_type != napi_number || napi_get_value_double(env, args[3], &numeric_threads) != napi_ok) {
+    if (thread_arg_type != napi_number || napi_get_value_double(env, args[3], &numeric_threads) != napi_ok || !(numeric_threads >= (double)INT_MIN && numeric_threads <= (double)INT_MAX)) {
       cleanup_convert_work(work);
-      return throw_type_error(env, "threadCount must be a number when provided");
+      return throw_type_error(env, "threadCount must be a finite number when provided");
     }
     argument_threads = (int)numeric_threads;
     has_argument_threads = true;

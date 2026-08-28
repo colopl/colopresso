@@ -106,11 +106,7 @@
     "win": {
       "target": [
         {
-          "target": "nsis",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
+          "target": "nsis"
         }
       ],
       "icon": "app/electron/colopresso.ico"

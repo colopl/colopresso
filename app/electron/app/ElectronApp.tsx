@@ -303,8 +303,11 @@ const ElectronAppInner: React.FC = () => {
     const appendReleaseMetadata = async (base: BuildInfoPayload): Promise<BuildInfoPayload> => {
       const getUpdateChannel = window.electronAPI?.getUpdateChannel;
       const getArchitecture = window.electronAPI?.getArchitecture;
+      const getArchitectureInfo = window.electronAPI?.getArchitectureInfo;
       let releaseChannel: string | undefined;
       let architecture: string | undefined;
+      let nativeArchitecture: string | undefined;
+      let runningUnderArm64Translation = false;
 
       if (typeof getUpdateChannel === 'function') {
         const channel = await getUpdateChannel();
@@ -313,7 +316,16 @@ const ElectronAppInner: React.FC = () => {
         }
       }
 
-      if (typeof getArchitecture === 'function') {
+      if (typeof getArchitectureInfo === 'function') {
+        const info = await getArchitectureInfo();
+        if (info && typeof info.architecture === 'string' && info.architecture.trim().length > 0) {
+          architecture = info.architecture.trim();
+          nativeArchitecture = typeof info.nativeArchitecture === 'string' && info.nativeArchitecture.trim().length > 0 ? info.nativeArchitecture.trim() : undefined;
+          runningUnderArm64Translation = info.runningUnderArm64Translation === true;
+        }
+      }
+
+      if (!architecture && typeof getArchitecture === 'function') {
         const arch = await getArchitecture();
         if (typeof arch === 'string' && arch.trim().length > 0) {
           architecture = arch.trim();
@@ -325,6 +337,8 @@ const ElectronAppInner: React.FC = () => {
           ...base,
           ...(releaseChannel ? { releaseChannel } : {}),
           ...(architecture ? { architecture } : {}),
+          ...(nativeArchitecture ? { nativeArchitecture } : {}),
+          ...(runningUnderArm64Translation ? { runningUnderArm64Translation } : {}),
         };
       }
 

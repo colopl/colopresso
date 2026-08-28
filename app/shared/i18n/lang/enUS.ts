@@ -116,6 +116,7 @@ const bundle: TranslationBundle = {
     buildInfo: {
       loading: 'Loading...',
       error: 'An error occurred while loading build information',
+      wrongArchitecture: '⚠️ This PC is {nativeArchitecture}, but the {architecture} build is running under emulation. Update to switch to the {nativeArchitecture} build.',
     },
     common: {
       dropPrompt: 'Drag and drop files or click to select.',
@@ -318,6 +319,13 @@ const bundle: TranslationBundle = {
             availableVersion: 'Available version: {version}',
             channel: 'Update channel: {channel}',
             platform: 'Platform: {platform}',
+          },
+        },
+        wrongArchitecture: {
+          title: 'Wrong architecture installed',
+          message: 'This PC is {nativeArchitecture}, but the {architecture} build is currently running under emulation. Download the {nativeArchitecture} build (version {version}) and switch?',
+          detail: {
+            platform: 'Platform: {platform} (native architecture: {nativeArchitecture})',
           },
         },
         readyToInstall: {
