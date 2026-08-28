@@ -221,7 +221,7 @@ static bool read_bool_property(napi_env env, napi_value object, const char *name
     return napi_get_value_bool(env, value, out_value) == napi_ok;
   }
   if (value_type == napi_number) {
-    if (napi_get_value_double(env, value, &numeric_value) != napi_ok) {
+    if (napi_get_value_double(env, value, &numeric_value) != napi_ok || !isfinite(numeric_value)) {
       return false;
     }
     *out_value = numeric_value != 0.0;

@@ -84,6 +84,18 @@ test('out-of-range and non-finite numbers are ignored instead of being converted
   }
 });
 
+test('non-finite numbers are ignored for boolean options instead of enabling them', async () => {
+  const reference = Buffer.from((await addon.convert('pngx', { pngx_lossy_type: 1 }, input, 1)).outputBytes);
+  const disabled = await convertPngx({ pngx_lossy_type: 1, pngx_lossy_enable: false });
+
+  assert.ok(!disabled.equals(reference));
+  for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+    const ignored = Buffer.from((await addon.convert('pngx', { pngx_lossy_type: 1, pngx_lossy_enable: value }, input, 1)).outputBytes);
+
+    assert.ok(ignored.equals(reference), `pngx_lossy_enable=${value}`);
+  }
+});
+
 test('non-finite or out-of-range thread counts are rejected instead of being converted', () => {
   for (const threads of [1e100, -1e100, Number.NaN, Number.POSITIVE_INFINITY]) {
     assert.throws(() => addon.convert('pngx', { pngx_lossy_enable: true, pngx_lossy_type: 1 }, input, threads), TypeError, `threadCount=${threads}`);
