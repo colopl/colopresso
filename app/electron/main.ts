@@ -203,8 +203,12 @@ function enableSameVersionUpdateForNativeArchitecture(): void {
   };
 }
 
-function selectWindowsUpdateFileForCurrentArch(info: UpdateInfo): void {
-  if (process.platform !== 'win32') {
+// Narrow the published files to the one built for the machine's native architecture.
+// electron-updater also filters by architecture on macOS (via sysctl/uname probes), but
+// selecting here keeps the choice explicit and independent of those probes.
+function selectUpdateFileForNativeArch(info: UpdateInfo): void {
+  const extension = process.platform === 'win32' ? 'exe' : process.platform === 'darwin' ? 'zip' : null;
+  if (extension === null) {
     return;
   }
 
@@ -214,8 +218,8 @@ function selectWindowsUpdateFileForCurrentArch(info: UpdateInfo): void {
   }
 
   const arch = getNativeArchitecture();
-  const preferredNeedle = `_${arch}.exe`;
-  const fallbackNeedle = `${arch}.exe`;
+  const preferredNeedle = `_${arch}.${extension}`;
+  const fallbackNeedle = `${arch}.${extension}`;
 
   const matching = files.filter((file) => {
     if (!file || typeof file.url !== 'string') {
@@ -525,7 +529,7 @@ function setupAutoUpdate(): void {
   autoUpdater.on('update-available', async (info) => {
     try {
       pendingAvailableUpdateInfo = info;
-      selectWindowsUpdateFileForCurrentArch(info);
+      selectUpdateFileForNativeArch(info);
       const shouldDownload = await promptForUpdateDownload(info, { ...config, channel: effectiveChannel });
       if (!shouldDownload) {
         if (mainWindow) {
@@ -929,7 +933,7 @@ function registerIpcHandlers(): void {
     }
 
     try {
-      selectWindowsUpdateFileForCurrentArch(pendingAvailableUpdateInfo);
+      selectUpdateFileForNativeArch(pendingAvailableUpdateInfo);
       sendUpdateIpc('update-download-start', { version: pendingAvailableUpdateInfo.version, releaseName: pendingAvailableUpdateInfo.releaseName });
       const result = await autoUpdater.downloadUpdate();
 
