@@ -84,6 +84,12 @@ test('out-of-range and non-finite numbers are ignored instead of being converted
   }
 });
 
+test('non-finite or out-of-range thread counts are rejected instead of being converted', () => {
+  for (const threads of [1e100, -1e100, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.throws(() => addon.convert('pngx', { pngx_lossy_enable: true, pngx_lossy_type: 1 }, input, threads), TypeError, `threadCount=${threads}`);
+  }
+});
+
 test('non-numeric strings fall back to the default instead of failing', async () => {
   const fallback = await convertPngx({ pngx_lossy_type: 'not-a-number' });
   const palette = await convertPngx({ pngx_lossy_type: 0 });

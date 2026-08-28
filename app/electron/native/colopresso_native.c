@@ -783,9 +783,9 @@ static napi_value convert(napi_env env, napi_callback_info info) {
   has_argument_threads = false;
   if (argc >= 4 && napi_typeof(env, args[3], &thread_arg_type) == napi_ok && thread_arg_type != napi_undefined && thread_arg_type != napi_null) {
     double numeric_threads;
-    if (thread_arg_type != napi_number || napi_get_value_double(env, args[3], &numeric_threads) != napi_ok) {
+    if (thread_arg_type != napi_number || napi_get_value_double(env, args[3], &numeric_threads) != napi_ok || !(numeric_threads >= (double)INT_MIN && numeric_threads <= (double)INT_MAX)) {
       cleanup_convert_work(work);
-      return throw_type_error(env, "threadCount must be a number when provided");
+      return throw_type_error(env, "threadCount must be a finite number when provided");
     }
     argument_threads = (int)numeric_threads;
     has_argument_threads = true;
