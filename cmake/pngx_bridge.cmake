@@ -119,6 +119,7 @@ file(MAKE_DIRECTORY "${PNGX_BRIDGE_BUILD_DIR}/generated")
 
 set(_pngx_bridge_copy_inputs
   "${PNGX_BRIDGE_SOURCE_DIR}/Cargo.toml"
+  "${PNGX_BRIDGE_SOURCE_DIR}/Cargo.lock"
   "${PNGX_BRIDGE_SOURCE_DIR}/cbindgen.toml"
   "${PNGX_BRIDGE_SOURCE_DIR}/src/lib.rs"
 )
