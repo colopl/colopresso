@@ -168,7 +168,6 @@ static bool decode_png_image(const char *path, png_image_t *out) {
   uint32_t bit_depth, color_type;
   size_t pixel_count, samples, src, row_span, image_size, i;
   int num_palette = 0;
-  bool ok = false;
 
   if (!path || !out) {
     return false;
@@ -502,6 +501,7 @@ static inline uint64_t pack_rgba64(const uint16_t *pixel, uint8_t channel_bits) 
 
 int main(int argc, char **argv) {
   const char *input_path;
+  char capacity_buffer[64];
   uint64_t *colors = NULL, unique_colors = 0;
   uint8_t idx, channel_bits, *value_seen = NULL, *value_rows[CHANNEL_COUNT] = {NULL};
   size_t pixel_count = 0, base = 0, value_limit, i;
@@ -604,7 +604,6 @@ int main(int argc, char **argv) {
   printf("File: %s\n", input_path);
   printf("Size: %u x %u (%zu pixels)\n", image.width, image.height, pixel_count);
   if (max_colors.overflow) {
-    char capacity_buffer[64];
     if (pow2_to_decimal_string(max_colors.overflow_bits, capacity_buffer, sizeof(capacity_buffer))) {
       printf("Unique colors: %" PRIu64 " / %s\n", unique_colors, capacity_buffer);
     } else {

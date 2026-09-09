@@ -559,6 +559,45 @@ void test_pngx_palette256_postprocess_indices_executes_without_internal_tests(vo
   cpres_free(decoded);
 }
 
+void test_pngx_palette256_saliency_map_toggle_gates_importance_map(void) {
+  const uint8_t *png_data = NULL;
+  uint8_t *rgba = NULL, *importance_map = NULL, *fixed_colors = NULL, quality_min = 0, quality_max = 0;
+  uint32_t width = 0, height = 0, max_colors = 0;
+  int32_t speed = 0;
+  size_t png_size = 0, importance_map_len = 0, fixed_colors_len = 0;
+  float dither_level = 0.0f;
+  bool success;
+  pngx_options_t opts;
+
+  png_data = get_cached_example_png(&png_size);
+  TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found");
+
+  g_config.pngx_lossy_enable = true;
+  g_config.pngx_lossy_type = CPRES_PNGX_LOSSY_TYPE_PALETTE256;
+  g_config.pngx_palette256_gradient_profile_enable = false;
+  g_config.pngx_postprocess_smooth_enable = true;
+
+  g_config.pngx_saliency_map_enable = true;
+  memset(&opts, 0, sizeof(opts));
+  pngx_fill_pngx_options(&opts, &g_config);
+  success = pngx_palette256_prepare(png_data, png_size, &opts, &rgba, &width, &height, &importance_map, &importance_map_len, &speed, &quality_min, &quality_max, &max_colors, &dither_level,
+                                    &fixed_colors, &fixed_colors_len);
+  TEST_ASSERT_TRUE_MESSAGE(success, "pngx_palette256_prepare failed with saliency map enabled");
+  TEST_ASSERT_NOT_NULL_MESSAGE(importance_map, "importance map expected when saliency map is enabled");
+  TEST_ASSERT_EQUAL_size_t((size_t)width * (size_t)height, importance_map_len);
+  pngx_palette256_cleanup();
+
+  g_config.pngx_saliency_map_enable = false;
+  memset(&opts, 0, sizeof(opts));
+  pngx_fill_pngx_options(&opts, &g_config);
+  success = pngx_palette256_prepare(png_data, png_size, &opts, &rgba, &width, &height, &importance_map, &importance_map_len, &speed, &quality_min, &quality_max, &max_colors, &dither_level,
+                                    &fixed_colors, &fixed_colors_len);
+  TEST_ASSERT_TRUE_MESSAGE(success, "pngx_palette256_prepare failed with saliency map disabled");
+  TEST_ASSERT_NULL_MESSAGE(importance_map, "importance map must not reach the quantizer when saliency map is disabled");
+  TEST_ASSERT_EQUAL_size_t(0, importance_map_len);
+  pngx_palette256_cleanup();
+}
+
 void test_pngx_palette256_alpha_bleed_seedless_transparent_image(void) {
   uint32_t width = 64, height = 64;
   uint8_t *rgba = NULL, *png_data = NULL, *pngx_data = NULL;
@@ -775,6 +814,7 @@ int main(void) {
   RUN_TEST(test_pngx_palette256_protected_colors);
   RUN_TEST(test_pngx_palette256_postprocess_smoothing_with_low_dither);
   RUN_TEST(test_pngx_palette256_postprocess_indices_executes_without_internal_tests);
+  RUN_TEST(test_pngx_palette256_saliency_map_toggle_gates_importance_map);
   RUN_TEST(test_pngx_palette256_alpha_bleed_seedless_transparent_image);
   RUN_TEST(test_pngx_palette256_alpha_bleed_applies_to_soft_pixels);
   RUN_TEST(test_pngx_palette256_gradient_profile_prefer_uniform_path);

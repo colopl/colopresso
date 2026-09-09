@@ -208,6 +208,7 @@ class Config:
     pngx_lossy_speed: int = 3
     pngx_lossy_dither_level: float = 0.6
     pngx_threads: int = 1
+    # ... abbreviated; see "Configuration Parameters" for the full list
 ```
 
 ---
@@ -311,19 +312,19 @@ class PngxLossyType(IntEnum):
 | `pngx_lossy_quality_min` | int | 80 | Minimum quality (0-100) |
 | `pngx_lossy_quality_max` | int | 95 | Maximum quality (0-100) |
 | `pngx_lossy_speed` | int | 3 | Quantization speed (1-10). Higher = faster, lower quality |
-| `pngx_lossy_dither_level` | float | 0.6 | Dithering strength (0.0-1.0) |
+| `pngx_lossy_dither_level` | float | 0.6 | Dithering strength (0.0-1.0). -1.0 = let the encoder estimate the strength |
 
 ##### PALETTE256 Mode Settings
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `pngx_lossy_reduced_colors` | int | -1 | Target color count after reduction. -1 = auto |
+| `pngx_protected_colors` | list[tuple[int, int, int, int]] | None | Colors always kept in the palette, as `(r, g, b, a)` tuples (max 256) |
 | `pngx_saliency_map_enable` | bool | True | Adaptive quantization using saliency map |
 | `pngx_chroma_anchor_enable` | bool | True | Preserve chroma anchor points |
 | `pngx_adaptive_dither_enable` | bool | True | Adaptive dithering |
 | `pngx_gradient_boost_enable` | bool | True | Gradient enhancement |
 | `pngx_chroma_weight_enable` | bool | True | Apply chroma weighting |
-| `pngx_postprocess_smooth_enable` | bool | True | Post-processing smoothing |
+| `pngx_postprocess_smooth_enable` | bool | True | Post-processing smoothing. Runs only when `pngx_lossy_dither_level` < 0.25 |
 | `pngx_postprocess_smooth_importance_cutoff` | float | 0.6 | Smoothing importance cutoff |
 | `pngx_palette256_gradient_profile_enable` | bool | True | Enable gradient profile |
 | `pngx_palette256_gradient_dither_floor` | float | 0.78 | Gradient dither floor |
@@ -331,13 +332,27 @@ class PngxLossyType(IntEnum):
 | `pngx_palette256_alpha_bleed_max_distance` | int | 64 | Maximum bleed distance in pixels |
 | `pngx_palette256_alpha_bleed_opaque_threshold` | int | 248 | Opaque threshold |
 | `pngx_palette256_alpha_bleed_soft_limit` | int | 160 | Soft bleed limit |
+| `pngx_palette256_profile_opaque_ratio_threshold` | float | 0.90 | Gradient profile: opaque ratio threshold (0.0-1.0). -1 = internal default |
+| `pngx_palette256_profile_gradient_mean_max` | float | 0.16 | Gradient profile: gradient mean upper bound (0.0-1.0). -1 = internal default |
+| `pngx_palette256_profile_saturation_mean_max` | float | 0.42 | Gradient profile: saturation mean upper bound (0.0-1.0). -1 = internal default |
+| `pngx_palette256_tune_opaque_ratio_threshold` | float | 0.90 | Auto tune: opaque ratio threshold (0.0-1.0). -1 = internal default |
+| `pngx_palette256_tune_gradient_mean_max` | float | 0.14 | Auto tune: gradient mean upper bound (0.0-1.0). -1 = internal default |
+| `pngx_palette256_tune_saturation_mean_max` | float | 0.35 | Auto tune: saturation mean upper bound (0.0-1.0). -1 = internal default |
+| `pngx_palette256_tune_speed_max` | int | 1 | Auto tune: maximum quantization speed (1-10). -1 = internal default |
+| `pngx_palette256_tune_quality_min_floor` | int | 90 | Auto tune: minimum quality floor (0-100). -1 = internal default |
+| `pngx_palette256_tune_quality_max_target` | int | 100 | Auto tune: maximum quality target (0-100). -1 = internal default |
 
 ##### LIMITED_RGBA4444 Mode Settings
 
+This mode has no dedicated parameters. Every RGBA channel is fixed to 4 bits; set `pngx_lossy_dither_level` to `-1.0` to let the encoder estimate the dithering strength.
+
+##### REDUCED_RGBA32 Mode Settings
+
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `pngx_lossy_reduced_bits_rgb` | int | 4 | RGB channel bit depth (1-8) |
-| `pngx_lossy_reduced_alpha_bits` | int | 4 | Alpha channel bit depth (1-8) |
+| `pngx_lossy_reduced_colors` | int | -1 | Target color count after reduction (2-32768). -1 = auto |
+| `pngx_lossy_reduced_bits_rgb` | int | 4 | RGB channel grid bit depth (1-8) |
+| `pngx_lossy_reduced_alpha_bits` | int | 4 | Alpha channel grid bit depth (1-8) |
 
 ---
 
@@ -550,8 +565,7 @@ with open("texture.png", "rb") as f:
 config = colopresso.Config(
     pngx_lossy_enable=True,
     pngx_lossy_type=colopresso.PngxLossyType.LIMITED_RGBA4444,
-    pngx_lossy_reduced_bits_rgb=4,
-    pngx_lossy_reduced_alpha_bits=4
+    pngx_lossy_dither_level=-1.0  # let the encoder estimate the dithering strength
 )
 optimized = colopresso.encode_pngx(png_data, config)
 ```
