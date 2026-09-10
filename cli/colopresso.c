@@ -855,7 +855,7 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
 
   for (i = 0; i < PNGX_TOGGLE_OPTION_COUNT; ++i) {
     if (strcmp(name, kPngxToggleOptions[i].name) == 0) {
-      *(bool *)((uint8_t *)config + kPngxToggleOptions[i].offset) = kPngxToggleOptions[i].value;
+      memcpy((uint8_t *)config + kPngxToggleOptions[i].offset, &kPngxToggleOptions[i].value, sizeof(bool));
       return true;
     }
   }
