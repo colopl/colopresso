@@ -105,6 +105,8 @@ const bundle: TranslationBundle = {
         pngxDitherReducedUnused: 'Use 0-100 dithering strength for grid quantization.',
         pngxPalette256GradientDitherFloor: 'Set -1 to use the internal default, or specify 0.0-1.0 as the dithering floor for gradient-profile tuning.',
         pngxPalette256AlphaBleed: 'Reduces color fringing around transparent edges by bleeding nearby colors.',
+        pngxLimitedUnsupported:
+          'Not used by Limited RGBA4444. The saliency map, high chroma anchor, adaptive dithering, gradient boost, chroma weighting and post-process smoothing settings apply only to the 256-color palette and Reduced RGBA32 modes.',
         pngxThreads: '0 for fastest, 1 or more to manually specify the thread count (max: {numThreads})',
       },
       labels: {

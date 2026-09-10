@@ -105,6 +105,8 @@ const bundle: TranslationBundle = {
         pngxDitherReducedUnused: '0〜100 のディザ強度をグリッド量子化で使用します。',
         pngxPalette256GradientDitherFloor: '内部デフォルトを使う場合は -1 を指定し、0.0〜1.0 を指定するとグラデーション・プロファイル調整のディザ下限になります。',
         pngxPalette256AlphaBleed: '透明境界の偽色 (フリンジ) を軽減するため、近傍色をにじませます。',
+        pngxLimitedUnsupported:
+          'Limited RGBA4444 では使用されません。視覚重要度マップ、高彩度アンカー、適応ディザリング、グラデーションブースト、彩度重み付け、ポストプロセス平滑化の設定は 256 色パレットと Reduced RGBA32 でのみ有効です。',
         pngxThreads: '0 で最速、1 以上で使用スレッド数を手動で指定します (最大: {numThreads})',
       },
       labels: {

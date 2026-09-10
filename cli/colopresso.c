@@ -39,33 +39,36 @@ typedef struct {
   const char *name;
   size_t offset;
   bool value;
+  bool limited_available; /* false: the toggle is ignored by Limited RGBA4444 and rejected when enabled with it */
 } pngx_toggle_option_t;
 
-#define PNGX_TOGGLE_ENTRY(option_name, field, enabled) {option_name, offsetof(cpres_config_t, field), enabled}
+#define PNGX_TOGGLE_ENTRY(option_name, field, enabled, limited) {option_name, offsetof(cpres_config_t, field), enabled, limited}
 #define PNGX_TOGGLE_OPTION_COUNT (sizeof(kPngxToggleOptions) / sizeof(kPngxToggleOptions[0]))
 
 static const pngx_toggle_option_t kPngxToggleOptions[] = {
-    PNGX_TOGGLE_ENTRY("strip-safe", pngx_strip_safe, true),
-    PNGX_TOGGLE_ENTRY("no-strip-safe", pngx_strip_safe, false),
-    PNGX_TOGGLE_ENTRY("optimize-alpha", pngx_optimize_alpha, true),
-    PNGX_TOGGLE_ENTRY("no-optimize-alpha", pngx_optimize_alpha, false),
-    PNGX_TOGGLE_ENTRY("saliency-map", pngx_saliency_map_enable, true),
-    PNGX_TOGGLE_ENTRY("no-saliency-map", pngx_saliency_map_enable, false),
-    PNGX_TOGGLE_ENTRY("chroma-anchor", pngx_chroma_anchor_enable, true),
-    PNGX_TOGGLE_ENTRY("no-chroma-anchor", pngx_chroma_anchor_enable, false),
-    PNGX_TOGGLE_ENTRY("adaptive-dither", pngx_adaptive_dither_enable, true),
-    PNGX_TOGGLE_ENTRY("no-adaptive-dither", pngx_adaptive_dither_enable, false),
-    PNGX_TOGGLE_ENTRY("gradient-boost", pngx_gradient_boost_enable, true),
-    PNGX_TOGGLE_ENTRY("no-gradient-boost", pngx_gradient_boost_enable, false),
-    PNGX_TOGGLE_ENTRY("chroma-weight", pngx_chroma_weight_enable, true),
-    PNGX_TOGGLE_ENTRY("no-chroma-weight", pngx_chroma_weight_enable, false),
-    PNGX_TOGGLE_ENTRY("smooth", pngx_postprocess_smooth_enable, true),
-    PNGX_TOGGLE_ENTRY("no-smooth", pngx_postprocess_smooth_enable, false),
-    PNGX_TOGGLE_ENTRY("gradient-profile", pngx_palette256_gradient_profile_enable, true),
-    PNGX_TOGGLE_ENTRY("no-gradient-profile", pngx_palette256_gradient_profile_enable, false),
-    PNGX_TOGGLE_ENTRY("alpha-bleed", pngx_palette256_alpha_bleed_enable, true),
-    PNGX_TOGGLE_ENTRY("no-alpha-bleed", pngx_palette256_alpha_bleed_enable, false),
+    PNGX_TOGGLE_ENTRY("strip-safe", pngx_strip_safe, true, true),
+    PNGX_TOGGLE_ENTRY("no-strip-safe", pngx_strip_safe, false, true),
+    PNGX_TOGGLE_ENTRY("optimize-alpha", pngx_optimize_alpha, true, true),
+    PNGX_TOGGLE_ENTRY("no-optimize-alpha", pngx_optimize_alpha, false, true),
+    PNGX_TOGGLE_ENTRY("saliency-map", pngx_saliency_map_enable, true, false),
+    PNGX_TOGGLE_ENTRY("no-saliency-map", pngx_saliency_map_enable, false, false),
+    PNGX_TOGGLE_ENTRY("chroma-anchor", pngx_chroma_anchor_enable, true, false),
+    PNGX_TOGGLE_ENTRY("no-chroma-anchor", pngx_chroma_anchor_enable, false, false),
+    PNGX_TOGGLE_ENTRY("adaptive-dither", pngx_adaptive_dither_enable, true, false),
+    PNGX_TOGGLE_ENTRY("no-adaptive-dither", pngx_adaptive_dither_enable, false, false),
+    PNGX_TOGGLE_ENTRY("gradient-boost", pngx_gradient_boost_enable, true, false),
+    PNGX_TOGGLE_ENTRY("no-gradient-boost", pngx_gradient_boost_enable, false, false),
+    PNGX_TOGGLE_ENTRY("chroma-weight", pngx_chroma_weight_enable, true, false),
+    PNGX_TOGGLE_ENTRY("no-chroma-weight", pngx_chroma_weight_enable, false, false),
+    PNGX_TOGGLE_ENTRY("smooth", pngx_postprocess_smooth_enable, true, false),
+    PNGX_TOGGLE_ENTRY("no-smooth", pngx_postprocess_smooth_enable, false, false),
+    PNGX_TOGGLE_ENTRY("gradient-profile", pngx_palette256_gradient_profile_enable, true, true),
+    PNGX_TOGGLE_ENTRY("no-gradient-profile", pngx_palette256_gradient_profile_enable, false, true),
+    PNGX_TOGGLE_ENTRY("alpha-bleed", pngx_palette256_alpha_bleed_enable, true, true),
+    PNGX_TOGGLE_ENTRY("no-alpha-bleed", pngx_palette256_alpha_bleed_enable, false, true),
 };
+
+static inline void apply_pngx_toggle(cpres_config_t *config, size_t index, bool value) { memcpy((uint8_t *)config + kPngxToggleOptions[index].offset, &value, sizeof(bool)); }
 
 static const struct option kLongOptions[] = {
     {"format", required_argument, 0, 0},
@@ -846,18 +849,34 @@ static inline uint8_t handle_size_increase_error(int64_t input_size, int64_t out
   return 0;
 }
 
-static inline bool handle_long_option(const char *name, const char *optarg, cpres_config_t *config, cpres_rgba_color_t **protected_colors, uint16_t *protected_colors_count, bool *dither_specified) {
+static inline bool handle_long_option(const char *name, const char *optarg, cpres_config_t *config, cpres_rgba_color_t **protected_colors, uint16_t *protected_colors_count, bool *dither_specified,
+                                      uint32_t *limited_unavailable_requested) {
   long long_val;
   double double_val;
   int32_t count;
-  size_t i;
+  size_t i, j;
   cpres_rgba_color_t *parsed_colors;
 
   for (i = 0; i < PNGX_TOGGLE_OPTION_COUNT; ++i) {
-    if (strcmp(name, kPngxToggleOptions[i].name) == 0) {
-      memcpy((uint8_t *)config + kPngxToggleOptions[i].offset, &kPngxToggleOptions[i].value, sizeof(bool));
+    if (strcmp(name, kPngxToggleOptions[i].name) != 0) {
+      continue;
+    }
+    apply_pngx_toggle(config, i, kPngxToggleOptions[i].value);
+    if (kPngxToggleOptions[i].limited_available || !limited_unavailable_requested) {
       return true;
     }
+    /* Track the request per config field through its enabling entry so the last --x / --no-x wins. */
+    for (j = 0; j < PNGX_TOGGLE_OPTION_COUNT; ++j) {
+      if (kPngxToggleOptions[j].offset != kPngxToggleOptions[i].offset || !kPngxToggleOptions[j].value) {
+        continue;
+      }
+      if (kPngxToggleOptions[i].value) {
+        *limited_unavailable_requested |= (uint32_t)1 << j;
+      } else {
+        *limited_unavailable_requested &= ~((uint32_t)1 << j);
+      }
+    }
+    return true;
   }
 
   if (strcmp(name, "sns") == 0) {
@@ -1311,17 +1330,21 @@ static inline void print_usage(const char *program_name) {
   printf("      --quality <min-max>                  Quality range (e.g. 80-95, default: 80-95)\n");
   printf("      --speed <int>                        Quantization speed (1-10, default: 1)\n");
   printf("      --dither <float>                     Dither level (0.0-1.0, or -1 for Limited auto; default: %.2f, auto for Limited)\n", (double)COLOPRESSO_PNGX_DEFAULT_LOSSY_DITHER_LEVEL);
-  printf("      --saliency-map                       Enable saliency-guided importance map (default: %s)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_SALIENCY_MAP_ENABLE));
+  printf("      --saliency-map                       Enable saliency-guided importance map (default: %s; unavailable with --type limited)\n",
+         toggle_label(COLOPRESSO_PNGX_DEFAULT_SALIENCY_MAP_ENABLE));
   printf("      --no-saliency-map                    Disable saliency-guided importance map\n");
-  printf("      --chroma-anchor                      Preserve high-chroma anchor colors (default: %s)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_CHROMA_ANCHOR_ENABLE));
+  printf("      --chroma-anchor                      Preserve high-chroma anchor colors (default: %s; unavailable with --type limited)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_CHROMA_ANCHOR_ENABLE));
   printf("      --no-chroma-anchor                   Disable high-chroma anchor colors\n");
-  printf("      --adaptive-dither                    Adapt dither strength to image statistics (default: %s)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_ADAPTIVE_DITHER_ENABLE));
+  printf("      --adaptive-dither                    Adapt dither strength to image statistics (default: %s; unavailable with --type limited)\n",
+         toggle_label(COLOPRESSO_PNGX_DEFAULT_ADAPTIVE_DITHER_ENABLE));
   printf("      --no-adaptive-dither                 Disable adaptive dither strength\n");
-  printf("      --gradient-boost                     Boost importance of gradient regions (default: %s)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_GRADIENT_BOOST_ENABLE));
+  printf("      --gradient-boost                     Boost importance of gradient regions (default: %s; unavailable with --type limited)\n",
+         toggle_label(COLOPRESSO_PNGX_DEFAULT_GRADIENT_BOOST_ENABLE));
   printf("      --no-gradient-boost                  Disable gradient importance boost\n");
-  printf("      --chroma-weight                      Weight importance by chroma (default: %s)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_CHROMA_WEIGHT_ENABLE));
+  printf("      --chroma-weight                      Weight importance by chroma (default: %s; unavailable with --type limited)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_CHROMA_WEIGHT_ENABLE));
   printf("      --no-chroma-weight                   Disable chroma importance weighting\n");
-  printf("      --smooth                             Enable palette smoothing postprocess; runs when dither < 0.25 (default: %s)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_POSTPROCESS_SMOOTH_ENABLE));
+  printf("      --smooth                             Enable palette smoothing postprocess; runs when dither < 0.25 (default: %s; unavailable with --type limited)\n",
+         toggle_label(COLOPRESSO_PNGX_DEFAULT_POSTPROCESS_SMOOTH_ENABLE));
   printf("      --no-smooth                          Disable palette smoothing postprocess\n");
   printf("      --smooth-cutoff <float>              Palette smoothing importance cutoff (-1 or 0.0-1.0, default: %.2f)\n", (double)COLOPRESSO_PNGX_DEFAULT_POSTPROCESS_SMOOTH_IMPORTANCE_CUTOFF);
   printf("      --gradient-profile                   Enable palette256 gradient-profile auto tuning (default: %s)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_PALETTE256_GRADIENT_PROFILE_ENABLE));
@@ -1494,6 +1517,8 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
   long parsed_long = 0;
   float quality_scalar_value = 0.0f;
   double parsed_double = 0.0;
+  uint32_t limited_unavailable_requested = 0;
+  size_t i;
 
   if (argc < 2) {
     print_usage(argv[0]);
@@ -1523,7 +1548,7 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
           return false;
         }
       } else {
-        if (!handle_long_option(name, optarg, &ctx->config, &ctx->protected_colors, &ctx->protected_colors_count, &dither_specified)) {
+        if (!handle_long_option(name, optarg, &ctx->config, &ctx->protected_colors, &ctx->protected_colors_count, &dither_specified, &limited_unavailable_requested)) {
           *exit_code = 1;
           return false;
         }
@@ -1658,8 +1683,26 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
     }
   }
 
-  if (format == FORMAT_PNGX && ctx->config.pngx_lossy_type == CPRES_PNGX_LOSSY_TYPE_LIMITED_RGBA4444 && !dither_specified) {
-    ctx->config.pngx_lossy_dither_level = -1.0f;
+  if (format == FORMAT_PNGX && ctx->config.pngx_lossy_type == CPRES_PNGX_LOSSY_TYPE_LIMITED_RGBA4444) {
+    if (limited_unavailable_requested != 0) {
+      fprintf(stderr, "Error: The following options are not available with --type limited:");
+      for (i = 0; i < PNGX_TOGGLE_OPTION_COUNT; ++i) {
+        if (kPngxToggleOptions[i].value && (limited_unavailable_requested & ((uint32_t)1 << i))) {
+          fprintf(stderr, " --%s", kPngxToggleOptions[i].name);
+        }
+      }
+      fprintf(stderr, "\n");
+      *exit_code = 1;
+      return false;
+    }
+    for (i = 0; i < PNGX_TOGGLE_OPTION_COUNT; ++i) {
+      if (!kPngxToggleOptions[i].limited_available) {
+        apply_pngx_toggle(&ctx->config, i, false);
+      }
+    }
+    if (!dither_specified) {
+      ctx->config.pngx_lossy_dither_level = -1.0f;
+    }
   }
 
   if (format_specified && inferred_format != FORMAT_UNKNOWN && inferred_format != format) {
