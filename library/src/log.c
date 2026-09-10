@@ -36,7 +36,7 @@ void colopresso_log(colopresso_log_level_t level, const char *format, ...) {
   int result;
   va_list args;
   size_t pos;
-#if defined(__EMSCRIPTEN__) && defined(COLOPRESSO_ELECTRON_APP) && level >= CPRES_LOG_LEVEL_DEBUG
+#if defined(__EMSCRIPTEN__) && defined(COLOPRESSO_ELECTRON_APP)
   int flags;
 #endif
 
@@ -55,7 +55,7 @@ void colopresso_log(colopresso_log_level_t level, const char *format, ...) {
     g_log_callback(level, buffer);
   }
 
-#if defined(__EMSCRIPTEN__) && defined(COLOPRESSO_ELECTRON_APP) && level >= CPRES_LOG_LEVEL_DEBUG
+#if defined(__EMSCRIPTEN__) && defined(COLOPRESSO_ELECTRON_APP)
   else {
     flags = EM_LOG_CONSOLE;
 
