@@ -143,6 +143,7 @@ static void free_protected_colors(protected_colors_t *pcolors) {
 static int parse_config(PyObject *config_dict, cpres_config_t *config, protected_colors_t *pcolors) {
     PyObject *key, *value;
     Py_ssize_t pos = 0;
+    char *key_str;
 
     cpres_config_init_defaults(config);
     pcolors->colors = NULL;
@@ -158,7 +159,7 @@ static int parse_config(PyObject *config_dict, cpres_config_t *config, protected
     }
 
     while (PyDict_Next(config_dict, &pos, &key, &value)) {
-        char *key_str = get_utf8_string(key);
+        key_str = get_utf8_string(key);
         if (!key_str) {
             free_protected_colors(pcolors);
             return -1;

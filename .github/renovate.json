@@ -31,20 +31,6 @@
     },
     {
       "customType": "regex",
-      "description": "Update stable Rust toolchain pins",
-      "managerFilePatterns": [
-        "/^rust-toolchain\\.toml$/",
-        "/^library\\/pngx_bridge\\/rust-toolchain\\.toml$/"
-      ],
-      "matchStrings": [
-        "(?:^|\\n)channel\\s*=\\s*\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
-      ],
-      "depNameTemplate": "rust-lang/rust",
-      "datasourceTemplate": "github-tags",
-      "versioningTemplate": "semver-coerced"
-    },
-    {
-      "customType": "regex",
       "description": "Update wasm-pack pin",
       "managerFilePatterns": [
         "/^rust-toolchain\\.toml$/"

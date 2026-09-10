@@ -139,6 +139,7 @@ static inline void reduce_rgba_bitdepth(uint32_t thread_count, uint8_t *rgba, pn
 
 bool pngx_quantize_limited4444(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts, uint8_t **out_data, size_t *out_size) {
   pngx_rgba_image_t image;
+  const char *label;
   float resolved_dither;
   bool success;
 
@@ -162,7 +163,7 @@ bool pngx_quantize_limited4444(const uint8_t *png_data, size_t png_size, const p
   rgba_image_reset(&image);
 
   if (success) {
-    const char *label = lossy_type_label(opts->lossy_type);
+    label = lossy_type_label(opts->lossy_type);
     if (opts->lossy_dither_auto) {
       colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Auto dither %.2f selected for %s", resolved_dither, label);
     } else {

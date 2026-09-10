@@ -332,6 +332,7 @@ static bool apply_protected_colors(napi_env env, napi_value options, colopresso_
   napi_value colors_value, color_value;
   bool is_array;
   uint32_t colors_length, index;
+  int red, green, blue, alpha;
 
   if (!get_named_property(env, options, "pngx_protected_colors", &colors_value)) {
     return true;
@@ -361,8 +362,6 @@ static bool apply_protected_colors(napi_env env, napi_value options, colopresso_
   }
 
   for (index = 0; index < colors_length; ++index) {
-    int red, green, blue, alpha;
-
     if (napi_get_element(env, colors_value, index, &color_value) != napi_ok) {
       set_work_error(work, COLOPRESSO_NATIVE_ERROR_INVALID_ARGUMENT, "failed to read protected color");
       return false;
@@ -595,6 +594,7 @@ static bool apply_options(napi_env env, napi_value options, colopresso_convert_w
 
 static void execute_convert(napi_env env, void *data) {
   colopresso_convert_work_t *work;
+  const char *message, *code;
 
   (void)env;
 
@@ -614,8 +614,8 @@ static void execute_convert(napi_env env, void *data) {
   }
 
   if (work->error != CPRES_OK) {
-    const char *message = cpres_error_string(work->error);
-    const char *code = work->error == CPRES_ERROR_OUTPUT_NOT_SMALLER ? COLOPRESSO_NATIVE_ERROR_OUTPUT_NOT_SMALLER : COLOPRESSO_NATIVE_ERROR_CONVERSION_FAILED;
+    message = cpres_error_string(work->error);
+    code = work->error == CPRES_ERROR_OUTPUT_NOT_SMALLER ? COLOPRESSO_NATIVE_ERROR_OUTPUT_NOT_SMALLER : COLOPRESSO_NATIVE_ERROR_CONVERSION_FAILED;
     set_work_error(work, code, message ? message : "conversion failed");
   }
 }
@@ -732,11 +732,12 @@ static napi_value get_thread_info(napi_env env, napi_callback_info info) {
 }
 
 static napi_value convert(napi_env env, napi_callback_info info) {
-  napi_value args[4], promise, resource_name;
+  napi_value args[4], promise, resource_name, error_message;
   size_t argc, format_length;
   napi_valuetype thread_arg_type;
   colopresso_convert_work_t *work;
   const char *thread_error_message;
+  double numeric_threads;
   int argument_threads;
   bool has_argument_threads;
 
@@ -771,7 +772,6 @@ static napi_value convert(napi_env env, napi_callback_info info) {
   }
 
   if (!apply_options(env, args[1], work)) {
-    napi_value error_message;
     snprintf(work->error_message, sizeof(work->error_message), "%s", work->error_message[0] ? work->error_message : "invalid options");
     napi_create_string_utf8(env, work->error_message, NAPI_AUTO_LENGTH, &error_message);
     cleanup_convert_work(work);
@@ -782,7 +782,6 @@ static napi_value convert(napi_env env, napi_callback_info info) {
   argument_threads = 0;
   has_argument_threads = false;
   if (argc >= 4 && napi_typeof(env, args[3], &thread_arg_type) == napi_ok && thread_arg_type != napi_undefined && thread_arg_type != napi_null) {
-    double numeric_threads;
     if (thread_arg_type != napi_number || napi_get_value_double(env, args[3], &numeric_threads) != napi_ok || !(numeric_threads >= (double)INT_MIN && numeric_threads <= (double)INT_MAX)) {
       cleanup_convert_work(work);
       return throw_type_error(env, "threadCount must be a finite number when provided");

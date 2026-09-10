@@ -299,7 +299,7 @@ ctest --test-dir "build" --output-on-failure --parallel
 ### Common Requirements
 
 - Node.js
-- pnpm
+- pnpm 12 (the exact version is pinned by the `packageManager` field in `package.json`; pnpm switches to it automatically)
 - Rust stable toolchain from `rust-toolchain.toml`
 - CMake accessible via `PATH`
 

@@ -829,6 +829,7 @@ bool pngx_palette256_prepare(const uint8_t *png_data, size_t png_size, const png
                              size_t *out_importance_map_len, int32_t *out_speed, uint8_t *out_quality_min, uint8_t *out_quality_max, uint32_t *out_max_colors, float *out_dither_level,
                              uint8_t **out_fixed_colors, size_t *out_fixed_colors_len) {
   float estimated_dither, gradient_dither_floor;
+  bool use_importance_map;
   PngxBridgeQuantParams params = {0};
 
   if (!png_data || png_size == 0 || !opts || !out_rgba || !out_width || !out_height) {
@@ -885,8 +886,8 @@ bool pngx_palette256_prepare(const uint8_t *png_data, size_t png_size, const png
 
   g_palette256_ctx.tuned_opts.lossy_dither_level = g_palette256_ctx.resolved_dither;
 
-  fill_quant_params(&params, &g_palette256_ctx.tuned_opts, g_palette256_ctx.prefer_uniform ? NULL : g_palette256_ctx.support.importance_map,
-                    g_palette256_ctx.prefer_uniform ? 0 : g_palette256_ctx.support.importance_map_len);
+  use_importance_map = !g_palette256_ctx.prefer_uniform && g_palette256_ctx.tuned_opts.saliency_map_enable && g_palette256_ctx.support.importance_map != NULL;
+  fill_quant_params(&params, &g_palette256_ctx.tuned_opts, use_importance_map ? g_palette256_ctx.support.importance_map : NULL, use_importance_map ? g_palette256_ctx.support.importance_map_len : 0);
   params.dithering_level = g_palette256_ctx.resolved_dither;
   tune_quant_params_for_image(&params, &g_palette256_ctx.tuned_opts, &g_palette256_ctx.stats);
 
@@ -895,7 +896,7 @@ bool pngx_palette256_prepare(const uint8_t *png_data, size_t png_size, const png
   *out_height = g_palette256_ctx.image.height;
 
   if (out_importance_map && out_importance_map_len) {
-    if (!g_palette256_ctx.prefer_uniform && g_palette256_ctx.support.importance_map) {
+    if (use_importance_map) {
       *out_importance_map = g_palette256_ctx.support.importance_map;
       *out_importance_map_len = g_palette256_ctx.support.importance_map_len;
     } else {

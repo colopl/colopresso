@@ -9,27 +9,21 @@
  * Developed with AI (LLM) code assistance. See `NOTICE` for details.
  */
 
+#include <ctype.h>
+#include <errno.h>
+#include <inttypes.h>
+#include <limits.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <errno.h>
-#include <limits.h>
-#include <ctype.h>
-#include <inttypes.h>
 #include <string.h>
 
 #include <colopresso.h>
 #include <colopresso/portable.h>
 
-#include "../library/src/internal/pngx.h"
-
-typedef enum {
-  FORMAT_WEBP,
-  FORMAT_AVIF,
-  FORMAT_PNGX,
-  FORMAT_UNKNOWN
-} output_format_t;
+typedef enum { FORMAT_WEBP, FORMAT_AVIF, FORMAT_PNGX, FORMAT_UNKNOWN } output_format_t;
 
 typedef struct {
   cpres_config_t config;
@@ -38,10 +32,42 @@ typedef struct {
   const char *input_file;
   char *output_file;
   cpres_rgba_color_t *protected_colors;
-  int32_t protected_colors_count;
+  uint16_t protected_colors_count;
 } cli_context_t;
 
-static struct option kLongOptions[] = {
+typedef struct {
+  const char *name;
+  size_t offset;
+  bool value;
+} pngx_toggle_option_t;
+
+#define PNGX_TOGGLE_ENTRY(option_name, field, enabled) {option_name, offsetof(cpres_config_t, field), enabled}
+#define PNGX_TOGGLE_OPTION_COUNT (sizeof(kPngxToggleOptions) / sizeof(kPngxToggleOptions[0]))
+
+static const pngx_toggle_option_t kPngxToggleOptions[] = {
+    PNGX_TOGGLE_ENTRY("strip-safe", pngx_strip_safe, true),
+    PNGX_TOGGLE_ENTRY("no-strip-safe", pngx_strip_safe, false),
+    PNGX_TOGGLE_ENTRY("optimize-alpha", pngx_optimize_alpha, true),
+    PNGX_TOGGLE_ENTRY("no-optimize-alpha", pngx_optimize_alpha, false),
+    PNGX_TOGGLE_ENTRY("saliency-map", pngx_saliency_map_enable, true),
+    PNGX_TOGGLE_ENTRY("no-saliency-map", pngx_saliency_map_enable, false),
+    PNGX_TOGGLE_ENTRY("chroma-anchor", pngx_chroma_anchor_enable, true),
+    PNGX_TOGGLE_ENTRY("no-chroma-anchor", pngx_chroma_anchor_enable, false),
+    PNGX_TOGGLE_ENTRY("adaptive-dither", pngx_adaptive_dither_enable, true),
+    PNGX_TOGGLE_ENTRY("no-adaptive-dither", pngx_adaptive_dither_enable, false),
+    PNGX_TOGGLE_ENTRY("gradient-boost", pngx_gradient_boost_enable, true),
+    PNGX_TOGGLE_ENTRY("no-gradient-boost", pngx_gradient_boost_enable, false),
+    PNGX_TOGGLE_ENTRY("chroma-weight", pngx_chroma_weight_enable, true),
+    PNGX_TOGGLE_ENTRY("no-chroma-weight", pngx_chroma_weight_enable, false),
+    PNGX_TOGGLE_ENTRY("smooth", pngx_postprocess_smooth_enable, true),
+    PNGX_TOGGLE_ENTRY("no-smooth", pngx_postprocess_smooth_enable, false),
+    PNGX_TOGGLE_ENTRY("gradient-profile", pngx_palette256_gradient_profile_enable, true),
+    PNGX_TOGGLE_ENTRY("no-gradient-profile", pngx_palette256_gradient_profile_enable, false),
+    PNGX_TOGGLE_ENTRY("alpha-bleed", pngx_palette256_alpha_bleed_enable, true),
+    PNGX_TOGGLE_ENTRY("no-alpha-bleed", pngx_palette256_alpha_bleed_enable, false),
+};
+
+static const struct option kLongOptions[] = {
     {"format", required_argument, 0, 0},
     {"type", required_argument, 0, 0},
     {"verbose", no_argument, 0, 'v'},
@@ -81,6 +107,18 @@ static struct option kLongOptions[] = {
     {"reduce-bits-rgb", required_argument, 0, 0},
     {"reduce-alpha", required_argument, 0, 0},
     {"dither", required_argument, 0, 0},
+    {"saliency-map", no_argument, 0, 0},
+    {"no-saliency-map", no_argument, 0, 0},
+    {"chroma-anchor", no_argument, 0, 0},
+    {"no-chroma-anchor", no_argument, 0, 0},
+    {"adaptive-dither", no_argument, 0, 0},
+    {"no-adaptive-dither", no_argument, 0, 0},
+    {"gradient-boost", no_argument, 0, 0},
+    {"no-gradient-boost", no_argument, 0, 0},
+    {"chroma-weight", no_argument, 0, 0},
+    {"no-chroma-weight", no_argument, 0, 0},
+    {"smooth", no_argument, 0, 0},
+    {"no-smooth", no_argument, 0, 0},
     {"smooth-cutoff", required_argument, 0, 0},
     {"gradient-profile", no_argument, 0, 0},
     {"no-gradient-profile", no_argument, 0, 0},
@@ -100,7 +138,10 @@ static struct option kLongOptions[] = {
     {"alpha-bleed-opaque-threshold", required_argument, 0, 0},
     {"alpha-bleed-soft-limit", required_argument, 0, 0},
     {"protect-color", required_argument, 0, 0},
-    {0, 0, 0, 0}};
+    {0, 0, 0, 0},
+};
+
+static inline const char *toggle_label(bool enabled) { return enabled ? "on" : "off"; }
 
 static const char *describe_pngx_type(int type) {
   switch (type) {
@@ -170,7 +211,7 @@ static inline void format_version(uint32_t version, char *buf, size_t buf_size) 
 }
 
 static inline void format_libavif_version(uint32_t version, char *buf, size_t buf_size) {
-  uint32_t major, minor, patch; 
+  uint32_t major, minor, patch;
 
   if (version == 0) {
     snprintf(buf, buf_size, "unknown");
@@ -208,7 +249,7 @@ static inline void format_bytes(int64_t bytes, char *buf, size_t buf_size) {
   const double k = 1024.0;
   const char *sizes[] = {"B", "KiB", "MiB", "GiB"};
   double size = (double)bytes;
-  int32_t i = 0;
+  uint8_t i = 0;
 
   if (bytes == 0) {
     snprintf(buf, buf_size, "0 B");
@@ -267,13 +308,10 @@ static inline void print_output_larger_warning(const char *format_name, int64_t 
   if (safe_input > 0) {
     ratio = ((double)output_size / (double)safe_input) * 100.0;
     increase = ratio - 100.0;
-    fprintf(stderr,
-            "Warning: %s output would be larger than equal input: %s -> %s (%.1f%%, increased by %.1f%%)\n",
-            format_name ? format_name : "Output", input_size_buf, output_size_buf, ratio, increase);
+    fprintf(stderr, "Warning: %s output would be larger than equal input: %s -> %s (%.1f%%, increased by %.1f%%)\n", format_name ? format_name : "Output", input_size_buf, output_size_buf, ratio,
+            increase);
   } else {
-    fprintf(stderr,
-            "Warning: %s output would be larger than equal input: %s -> %s\n",
-            format_name ? format_name : "Output", input_size_buf, output_size_buf);
+    fprintf(stderr, "Warning: %s output would be larger than equal input: %s -> %s\n", format_name ? format_name : "Output", input_size_buf, output_size_buf);
   }
 }
 
@@ -529,7 +567,7 @@ static inline bool path_has_extension_ci(const char *path, const char *extension
   if (ext_len == 0 || path_len < ext_len) {
     return false;
   }
-  
+
   for (i = 0; i < ext_len; i++) {
     if (tolower((unsigned char)path_ext[i]) != tolower((unsigned char)extension[i])) {
       return false;
@@ -603,12 +641,10 @@ static inline bool should_append_extension(const char *output_base, output_forma
   return true;
 }
 
-static inline void print_verbose_summary(const cpres_config_t *config, output_format_t format, const char *input_file,
-                                  const char *output_file, int64_t input_size,
-                                  const cpres_rgba_color_t *protected_colors, int32_t protected_colors_count) {
-  char version_buf[32];
-  char size_buf[32];
-  int32_t i;
+static inline void print_verbose_summary(const cpres_config_t *config, output_format_t format, const char *input_file, const char *output_file, int64_t input_size,
+                                         const cpres_rgba_color_t *protected_colors, uint16_t protected_colors_count) {
+  char version_buf[32], size_buf[32];
+  uint16_t i;
   bool limited_mode, reduced_mode, palette_mode;
 
   printf("Converting: %s -> %s\n", input_file, output_file);
@@ -644,8 +680,7 @@ static inline void print_verbose_summary(const cpres_config_t *config, output_fo
     }
     printf("  Speed: %d\n", config->avif_speed);
     printf("  Threads: %d\n", config->avif_threads);
-  }
-  else if (format == FORMAT_PNGX) {
+  } else if (format == FORMAT_PNGX) {
     printf("Settings:\n");
     printf("  Optimization level: %d\n", config->pngx_level);
     printf("  Strip safe chunks: %s\n", config->pngx_strip_safe ? "yes" : "no");
@@ -753,13 +788,12 @@ static inline void print_verbose_summary(const cpres_config_t *config, output_fo
       }
     }
     if (protected_colors_count > 0) {
-      printf("    Protected colors: %d\n", (int)protected_colors_count);
+      printf("    Protected colors: %" PRIu16 "\n", protected_colors_count);
       for (i = 0; i < protected_colors_count && i < 5; i++) {
-        printf("      #%02X%02X%02X%02X\n", protected_colors[i].r, protected_colors[i].g, protected_colors[i].b,
-               protected_colors[i].a);
+        printf("      #%02X%02X%02X%02X\n", protected_colors[i].r, protected_colors[i].g, protected_colors[i].b, protected_colors[i].a);
       }
       if (protected_colors_count > 5) {
-        printf("      ... and %d more\n", (int)(protected_colors_count - 5));
+        printf("      ... and %" PRIu16 " more\n", (uint16_t)(protected_colors_count - 5));
       }
     }
   }
@@ -792,7 +826,7 @@ static inline void print_conversion_success(int64_t input_size, int64_t output_s
   }
 }
 
-static inline int32_t handle_size_increase_error(int64_t input_size, int64_t output_size) {
+static inline uint8_t handle_size_increase_error(int64_t input_size, int64_t output_size) {
   double ratio, reduction;
   char input_size_buf[32], output_size_buf[32];
 
@@ -804,9 +838,7 @@ static inline int32_t handle_size_increase_error(int64_t input_size, int64_t out
       format_bytes(input_size, input_size_buf, sizeof(input_size_buf));
       format_bytes(output_size, output_size_buf, sizeof(output_size_buf));
 
-      fprintf(stderr,
-              "Error: Output size increased: %s -> %s (%.1f%%, increased by %.1f%%)\n",
-              input_size_buf, output_size_buf, ratio, -reduction);
+      fprintf(stderr, "Error: Output size increased: %s -> %s (%.1f%%, increased by %.1f%%)\n", input_size_buf, output_size_buf, ratio, -reduction);
       return 2;
     }
   }
@@ -814,13 +846,19 @@ static inline int32_t handle_size_increase_error(int64_t input_size, int64_t out
   return 0;
 }
 
-static inline bool handle_long_option(const char *name, const char *optarg, cpres_config_t *config,
-                               cpres_rgba_color_t **protected_colors, int32_t *protected_colors_count,
-                               bool *dither_specified) {
+static inline bool handle_long_option(const char *name, const char *optarg, cpres_config_t *config, cpres_rgba_color_t **protected_colors, uint16_t *protected_colors_count, bool *dither_specified) {
   long long_val;
   double double_val;
   int32_t count;
+  size_t i;
   cpres_rgba_color_t *parsed_colors;
+
+  for (i = 0; i < PNGX_TOGGLE_OPTION_COUNT; ++i) {
+    if (strcmp(name, kPngxToggleOptions[i].name) == 0) {
+      memcpy((uint8_t *)config + kPngxToggleOptions[i].offset, &kPngxToggleOptions[i].value, sizeof(bool));
+      return true;
+    }
+  }
 
   if (strcmp(name, "sns") == 0) {
     if (!parse_long_range(optarg, 0, 100, &long_val)) {
@@ -958,26 +996,6 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
     return true;
   }
 
-  if (strcmp(name, "strip-safe") == 0) {
-    config->pngx_strip_safe = true;
-    return true;
-  }
-
-  if (strcmp(name, "no-strip-safe") == 0) {
-    config->pngx_strip_safe = false;
-    return true;
-  }
-
-  if (strcmp(name, "optimize-alpha") == 0) {
-    config->pngx_optimize_alpha = true;
-    return true;
-  }
-
-  if (strcmp(name, "no-optimize-alpha") == 0) {
-    config->pngx_optimize_alpha = false;
-    return true;
-  }
-
   if (strcmp(name, "lossy") == 0) {
     config->pngx_lossy_enable = true;
     return true;
@@ -994,8 +1012,7 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
 
   if (strcmp(name, "reduced-colors") == 0) {
     if (!parse_long_value(optarg, &long_val)) {
-      fprintf(stderr, "Error: Invalid reduced-colors (must be -1 or %d-%d)\n", COLOPRESSO_PNGX_REDUCED_COLORS_MIN,
-              COLOPRESSO_PNGX_REDUCED_COLORS_MAX);
+      fprintf(stderr, "Error: Invalid reduced-colors (must be -1 or %d-%d)\n", COLOPRESSO_PNGX_REDUCED_COLORS_MIN, COLOPRESSO_PNGX_REDUCED_COLORS_MAX);
       return false;
     }
     if (long_val == COLOPRESSO_PNGX_DEFAULT_REDUCED_COLORS) {
@@ -1003,8 +1020,7 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
       return true;
     }
     if (long_val < COLOPRESSO_PNGX_REDUCED_COLORS_MIN || long_val > COLOPRESSO_PNGX_REDUCED_COLORS_MAX) {
-      fprintf(stderr, "Error: Invalid reduced-colors (must be -1 or %d-%d)\n", COLOPRESSO_PNGX_REDUCED_COLORS_MIN,
-              COLOPRESSO_PNGX_REDUCED_COLORS_MAX);
+      fprintf(stderr, "Error: Invalid reduced-colors (must be -1 or %d-%d)\n", COLOPRESSO_PNGX_REDUCED_COLORS_MIN, COLOPRESSO_PNGX_REDUCED_COLORS_MAX);
       return false;
     }
     config->pngx_lossy_reduced_colors = (int)long_val;
@@ -1055,16 +1071,6 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
       return false;
     }
     config->pngx_postprocess_smooth_importance_cutoff = (float)double_val;
-    return true;
-  }
-
-  if (strcmp(name, "gradient-profile") == 0) {
-    config->pngx_palette256_gradient_profile_enable = true;
-    return true;
-  }
-
-  if (strcmp(name, "no-gradient-profile") == 0) {
-    config->pngx_palette256_gradient_profile_enable = false;
     return true;
   }
 
@@ -1198,16 +1204,6 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
     return true;
   }
 
-  if (strcmp(name, "alpha-bleed") == 0) {
-    config->pngx_palette256_alpha_bleed_enable = true;
-    return true;
-  }
-
-  if (strcmp(name, "no-alpha-bleed") == 0) {
-    config->pngx_palette256_alpha_bleed_enable = false;
-    return true;
-  }
-
   if (strcmp(name, "alpha-bleed-max-distance") == 0) {
     if (!parse_long_range(optarg, 0, 65535, &long_val)) {
       fprintf(stderr, "Error: Invalid alpha-bleed-max-distance (must be 0-65535)\n");
@@ -1249,7 +1245,7 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
     }
 
     *protected_colors = parsed_colors;
-    *protected_colors_count = count;
+    *protected_colors_count = (uint16_t)count;
 
     return true;
   }
@@ -1300,77 +1296,91 @@ static inline void print_usage(const char *program_name) {
   printf("      --speed <int>           Encoder speed (0-10, default: 0; higher=faster)\n");
   printf("\n=== PNGX Options (--format=pngx) ===\n");
   printf("  -m, --method <int>                       Optimization level (0-6, default: 6)\n");
-  printf("      --strip-safe                         Strip safe-to-remove chunks (default: on)\n");
+  printf("      --strip-safe                         Strip safe-to-remove chunks (default: %s)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_STRIP_SAFE));
   printf("      --no-strip-safe                      Keep all chunks\n");
-  printf("      --optimize-alpha                     Optimize alpha channel (default: on)\n");
+  printf("      --optimize-alpha                     Optimize alpha channel (default: %s)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_OPTIMIZE_ALPHA));
   printf("      --no-optimize-alpha                  Don't optimize alpha channel\n");
-  printf("      --lossy                              Enable lossy palette quantization (default: on)\n");
+  printf("      --lossy                              Enable lossy palette quantization (default: %s)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_LOSSY_ENABLE));
   printf("      --type <value>                       Reduction type: palette256 (default), limitedrgba16bit/limited, reducedrgba32/reduced\n");
   printf("      --max-colors <int>                   Max palette colors (2-256, default: 256)\n");
-  printf("      --reduced-colors <int>               Reduced RGBA32 colors (-1 auto, %d-%d)\n", COLOPRESSO_PNGX_REDUCED_COLORS_MIN,
-      COLOPRESSO_PNGX_REDUCED_COLORS_MAX);
-  printf("      --reduce-bits-rgb <int>              Reduced RGBA32 RGB bits (%d-%d, default: %d)\n", COLOPRESSO_PNGX_REDUCED_BITS_MIN,
-      COLOPRESSO_PNGX_REDUCED_BITS_MAX, COLOPRESSO_PNGX_DEFAULT_REDUCED_BITS_RGB);
-  printf("      --reduce-alpha <int>                 Reduced RGBA32 alpha bits (%d-%d, default: %d)\n", COLOPRESSO_PNGX_REDUCED_BITS_MIN,
-      COLOPRESSO_PNGX_REDUCED_BITS_MAX, COLOPRESSO_PNGX_DEFAULT_REDUCED_ALPHA_BITS);
+  printf("      --reduced-colors <int>               Reduced RGBA32 colors (-1 auto, %d-%d)\n", COLOPRESSO_PNGX_REDUCED_COLORS_MIN, COLOPRESSO_PNGX_REDUCED_COLORS_MAX);
+  printf("      --reduce-bits-rgb <int>              Reduced RGBA32 RGB bits (%d-%d, default: %d)\n", COLOPRESSO_PNGX_REDUCED_BITS_MIN, COLOPRESSO_PNGX_REDUCED_BITS_MAX,
+         COLOPRESSO_PNGX_DEFAULT_REDUCED_BITS_RGB);
+  printf("      --reduce-alpha <int>                 Reduced RGBA32 alpha bits (%d-%d, default: %d)\n", COLOPRESSO_PNGX_REDUCED_BITS_MIN, COLOPRESSO_PNGX_REDUCED_BITS_MAX,
+         COLOPRESSO_PNGX_DEFAULT_REDUCED_ALPHA_BITS);
   printf("      --quality <min-max>                  Quality range (e.g. 80-95, default: 80-95)\n");
   printf("      --speed <int>                        Quantization speed (1-10, default: 1)\n");
-  printf("      --dither <float>                     Dither level (0.0-1.0 or -1 for Limited auto, default: auto)\n");
-  printf("      --smooth-cutoff <float>              Palette smoothing importance cutoff (-1 or 0.0-1.0, default: 0.6)\n");
-  printf("      --gradient-profile                   Enable palette256 gradient-profile auto tuning (default: on)\n");
+  printf("      --dither <float>                     Dither level (0.0-1.0, or -1 for Limited auto; default: %.2f, auto for Limited)\n", (double)COLOPRESSO_PNGX_DEFAULT_LOSSY_DITHER_LEVEL);
+  printf("      --saliency-map                       Enable saliency-guided importance map (default: %s)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_SALIENCY_MAP_ENABLE));
+  printf("      --no-saliency-map                    Disable saliency-guided importance map\n");
+  printf("      --chroma-anchor                      Preserve high-chroma anchor colors (default: %s)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_CHROMA_ANCHOR_ENABLE));
+  printf("      --no-chroma-anchor                   Disable high-chroma anchor colors\n");
+  printf("      --adaptive-dither                    Adapt dither strength to image statistics (default: %s)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_ADAPTIVE_DITHER_ENABLE));
+  printf("      --no-adaptive-dither                 Disable adaptive dither strength\n");
+  printf("      --gradient-boost                     Boost importance of gradient regions (default: %s)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_GRADIENT_BOOST_ENABLE));
+  printf("      --no-gradient-boost                  Disable gradient importance boost\n");
+  printf("      --chroma-weight                      Weight importance by chroma (default: %s)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_CHROMA_WEIGHT_ENABLE));
+  printf("      --no-chroma-weight                   Disable chroma importance weighting\n");
+  printf("      --smooth                             Enable palette smoothing postprocess; runs when dither < 0.25 (default: %s)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_POSTPROCESS_SMOOTH_ENABLE));
+  printf("      --no-smooth                          Disable palette smoothing postprocess\n");
+  printf("      --smooth-cutoff <float>              Palette smoothing importance cutoff (-1 or 0.0-1.0, default: %.2f)\n", (double)COLOPRESSO_PNGX_DEFAULT_POSTPROCESS_SMOOTH_IMPORTANCE_CUTOFF);
+  printf("      --gradient-profile                   Enable palette256 gradient-profile auto tuning (default: %s)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_PALETTE256_GRADIENT_PROFILE_ENABLE));
   printf("      --no-gradient-profile                Disable palette256 gradient-profile auto tuning\n");
-  printf("      --gradient-dither-floor <float>      Override gradient-profile dither floor (-1 or 0.0-1.0, default: %.2f)\n", (double)PNGX_PALETTE256_GRADIENT_PROFILE_DITHER_FLOOR);
-  printf("      --gradient-opaque-threshold <float>  Override gradient opaque ratio threshold (-1 or 0.0-1.0, default: %.2f)\n", (double)PNGX_PALETTE256_GRADIENT_PROFILE_OPAQUE_RATIO_THRESHOLD);
-  printf("      --gradient-mean-max <float>          Override gradient mean max (-1 or 0.0-1.0, default: %.2f)\n", (double)PNGX_PALETTE256_GRADIENT_PROFILE_GRADIENT_MEAN_MAX);
-  printf("      --gradient-sat-mean-max <float>      Override saturation mean max (-1 or 0.0-1.0, default: %.2f)\n", (double)PNGX_PALETTE256_GRADIENT_PROFILE_SATURATION_MEAN_MAX);
-  printf("      --tune-opaque-threshold <float>      Override tune opaque ratio threshold (-1 or 0.0-1.0, default: %.2f)\n", (double)PNGX_PALETTE256_TUNE_OPAQUE_RATIO_THRESHOLD);
-  printf("      --tune-gradient-mean-max <float>     Override tune gradient mean max (-1 or 0.0-1.0, default: %.2f)\n", (double)PNGX_PALETTE256_TUNE_GRADIENT_MEAN_MAX);
-  printf("      --tune-sat-mean-max <float>          Override tune saturation mean max (-1 or 0.0-1.0, default: %.2f)\n", (double)PNGX_PALETTE256_TUNE_SATURATION_MEAN_MAX);
-  printf("      --tune-speed-max <int>               Override tune speed max (-1 or 1-10, default: %d)\n", (int)PNGX_PALETTE256_TUNE_SPEED_MAX);
-  printf("      --tune-quality-min-floor <int>       Override tune quality min floor (-1 or 0-100, default: %d)\n", (int)PNGX_PALETTE256_TUNE_QUALITY_MIN_FLOOR);
-  printf("      --tune-quality-max-target <int>      Override tune quality max target (-1 or 0-100, default: %d)\n", (int)PNGX_PALETTE256_TUNE_QUALITY_MAX_TARGET);
-  printf("      --alpha-bleed                        Enable palette256 alpha bleed (default: on)\n");
+  printf("      --gradient-dither-floor <float>      Override gradient-profile dither floor (-1 or 0.0-1.0, default: %.2f)\n", (double)COLOPRESSO_PNGX_DEFAULT_PALETTE256_GRADIENT_DITHER_FLOOR);
+  printf("      --gradient-opaque-threshold <float>  Override gradient opaque ratio threshold (-1 or 0.0-1.0, default: %.2f)\n",
+         (double)COLOPRESSO_PNGX_DEFAULT_PALETTE256_PROFILE_OPAQUE_RATIO_THRESHOLD);
+  printf("      --gradient-mean-max <float>          Override gradient mean max (-1 or 0.0-1.0, default: %.2f)\n", (double)COLOPRESSO_PNGX_DEFAULT_PALETTE256_PROFILE_GRADIENT_MEAN_MAX);
+  printf("      --gradient-sat-mean-max <float>      Override saturation mean max (-1 or 0.0-1.0, default: %.2f)\n", (double)COLOPRESSO_PNGX_DEFAULT_PALETTE256_PROFILE_SATURATION_MEAN_MAX);
+  printf("      --tune-opaque-threshold <float>      Override tune opaque ratio threshold (-1 or 0.0-1.0, default: %.2f)\n", (double)COLOPRESSO_PNGX_DEFAULT_PALETTE256_TUNE_OPAQUE_RATIO_THRESHOLD);
+  printf("      --tune-gradient-mean-max <float>     Override tune gradient mean max (-1 or 0.0-1.0, default: %.2f)\n", (double)COLOPRESSO_PNGX_DEFAULT_PALETTE256_TUNE_GRADIENT_MEAN_MAX);
+  printf("      --tune-sat-mean-max <float>          Override tune saturation mean max (-1 or 0.0-1.0, default: %.2f)\n", (double)COLOPRESSO_PNGX_DEFAULT_PALETTE256_TUNE_SATURATION_MEAN_MAX);
+  printf("      --tune-speed-max <int>               Override tune speed max (-1 or 1-10, default: %d)\n", (int)COLOPRESSO_PNGX_DEFAULT_PALETTE256_TUNE_SPEED_MAX);
+  printf("      --tune-quality-min-floor <int>       Override tune quality min floor (-1 or 0-100, default: %d)\n", (int)COLOPRESSO_PNGX_DEFAULT_PALETTE256_TUNE_QUALITY_MIN_FLOOR);
+  printf("      --tune-quality-max-target <int>      Override tune quality max target (-1 or 0-100, default: %d)\n", (int)COLOPRESSO_PNGX_DEFAULT_PALETTE256_TUNE_QUALITY_MAX_TARGET);
+  printf("      --alpha-bleed                        Enable palette256 alpha bleed (default: %s)\n", toggle_label(COLOPRESSO_PNGX_DEFAULT_PALETTE256_ALPHA_BLEED_ENABLE));
   printf("      --no-alpha-bleed                     Disable palette256 alpha bleed\n");
-  printf("      --alpha-bleed-max-distance <int>     Bleed propagation distance (0-65535, default: 64)\n");
-  printf("      --alpha-bleed-opaque-threshold <int> Opaque seed alpha threshold (0-255, default: 248)\n");
-  printf("      --alpha-bleed-soft-limit <int>       Apply bleed when alpha <= soft limit (0-255, default: 160)\n");
+  printf("      --alpha-bleed-max-distance <int>     Bleed propagation distance (0-65535, default: %d)\n", (int)COLOPRESSO_PNGX_DEFAULT_PALETTE256_ALPHA_BLEED_MAX_DISTANCE);
+  printf("      --alpha-bleed-opaque-threshold <int> Opaque seed alpha threshold (0-255, default: %d)\n", (int)COLOPRESSO_PNGX_DEFAULT_PALETTE256_ALPHA_BLEED_OPAQUE_THRESHOLD);
+  printf("      --alpha-bleed-soft-limit <int>       Apply bleed when alpha <= soft limit (0-255, default: %d)\n", (int)COLOPRESSO_PNGX_DEFAULT_PALETTE256_ALPHA_BLEED_SOFT_LIMIT);
   printf("      --protect-color <list>               Protect colors from quantization\n");
   printf("                                             Format: RRGGBB or RRGGBBAA (hex), comma-separated\n");
   printf("                                             Example: --protect-color=FF0000,00FF00,0000FFFF\n");
 }
 
 static inline void format_buildtime(uint32_t buildtime, char *buf, size_t buf_size) {
-  uint32_t year, month, day, hour, minute;
-  int32_t utc_hour, jst_hour, jst_day, jst_month, jst_year;
-  int32_t days_in_month;
+  uint16_t jst_year;
+  uint8_t jst_month, jst_day, jst_hour, minute, days_in_month;
 
   if (buildtime == 0) {
     snprintf(buf, buf_size, "unknown");
     return;
   }
 
-  year = (buildtime >> 20) & 0xfff;
-  month = (buildtime >> 16) & 0xf;
-  day = (buildtime >> 11) & 0x1f;
-  hour = (buildtime >> 6) & 0x1f;
-  minute = buildtime & 0x3f;
-
   /* Convert UTC to JST (UTC+9) */
-  utc_hour = (int32_t)hour;
-  jst_hour = utc_hour + 9;
-  jst_day = (int32_t)day;
-  jst_month = (int32_t)month;
-  jst_year = (int32_t)year;
+  jst_year = (uint16_t)((buildtime >> 20) & 0xfff);
+  jst_month = (uint8_t)((buildtime >> 16) & 0xf);
+  jst_day = (uint8_t)((buildtime >> 11) & 0x1f);
+  jst_hour = (uint8_t)(((buildtime >> 6) & 0x1f) + 9);
+  minute = (uint8_t)(buildtime & 0x3f);
 
   if (jst_hour >= 24) {
     jst_hour -= 24;
     jst_day++;
 
     switch (jst_month) {
-    case 1: case 3: case 5: case 7: case 8: case 10: case 12:
+    case 1:
+    case 3:
+    case 5:
+    case 7:
+    case 8:
+    case 10:
+    case 12:
       days_in_month = 31;
       break;
-    case 4: case 6: case 9: case 11:
+    case 4:
+    case 6:
+    case 9:
+    case 11:
       days_in_month = 30;
       break;
     case 2:
@@ -1391,7 +1401,7 @@ static inline void format_buildtime(uint32_t buildtime, char *buf, size_t buf_si
     }
   }
 
-  snprintf(buf, buf_size, "%04d-%02d-%02d %02d:%02d JST", jst_year, jst_month, jst_day, jst_hour, (int)minute);
+  snprintf(buf, buf_size, "%04" PRIu16 "-%02" PRIu8 "-%02" PRIu8 " %02" PRIu8 ":%02" PRIu8 " JST", jst_year, jst_month, jst_day, jst_hour, minute);
 }
 
 static inline void print_version(void) {
@@ -1475,7 +1485,7 @@ static inline void free_cli_context(cli_context_t *ctx) {
 }
 
 static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, int *exit_code) {
-  const char *input_file, *output_base, *output_extension;
+  const char *input_file, *output_base, *output_extension, *name;
   output_format_t format = FORMAT_UNKNOWN, inferred_format;
   int32_t quality_min = 0, quality_max = 0;
   bool format_specified = false, verbose = false, append_extension, quality_scalar_set = false, quality_range_set = false, pngx_type_specified = false, dither_specified = false;
@@ -1483,7 +1493,7 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
   int opt, option_index = 0;
   long parsed_long = 0;
   float quality_scalar_value = 0.0f;
-  double parsed_double = 0.0;  
+  double parsed_double = 0.0;
 
   if (argc < 2) {
     print_usage(argv[0]);
@@ -1494,8 +1504,8 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
   optind = 1;
   while ((opt = getopt_long(argc, argv, "q:lm:s:p:t:vhV", kLongOptions, &option_index)) != -1) {
     switch (opt) {
-    case 0: {
-      const char *name = kLongOptions[option_index].name;
+    case 0:
+      name = kLongOptions[option_index].name;
 
       if (strcmp(name, "format") == 0) {
         format_specified = true;
@@ -1519,7 +1529,6 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
         }
       }
       break;
-    }
     case 'q':
       if (strchr(optarg, '-') != NULL) {
         if (!parse_quality_range(optarg, &quality_min, &quality_max)) {
@@ -1649,17 +1658,12 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
     }
   }
 
-  if (format == FORMAT_PNGX) {
-    bool limited_mode_selected = (ctx->config.pngx_lossy_type == CPRES_PNGX_LOSSY_TYPE_LIMITED_RGBA4444);
-    if (limited_mode_selected && !dither_specified) {
-      ctx->config.pngx_lossy_dither_level = -1.0f;
-    }
+  if (format == FORMAT_PNGX && ctx->config.pngx_lossy_type == CPRES_PNGX_LOSSY_TYPE_LIMITED_RGBA4444 && !dither_specified) {
+    ctx->config.pngx_lossy_dither_level = -1.0f;
   }
 
   if (format_specified && inferred_format != FORMAT_UNKNOWN && inferred_format != format) {
-    fprintf(stderr,
-            "Warning: Output file extension '%s' does not match --format=%s; encoding as %s\n",
-            output_extension ? output_extension : "", get_format_name(format), get_format_name(format));
+    fprintf(stderr, "Warning: Output file extension '%s' does not match --format=%s; encoding as %s\n", output_extension ? output_extension : "", get_format_name(format), get_format_name(format));
   }
 
   append_extension = should_append_extension(output_base, format, format_specified);
@@ -1685,8 +1689,7 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
 
 static inline int run_conversion(cli_context_t *ctx) {
   int64_t input_size, output_size, ref_input_size;
-  int32_t size_check;
-  uint8_t *png_data = NULL, *encoded_data = NULL;
+  uint8_t size_check, *png_data = NULL, *encoded_data = NULL;
   size_t encoded_size = 0, png_size = 0;
   void (*encoded_deallocator)(uint8_t *) = NULL;
   int ret = 1;
@@ -1695,12 +1698,10 @@ static inline int run_conversion(cli_context_t *ctx) {
 
   input_size = get_file_size(ctx->input_file);
   force_rgba_output = (ctx->format == FORMAT_PNGX && ctx->config.pngx_lossy_enable &&
-                       (ctx->config.pngx_lossy_type == CPRES_PNGX_LOSSY_TYPE_LIMITED_RGBA4444 ||
-                        ctx->config.pngx_lossy_type == CPRES_PNGX_LOSSY_TYPE_REDUCED_RGBA32));
+                       (ctx->config.pngx_lossy_type == CPRES_PNGX_LOSSY_TYPE_LIMITED_RGBA4444 || ctx->config.pngx_lossy_type == CPRES_PNGX_LOSSY_TYPE_REDUCED_RGBA32));
 
   if (ctx->verbose) {
-    print_verbose_summary(&ctx->config, ctx->format, ctx->input_file, ctx->output_file, input_size,
-                          ctx->protected_colors, ctx->protected_colors_count);
+    print_verbose_summary(&ctx->config, ctx->format, ctx->input_file, ctx->output_file, input_size, ctx->protected_colors, ctx->protected_colors_count);
   }
 
   if (ctx->format == FORMAT_PNGX && ctx->protected_colors_count > 0) {

@@ -208,6 +208,7 @@ class Config:
     pngx_lossy_speed: int = 3
     pngx_lossy_dither_level: float = 0.6
     pngx_threads: int = 1
+    # ... 抜粋。全項目は「設定パラメータ」を参照
 ```
 
 ---
@@ -311,19 +312,19 @@ class PngxLossyType(IntEnum):
 | `pngx_lossy_quality_min` | int | 80 | 最小品質 (0-100) |
 | `pngx_lossy_quality_max` | int | 95 | 最大品質 (0-100) |
 | `pngx_lossy_speed` | int | 3 | 量子化速度 (1-10)。高いほど高速、低品質 |
-| `pngx_lossy_dither_level` | float | 0.6 | ディザリング強度 (0.0-1.0) |
+| `pngx_lossy_dither_level` | float | 0.6 | ディザリング強度 (0.0-1.0)。-1.0 = エンコーダが強度を自動推定 |
 
 ##### PALETTE256 モード設定
 
 | パラメータ | 型 | デフォルト | 説明 |
 |---|---|---|---|
-| `pngx_lossy_reduced_colors` | int | -1 | 削減後の目標色数。-1 = 自動 |
+| `pngx_protected_colors` | list[tuple[int, int, int, int]] | None | パレットに必ず含める保護色。`(r, g, b, a)` タプルのリスト (最大 256 色) |
 | `pngx_saliency_map_enable` | bool | True | サリエンシーマップを使用した適応量子化 |
 | `pngx_chroma_anchor_enable` | bool | True | クロマアンカーポイントを保持 |
 | `pngx_adaptive_dither_enable` | bool | True | 適応ディザリング |
 | `pngx_gradient_boost_enable` | bool | True | グラデーション強調 |
 | `pngx_chroma_weight_enable` | bool | True | クロマ重み付けを適用 |
-| `pngx_postprocess_smooth_enable` | bool | True | 後処理スムージング |
+| `pngx_postprocess_smooth_enable` | bool | True | 後処理スムージング。`pngx_lossy_dither_level` が 0.25 未満の時のみ動作 |
 | `pngx_postprocess_smooth_importance_cutoff` | float | 0.6 | スムージング重要度カットオフ |
 | `pngx_palette256_gradient_profile_enable` | bool | True | グラデーションプロファイルを有効化 |
 | `pngx_palette256_gradient_dither_floor` | float | 0.78 | グラデーションディザフロア |
@@ -331,13 +332,27 @@ class PngxLossyType(IntEnum):
 | `pngx_palette256_alpha_bleed_max_distance` | int | 64 | 最大ブリード距離 (ピクセル) |
 | `pngx_palette256_alpha_bleed_opaque_threshold` | int | 248 | 不透明しきい値 |
 | `pngx_palette256_alpha_bleed_soft_limit` | int | 160 | ソフトブリード制限 |
+| `pngx_palette256_profile_opaque_ratio_threshold` | float | 0.90 | グラデーションプロファイル: 不透明率しきい値 (0.0-1.0)。-1 = 内部デフォルト |
+| `pngx_palette256_profile_gradient_mean_max` | float | 0.16 | グラデーションプロファイル: グラデーション平均の上限 (0.0-1.0)。-1 = 内部デフォルト |
+| `pngx_palette256_profile_saturation_mean_max` | float | 0.42 | グラデーションプロファイル: 彩度平均の上限 (0.0-1.0)。-1 = 内部デフォルト |
+| `pngx_palette256_tune_opaque_ratio_threshold` | float | 0.90 | 自動チューニング: 不透明率しきい値 (0.0-1.0)。-1 = 内部デフォルト |
+| `pngx_palette256_tune_gradient_mean_max` | float | 0.14 | 自動チューニング: グラデーション平均の上限 (0.0-1.0)。-1 = 内部デフォルト |
+| `pngx_palette256_tune_saturation_mean_max` | float | 0.35 | 自動チューニング: 彩度平均の上限 (0.0-1.0)。-1 = 内部デフォルト |
+| `pngx_palette256_tune_speed_max` | int | 1 | 自動チューニング: 量子化速度の上限 (1-10)。-1 = 内部デフォルト |
+| `pngx_palette256_tune_quality_min_floor` | int | 90 | 自動チューニング: 最低品質の下限 (0-100)。-1 = 内部デフォルト |
+| `pngx_palette256_tune_quality_max_target` | int | 100 | 自動チューニング: 最高品質の目標 (0-100)。-1 = 内部デフォルト |
 
 ##### LIMITED_RGBA4444 モード設定
 
+このモードに固有のパラメータはありません。各 RGBA チャンネルは 4 ビット固定で、`pngx_lossy_dither_level` を `-1.0` にするとディザリング強度をエンコーダが自動推定します。
+
+##### REDUCED_RGBA32 モード設定
+
 | パラメータ | 型 | デフォルト | 説明 |
 |---|---|---|---|
-| `pngx_lossy_reduced_bits_rgb` | int | 4 | RGB チャンネルのビット深度 (1-8) |
-| `pngx_lossy_reduced_alpha_bits` | int | 4 | アルファチャンネルのビット深度 (1-8) |
+| `pngx_lossy_reduced_colors` | int | -1 | 削減後の目標色数 (2-32768)。-1 = 自動 |
+| `pngx_lossy_reduced_bits_rgb` | int | 4 | RGB チャンネルのグリッドビット深度 (1-8) |
+| `pngx_lossy_reduced_alpha_bits` | int | 4 | アルファチャンネルのグリッドビット深度 (1-8) |
 
 ---
 
@@ -550,8 +565,7 @@ with open("texture.png", "rb") as f:
 config = colopresso.Config(
     pngx_lossy_enable=True,
     pngx_lossy_type=colopresso.PngxLossyType.LIMITED_RGBA4444,
-    pngx_lossy_reduced_bits_rgb=4,
-    pngx_lossy_reduced_alpha_bits=4
+    pngx_lossy_dither_level=-1.0  # ディザリング強度をエンコーダに自動推定させる
 )
 optimized = colopresso.encode_pngx(png_data, config)
 ```
