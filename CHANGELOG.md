@@ -25,9 +25,10 @@ Build / CI, Documentation and General. Each entry is tagged Added, Changed, Fixe
 - **Changed:** The CLI no longer includes internal library headers; boolean toggles are table
   driven (#298).
 - **Changed:** With `--type limited`, the saliency map, chroma anchor, adaptive dither, gradient
-  boost, chroma weight and smoothing options are disabled unless given, and enabling any of them
-  (`--saliency-map`, `--chroma-anchor`, `--adaptive-dither`, `--gradient-boost`,
-  `--chroma-weight`, `--smooth`) is rejected with an error, because Limited RGBA4444 never uses them.
+  boost, chroma weight and smoothing options are always forced off because Limited RGBA4444 never
+  uses them. Their `--no-*` forms are accepted; enabling any of them (`--saliency-map`,
+  `--chroma-anchor`, `--adaptive-dither`, `--gradient-boost`, `--chroma-weight`, `--smooth`) is
+  rejected with an error unless a later `--no-*` turns it off again.
 
 ### GUI
 - **Changed:** Selecting Limited RGBA4444 in the advanced settings disables the saliency map,

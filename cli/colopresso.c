@@ -854,17 +854,29 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
   long long_val;
   double double_val;
   int32_t count;
-  size_t i;
+  size_t i, j;
   cpres_rgba_color_t *parsed_colors;
 
   for (i = 0; i < PNGX_TOGGLE_OPTION_COUNT; ++i) {
-    if (strcmp(name, kPngxToggleOptions[i].name) == 0) {
-      apply_pngx_toggle(config, i, kPngxToggleOptions[i].value);
-      if (kPngxToggleOptions[i].value && !kPngxToggleOptions[i].limited_available && limited_unavailable_requested) {
-        *limited_unavailable_requested |= (uint32_t)1 << i;
-      }
+    if (strcmp(name, kPngxToggleOptions[i].name) != 0) {
+      continue;
+    }
+    apply_pngx_toggle(config, i, kPngxToggleOptions[i].value);
+    if (kPngxToggleOptions[i].limited_available || !limited_unavailable_requested) {
       return true;
     }
+    /* Track the request per config field through its enabling entry so the last --x / --no-x wins. */
+    for (j = 0; j < PNGX_TOGGLE_OPTION_COUNT; ++j) {
+      if (kPngxToggleOptions[j].offset != kPngxToggleOptions[i].offset || !kPngxToggleOptions[j].value) {
+        continue;
+      }
+      if (kPngxToggleOptions[i].value) {
+        *limited_unavailable_requested |= (uint32_t)1 << j;
+      } else {
+        *limited_unavailable_requested &= ~((uint32_t)1 << j);
+      }
+    }
+    return true;
   }
 
   if (strcmp(name, "sns") == 0) {
@@ -1675,7 +1687,7 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
     if (limited_unavailable_requested != 0) {
       fprintf(stderr, "Error: The following options are not available with --type limited:");
       for (i = 0; i < PNGX_TOGGLE_OPTION_COUNT; ++i) {
-        if (limited_unavailable_requested & ((uint32_t)1 << i)) {
+        if (kPngxToggleOptions[i].value && (limited_unavailable_requested & ((uint32_t)1 << i))) {
           fprintf(stderr, " --%s", kPngxToggleOptions[i].name);
         }
       }
