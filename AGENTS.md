@@ -49,6 +49,7 @@
 - `/.devcontainer`, `Dockerfile`, `Dockerfile.alpine`: Linux 開発環境 (Dev Container) と CI 用のコンテナ定義です
 - `/.github/workflows`: CI (`ci.yaml`), カバレッジ (`coverage.yaml`), リリース (`release.yaml`) のワークフローです
 - `CMakeLists.txt`: プロジェクト全体の CMake 構成ファイルです
+- `CHANGELOG.md`, `CHANGELOG_ja.md`: 変更履歴です (英語 / 日本語)。書式は「変更履歴の記載」を参照してください
 
 ## コーディング規約
 - C 言語のコードを書く時は C99 標準に準拠し、なるべく標準化された型 `stdint.h` `stdbool.h` 等の標準型を用いるようにしてください
@@ -59,6 +60,13 @@
 - C コードのフォーマットはリポジトリの `.clang-format` (LLVM ベース, 2 スペースインデント, 200 桁) と `.editorconfig` に従ってください
 - ライブラリのデフォルト値は `library/include/colopresso.h` の `COLOPRESSO_*_DEFAULT_*` マクロが唯一の定義です。 CLI のヘルプ表示などアプリケーション側でデフォルト値を扱う時はこのマクロを参照し、数値を重複して記述しないでください
 - TypeScript や React.js, Vite の構成を記述する時は、必ず現状のベストプラクティスを調査し、それに則った実装を行ってください
+
+## 変更履歴の記載
+- 利用者やビルド担当者に伝えるべき変更 (機能追加, 挙動やデフォルト値の変更, 不具合修正, オプションや公開 API の追加・削除, ビルド要件やツールチェーンの変更, 依存関係のメジャー更新やセキュリティ更新など) を行った時は、同じ変更の中で `CHANGELOG.md` (英語) と `CHANGELOG_ja.md` (日本語) の両方の `## [Unreleased]` 節に追記してください
+- `## [Unreleased]` 節はリリース直後には存在しません。無い場合は、最新バージョンの節 (`## [X.Y.Z] - YYYY-MM-DD`) の直前に `## [Unreleased]` を新設し、その中に追記してください。既にある場合はそこへ追記します
+- 記載先は変更が属するビルドタイプの節です: `Library` (libcolopresso 本体, 公開 API), `CLI`, `GUI` (Electron), `JS/WASM` (Node.js / Emscripten ビルド), `Python`, `Build / CI` (CMake, Docker, ワークフロー, Renovate, リリース処理), `Documentation`, `General`, `Security`, `Dependencies`。節名は日本語版でも英語表記のままにしてください。該当する節がなければ既存の節の並び順に合わせて新設してください
+- 各項目は `- **Added:**` / `- **Changed:**` / `- **Fixed:**` / `- **Removed:**` (日本語版は `**追加:**` / `**変更:**` / `**修正:**` / `**削除:**`) で始め、末尾に PR 番号を `(#123)` の形で付けてください。定型的な依存関係の更新は `Dependencies` にバージョンだけをまとめます
+- リリース時は `## [Unreleased]` を `## [X.Y.Z] - YYYY-MM-DD` (リリース日) に改名するだけにし、空の `## [Unreleased]` 節は残さないでください
 
 ## 注意事項
 - アプリケーションのビルドを行う時は必ず `README.md` を読み、従ってください。 Dev Container を用いた Linux 環境では「Build (Linux)」、 macOS 上で直接作業する場合は「Build (macOS)」の手順を参考にしてください

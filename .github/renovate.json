@@ -72,6 +72,13 @@
         "digest"
       ],
       "enabled": false
+    },
+    {
+      "description": "Match pnpm's default minimumReleaseAge (1440 minutes) so lockfile updates pass the supply-chain check",
+      "matchDatasources": [
+        "npm"
+      ],
+      "minimumReleaseAge": "1 day"
     }
   ]
 }
