@@ -299,7 +299,7 @@ ctest --test-dir "build" --output-on-failure --parallel
 ### 共通要件
 
 - Node.js
-- pnpm
+- pnpm 12 (正確なバージョンは `package.json` の `packageManager` で固定されており、pnpm が自動的に切り替えます)
 - `rust-toolchain.toml` の stable Rust toolchain
 - `PATH` 経由でアクセス可能な CMake
 

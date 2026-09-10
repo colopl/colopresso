@@ -146,8 +146,11 @@ RUN set -e; \
 
 ENV EMSDK_QUIET=1
 
-# pnpm
-RUN curl -fsSL "https://get.pnpm.io/install.sh" | /bin/bash - && \
+# pnpm (version pinned by the packageManager field of package.json)
+RUN set -e; \
+    PNPM_VERSION="$(sed -n 's/.*"packageManager": *"pnpm@\([^"]*\)".*/\1/p' "/project/package.json")"; \
+    test -n "${PNPM_VERSION}"; \
+    curl -fsSL "https://get.pnpm.io/install.sh" | env PNPM_VERSION="${PNPM_VERSION}" /bin/bash - && \
     echo 'export PATH="${HOME}/.local/share/pnpm:${PATH}"' > "/etc/profile.d/pnpm.sh"
 
 WORKDIR "/project"
