@@ -1491,6 +1491,52 @@ function updatePngxLossyMaxColorsState(userInitiated = false): void {
     wrapper.classList.toggle('disabled', !paletteSelected);
   });
 
+  // Limited RGBA4444 only snaps channels to 4 bits; the importance-map and smoothing options are never consulted.
+  const limitedUnsupportedFields = [
+    'pngx_saliency_map_enable',
+    'pngx_chroma_anchor_enable',
+    'pngx_adaptive_dither_enable',
+    'pngx_gradient_boost_enable',
+    'pngx_chroma_weight_enable',
+    'pngx_postprocess_smooth_enable',
+    'pngx_postprocess_smooth_importance_cutoff',
+  ];
+
+  limitedUnsupportedFields.forEach((id, index) => {
+    const input = document.querySelector<HTMLInputElement>(`[data-field-id='${id}']`);
+    if (!input) {
+      return;
+    }
+    input.disabled = limitedSelected;
+    if (limitedSelected) {
+      input.setAttribute('aria-disabled', 'true');
+    } else {
+      input.removeAttribute('aria-disabled');
+    }
+
+    const wrapper = document.querySelector<HTMLDivElement>(`.config-item[data-wrapper='${id}']`);
+    if (!wrapper) {
+      return;
+    }
+    wrapper.classList.toggle('disabled', limitedSelected);
+
+    if (index !== 0) {
+      return;
+    }
+    let noteElement = wrapper.querySelector<HTMLDivElement>('.field-note[data-note="limited-unsupported"]');
+    if (limitedSelected) {
+      if (!noteElement) {
+        noteElement = document.createElement('div');
+        noteElement.classList.add('field-note', 'warning');
+        noteElement.dataset.note = 'limited-unsupported';
+        wrapper.appendChild(noteElement);
+      }
+      noteElement.textContent = t('settingsModal.notes.pngxLimitedUnsupported');
+    } else if (noteElement) {
+      noteElement.remove();
+    }
+  });
+
   if (limitedSelected && userInitiated && ditherAutoInput && !ditherAutoInput.checked) {
     ditherAutoInput.checked = true;
   }

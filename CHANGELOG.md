@@ -24,6 +24,16 @@ Build / CI, Documentation and General. Each entry is tagged Added, Changed, Fixe
   library defaults, and help text now derives defaults from the public header (#298).
 - **Changed:** The CLI no longer includes internal library headers; boolean toggles are table
   driven (#298).
+- **Changed:** With `--type limited`, the saliency map, chroma anchor, adaptive dither, gradient
+  boost, chroma weight and smoothing options are disabled unless given, and enabling any of them
+  (`--saliency-map`, `--chroma-anchor`, `--adaptive-dither`, `--gradient-boost`,
+  `--chroma-weight`, `--smooth`) is rejected with an error, because Limited RGBA4444 never uses them.
+
+### GUI
+- **Changed:** Selecting Limited RGBA4444 in the advanced settings disables the saliency map,
+  high chroma anchor, adaptive dithering, gradient boost, chroma weighting, post-process smoothing
+  and smoothing cutoff controls and explains that they apply only to the 256-color palette and
+  Reduced RGBA32 modes.
 
 ### Python
 - **Changed:** README documents all Palette256 profile/tune parameters, protected colors and the
