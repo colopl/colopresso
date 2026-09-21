@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   Prepare:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     outputs:
       full_version: ${{ steps.generate_version.outputs.full_version }}
       version: ${{ steps.generate_version.outputs.version }}
@@ -168,7 +168,7 @@ jobs:
           retention-days: 1
   Source:
     needs: Prepare
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Download versioned code
         uses: actions/download-artifact@v8
@@ -867,7 +867,7 @@ jobs:
       - Prepare
       - PythonWheel
     environment: pypi
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       id-token: write
     steps:
@@ -894,7 +894,7 @@ jobs:
       - macOSCLI
       - LinuxCLI
       - PythonWheel
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout
         uses: actions/checkout@v7
