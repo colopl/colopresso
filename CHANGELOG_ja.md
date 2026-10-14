@@ -7,6 +7,20 @@
 13.0.0 までは Chrome 拡張を含む)、JS/WASM (Node.js / Emscripten ビルド)、Python、Build / CI、
 Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 のいずれかを付けています。
 
+## [Unreleased]
+
+### Build / CI
+- **変更:** CI とリリースの Python wheel ジョブで、cibuildwheel の実行と Windows / macOS 向け wheel の
+  動作確認を Python 3.15 (従来は 3.14) で行うようにしました。配布する wheel は引き続き `cp310-abi3` です (#337)。
+
+### Security
+- **修正:** GUI: Electron 44.7.0 に含まれる Chromium, V8, ANGLE, Skia, Dawn, WebRTC, fontconfig 由来の
+  セキュリティ修正を取り込みました (#337)。
+
+### Dependencies
+- Electron 44.7.0, Vite 8.3.4, pnpm 12.12.1, emsdk 6.0.12, Rust 1.99.0, `@vitejs/plugin-react` 6.1.2,
+  `@reduxjs/toolkit` 2.13.0, `@types/node` 24.19.2, Prettier 3.9.10, actions/setup-node 7.1.0。
+
 ## [14.2.0] - 2026-09-10
 
 ### Library
