@@ -12,13 +12,22 @@ Build / CI, Documentation and General. Each entry is tagged Added, Changed, Fixe
 ### Build / CI
 - **Changed:** The CI and release Python wheel jobs run cibuildwheel and the Windows/macOS wheel
   smoke test on Python 3.15 (was 3.14). Published wheels remain `cp310-abi3` (#337).
+- **Changed:** `pnpm-workspace.yaml` exempts `electron@44.7.2` from pnpm's one-day
+  `minimumReleaseAge` so the security release below can be installed before the window passes. Only
+  that exact version is exempted; the entry can be dropped once it ages out (#337).
 
 ### Security
-- **Fixed:** GUI: Electron 44.7.0 brings backported upstream security fixes from Chromium, V8,
-  ANGLE, Skia, Dawn, WebRTC and fontconfig (#337).
+- **Fixed:** GUI: Electron 44.7.2 brings backported upstream security fixes from Chromium
+  (152.0.7977.149), V8, ANGLE, Skia, Dawn, WebRTC, PDFium and fontconfig (#337).
+- **Fixed:** GUI: js-yaml, which electron-updater bundles to parse update metadata, is updated from
+  4.2.0 to 4.3.2 to fix CPU exhaustion advisories (GHSA-52cp-r559-cp3m, GHSA-5p4m-2wfm-xmqj,
+  GHSA-2883-xcg3-v3hh) (#337).
+- **Fixed:** Build / CI: vulnerable transitive build-tool dependencies (tar, undici, @xmldom/xmldom,
+  fast-uri, http-cache-semantics, brace-expansion, source-map-js) are updated to patched releases.
+  sprintf-js still has an open advisory without a fixed release (#337).
 
 ### Dependencies
-- Electron 44.7.0, Vite 8.3.4, pnpm 12.12.1, emsdk 6.0.12, Rust 1.99.0, `@vitejs/plugin-react` 6.1.2,
+- Electron 44.7.2, Vite 8.3.4, pnpm 12.12.1, emsdk 6.0.12, Rust 1.99.0, `@vitejs/plugin-react` 6.1.2,
   `@reduxjs/toolkit` 2.13.0, `@types/node` 24.19.2, Prettier 3.9.10, actions/setup-node 7.1.0.
 
 ## [14.2.0] - 2026-09-10
