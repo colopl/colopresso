@@ -32,7 +32,7 @@ jobs:
           submodules: true
           fetch-depth: 1
       - name: Setup Node.js
-        uses: actions/setup-node@v7.0.0
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: '24'
       - name: Test release metadata generator
@@ -509,7 +509,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.14'
+          python-version: '3.15'
           cache: 'pip'
       - name: Install build tooling
         run: |
