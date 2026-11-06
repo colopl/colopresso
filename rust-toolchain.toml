@@ -3,4 +3,4 @@ channel = "1.99.1"
 components = ["rustfmt", "clippy"]
 
 [colopresso]
-wasm-pack = "0.15.0"
+wasm-pack = "0.15.1"
