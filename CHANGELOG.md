@@ -11,12 +11,11 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
 ## [Unreleased]
 
 ### Security
-- **[SECURITY]** **Fixed:** GUI: Electron is updated to 45.2.3 (Chromium 156.0.8078.80). It
-  mitigates the compromised eMudhra intermediate certificates (GHSA-jr5w-w6x2-84p9,
+- **[SECURITY]** **Fixed:** GUI: Electron is updated from 44.7.2 to 45.2.3 (Chromium 156.0.8078.80).
+  It mitigates the compromised eMudhra intermediate certificates (GHSA-jr5w-w6x2-84p9,
   CVE-2026-115570, high): with earlier versions, an attacker able to intercept network traffic could
   impersonate a TLS server, such as the update server, to the app. It also brings backported upstream
-  security fixes from Chromium, V8, ANGLE, Skia, Dawn, WebRTC, PDFium, FFmpeg and fontconfig (#337,
-  #350).
+  security fixes from Chromium, V8, ANGLE, Dawn, FFmpeg, PDFium and Skia (#350).
 - **[SECURITY]** **Fixed:** Library: zlib is updated from 1.3.2 to 1.4, which fixes memory safety
   issues in inflate, deflate, the gzip functions and minizip (CVE-2026-85091 and others) (#350).
 - **[SECURITY]** **Fixed:** Library: the AVIF encoder is built with libaom v3.15.3 instead of v3.14.1,
@@ -29,17 +28,13 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
 - **[SECURITY]** **Fixed:** GUI: electron-updater is updated from 6.8.9 to 6.8.12. It rejects cached
   update file names that are missing or contain a path, and no longer sends credential headers to
   another origin when a differential download is redirected (#350).
-- **[SECURITY]** **Fixed:** GUI: js-yaml, which electron-updater bundles to parse update metadata, is
-  updated from 4.2.0 to 4.3.2 to fix CPU exhaustion advisories (GHSA-52cp-r559-cp3m,
-  GHSA-5p4m-2wfm-xmqj, GHSA-2883-xcg3-v3hh) (#337).
 - **[SECURITY]** **Fixed:** Build / CI: pnpm 12.18.0 includes the security fixes of pnpm 12.15.0 and
   12.16.0 (zstd decompression, a timing leak in signing, and packages whose registry metadata names
   another package) (#350).
-- **[SECURITY]** **Fixed:** Build / CI: vulnerable transitive build-tool dependencies (tar, undici,
-  @xmldom/xmldom, fast-uri, http-cache-semantics, brace-expansion, source-map-js) are updated to
-  patched releases. minimatch, used by electron-builder, still has an advisory
-  (GHSA-g3hv-75wg-m249) that is fixed only in minimatch 11, which electron-builder does not accept yet.
-  The sprintf-js advisory noted earlier has been withdrawn (#337, #350).
+- **[SECURITY]** **Fixed:** Build / CI: vulnerable transitive build-tool dependencies (undici,
+  fast-uri) are updated to patched releases. minimatch, used by electron-builder, still has an
+  advisory (GHSA-g3hv-75wg-m249) that is fixed only in minimatch 11, which electron-builder does not
+  accept yet. The sprintf-js advisory noted in 14.2.2 has been withdrawn (#350).
 - **[SECURITY]** **Fixed:** Build / CI: the pinned `dtolnay/rust-toolchain` action no longer
   interpolates its inputs directly into shell commands (#350).
 
@@ -48,10 +43,10 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
   (#350).
 
 ### Build / CI
-- **Changed:** The CI and release Python wheel jobs run cibuildwheel and the Windows/macOS wheel
-  smoke test on Python 3.15 (was 3.14). Published wheels remain `cp310-abi3` (#337).
 - **Changed:** Windows builds link zlib 1.4's static library under its new MSVC name, `libzs.lib`
   (was `zs.lib`) (#350).
+- **Removed:** The `electron@44.7.2` exemption from pnpm's `minimumReleaseAge`, which is no longer
+  needed (#350).
 
 ### Documentation
 - **Added:** `.claude/skills/rollup-dependencies`, a Claude Code skill (`/rollup-dependencies`) for
@@ -61,9 +56,45 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
 ### Dependencies
 - Electron 45.2.3, electron-updater 6.8.12, electron-builder 26.18.1, Vite 8.3.6, pnpm 12.18.0,
   emsdk 6.0.13, Rust 1.99.1, zlib 1.4, libaom 3.15.3, wasm-pack 0.15.1, wasm-bindgen 0.2.130,
-  React 19.3.1, react-redux 9.3.1, `@reduxjs/toolkit` 2.14.0, `@vitejs/plugin-react` 6.2.1,
-  `@types/node` 24.19.2, Prettier 3.9.10, tslib 2.9.1, Valgrind 3.28.0 (CI), actions/setup-node
-  7.1.0, pnpm/action-setup 6.1.1, pypa/gh-action-pypi-publish 1.14.3.
+  React 19.3.1, react-redux 9.3.1, `@reduxjs/toolkit` 2.14.0, `@vitejs/plugin-react` 6.2.1, tslib
+  2.9.1, Valgrind 3.28.0 (CI), pnpm/action-setup 6.1.1, pypa/gh-action-pypi-publish 1.14.3.
+
+## [14.2.2] - 2026-10-15
+
+### Security
+- **[SECURITY]** **Fixed:** GUI: Electron 44.7.2 brings backported upstream security fixes from Chromium
+  (152.0.7977.149), V8, ANGLE, Skia, Dawn, WebRTC, PDFium and fontconfig (#337).
+- **[SECURITY]** **Fixed:** GUI: js-yaml, which electron-updater bundles to parse update metadata, is
+  updated from 4.2.0 to 4.3.2 to fix CPU exhaustion advisories (GHSA-52cp-r559-cp3m,
+  GHSA-5p4m-2wfm-xmqj, GHSA-2883-xcg3-v3hh) (#337).
+- **[SECURITY]** **Fixed:** Build / CI: vulnerable transitive build-tool dependencies (tar, undici,
+  @xmldom/xmldom, fast-uri, http-cache-semantics, brace-expansion, source-map-js) are updated to
+  patched releases. sprintf-js still has an open advisory without a fixed release (#337).
+
+### Build / CI
+- **Changed:** The CI and release Python wheel jobs run cibuildwheel and the Windows/macOS wheel
+  smoke test on Python 3.15 (was 3.14). Published wheels remain `cp310-abi3` (#337).
+- **Changed:** `pnpm-workspace.yaml` exempts `electron@44.7.2` from pnpm's one-day
+  `minimumReleaseAge` so the security release above can be installed before the window passes. Only
+  that exact version is exempted; the entry can be dropped once it ages out (#337).
+
+### Dependencies
+- Electron 44.7.2, Vite 8.3.4, pnpm 12.13.0, emsdk 6.0.12, Rust 1.99.0, `@vitejs/plugin-react` 6.1.2,
+  `@reduxjs/toolkit` 2.13.0, `@types/node` 24.19.2, Prettier 3.9.10, actions/setup-node 7.1.0.
+
+## [14.2.1] - 2026-09-29
+
+### Security
+- **[SECURITY]** **Fixed:** Library: libpng is updated from 1.6.58 to 1.6.59, which fixes
+  CVE-2026-46675 (medium; use-after-free of zlib input in `png_read_end` after incomplete zTXt, iTXt
+  or iCCP decompression) and a double free of `png_struct` members after an allocation failure
+  (#316).
+- **[SECURITY]** **Fixed:** GUI: Electron 44.4.5 brings backported upstream security fixes from
+  Chromium, V8, ANGLE, Dawn, PDFium and Skia (#289, #309, #311).
+
+### Dependencies
+- Electron 44.4.5, Vite 8.3.1, pnpm 12.6.0, emsdk 6.0.10, libpng 1.6.59, wasm-bindgen 0.2.129,
+  React 19.3.0, `@types/node` 24.19.0, Prettier 3.9.9, Ubuntu 26.04 (coverage job runner).
 
 ## [14.2.0] - 2026-09-10
 
@@ -428,7 +459,7 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
 ## [10.0.2] - 2025-12-08
 
 ### Security
-- libpng updated to 1.6.53 to fix CVE-2025-66293.
+- **[SECURITY]** **Fixed:** libpng updated to 1.6.53 to fix CVE-2025-66293.
 
 ### Dependencies
 - oxipng 10, Electron 39.2.6, electron-builder 26.3.5.
