@@ -50,6 +50,11 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
 - **変更:** zlib 1.4 で MSVC 向け静的ライブラリの名前が `zs.lib` から `libzs.lib` に変わったため、Windows の
   ビルドで新しい名前をリンクするようにしました (#350)。
 
+### Documentation
+- **追加:** 依存関係のロールアップ更新 (棚卸し, セキュリティ確認, 更新, 各プラットフォームでのビルド,
+  CHANGELOG と PR の準備) を行う Claude Code 用スキル `.claude/skills/rollup-dependencies`
+  (`/rollup-dependencies`) を追加しました (#350)。
+
 ### Dependencies
 - Electron 45.2.3, electron-updater 6.8.12, electron-builder 26.18.1, Vite 8.3.6, pnpm 12.18.0,
   emsdk 6.0.13, Rust 1.99.1, zlib 1.4, libaom 3.15.3, wasm-pack 0.15.1, wasm-bindgen 0.2.130,

@@ -46,6 +46,7 @@
 - `/third_party`: サードパーティライブラリの git submodule です。このディレクトリ以下のコードは編集しないでください
 - `/dist`: 何かしらのアーティファクトが生じるビルドが行われた時出力されるディレクトリです
 - `/build`: ビルド用ディレクトリです。基本的に CMake で指定されます
+- `/.claude/skills`: Claude Code 用のスキルです。 `rollup-dependencies` は依存関係をまとめて更新する (ロールアップ) 手順です
 - `/.devcontainer`, `Dockerfile`, `Dockerfile.alpine`: Linux 開発環境 (Dev Container) と CI 用のコンテナ定義です
 - `/.github/workflows`: CI (`ci.yaml`), カバレッジ (`coverage.yaml`), リリース (`release.yaml`) のワークフローです
 - `CMakeLists.txt`: プロジェクト全体の CMake 構成ファイルです

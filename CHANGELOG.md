@@ -53,6 +53,11 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
 - **Changed:** Windows builds link zlib 1.4's static library under its new MSVC name, `libzs.lib`
   (was `zs.lib`) (#350).
 
+### Documentation
+- **Added:** `.claude/skills/rollup-dependencies`, a Claude Code skill (`/rollup-dependencies`) for
+  dependency rollups: inventory, security review, updates, builds on each platform, CHANGELOG and
+  PR preparation (#350).
+
 ### Dependencies
 - Electron 45.2.3, electron-updater 6.8.12, electron-builder 26.18.1, Vite 8.3.6, pnpm 12.18.0,
   emsdk 6.0.13, Rust 1.99.1, zlib 1.4, libaom 3.15.3, wasm-pack 0.15.1, wasm-bindgen 0.2.130,
