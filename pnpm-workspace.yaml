@@ -7,6 +7,3 @@ ignoredBuiltDependencies:
 
 onlyBuiltDependencies:
   - electron
-
-minimumReleaseAgeExclude:
-  - electron@44.7.2
