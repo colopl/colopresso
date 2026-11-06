@@ -6,29 +6,56 @@
 変更はビルドタイプごとに分類しています: Library (libcolopresso と公開 API)、CLI、GUI (Electron。
 13.0.0 までは Chrome 拡張を含む)、JS/WASM (Node.js / Emscripten ビルド)、Python、Build / CI、
 Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 のいずれかを付けています。
+セキュリティ修正は各リリースの先頭にまとめ、**[SECURITY]** を付けています。
 
 ## [Unreleased]
+
+### Security
+- **[SECURITY]** **修正:** GUI: Electron を 45.2.3 (Chromium 156.0.8078.80) に更新しました。不正利用された
+  eMudhra の中間証明書を拒否する対策 (GHSA-jr5w-w6x2-84p9, CVE-2026-115570, 重大度 high) が含まれます。
+  以前の版では、通信を傍受できる攻撃者が、更新サーバーなどの TLS サーバーになりすましてアプリと通信できる
+  おそれがありました。あわせて Chromium, V8, ANGLE, Skia, Dawn, WebRTC, PDFium, FFmpeg, fontconfig 由来の
+  セキュリティ修正のバックポートを取り込みました (#337, #350)。
+- **[SECURITY]** **修正:** Library: zlib を 1.3.2 から 1.4 に更新しました。inflate, deflate, gzip 関数群,
+  minizip のメモリ安全性の問題 (CVE-2026-85091 ほか) が修正されています (#350)。
+- **[SECURITY]** **修正:** Library: AVIF エンコーダが使う libaom を、libavif v1.4.2 が取得する v3.14.1 から
+  v3.15.3 に変えました。libaom v3.15.x では、マルチスレッドエンコード時のヒープの二重解放など、ファジングや
+  監査で見つかったメモリ安全性の問題が修正されています。CMake で libavif より先に libaom を宣言しています。
+  この上書きは libavif の submodule が古いタグを固定している間だけ有効で、libavif のリリースが追いつけば
+  自動的に無効になります (#350)。
+- **[SECURITY]** **修正:** Library: ネイティブビルドが rayon 経由でリンクする crossbeam-epoch を 0.9.18 から
+  0.9.21 に更新しました (RUSTSEC-2026-0204) (#350)。
+- **[SECURITY]** **修正:** GUI: electron-updater を 6.8.9 から 6.8.12 に更新しました。キャッシュした更新
+  ファイルの名前が空の場合やパスを含む場合に拒否するようになり、差分ダウンロードがリダイレクトされた時に
+  認証ヘッダを別オリジンへ送らなくなりました (#350)。
+- **[SECURITY]** **修正:** GUI: electron-updater が更新メタデータの解析に使い、アプリに同梱される js-yaml を
+  4.2.0 から 4.3.2 に更新し、CPU を過剰に消費する脆弱性 (GHSA-52cp-r559-cp3m, GHSA-5p4m-2wfm-xmqj,
+  GHSA-2883-xcg3-v3hh) を修正しました (#337)。
+- **[SECURITY]** **修正:** Build / CI: pnpm 12.18.0 には pnpm 12.15.0 と 12.16.0 のセキュリティ修正 (zstd の展開,
+  署名処理のタイミングによる情報漏洩, 要求と異なるパッケージ名のレジストリメタデータ) が含まれます (#350)。
+- **[SECURITY]** **修正:** Build / CI: ビルドツールが推移的に依存する脆弱なパッケージ (tar, undici,
+  @xmldom/xmldom, fast-uri, http-cache-semantics, brace-expansion, source-map-js) を修正版に更新しました。
+  electron-builder が使う minimatch の脆弱性 (GHSA-g3hv-75wg-m249) は minimatch 11 でしか修正されておらず、
+  electron-builder がまだ 11 を受け付けないため残っています。以前に記載した sprintf-js の脆弱性情報は
+  取り下げられました (#337, #350)。
+- **[SECURITY]** **修正:** Build / CI: 固定している `dtolnay/rust-toolchain` アクションを、入力値をシェルの
+  コマンドへ直接展開しない版に更新しました (#350)。
+
+### GUI
+- **変更:** GUI を Electron 44 から Electron 45 (Chromium 156, Node.js 24.22) に移行しました (#350)。
 
 ### Build / CI
 - **変更:** CI とリリースの Python wheel ジョブで、cibuildwheel の実行と Windows / macOS 向け wheel の
   動作確認を Python 3.15 (従来は 3.14) で行うようにしました。配布する wheel は引き続き `cp310-abi3` です (#337)。
-- **変更:** 下記のセキュリティ修正を待機期間内に取り込むため、`pnpm-workspace.yaml` で `electron@44.7.2` を
-  pnpm の `minimumReleaseAge` (1 日) の対象外にしました。除外はこのバージョンに限ります。待機期間を過ぎれば
-  このエントリは削除できます (#337)。
-
-### Security
-- **修正:** GUI: Electron 44.7.2 に含まれる Chromium (152.0.7977.149), V8, ANGLE, Skia, Dawn, WebRTC,
-  PDFium, fontconfig 由来のセキュリティ修正を取り込みました (#337)。
-- **修正:** GUI: electron-updater が更新メタデータの解析に使い、アプリに同梱される js-yaml を 4.2.0 から
-  4.3.2 に更新し、CPU を過剰に消費する脆弱性 (GHSA-52cp-r559-cp3m, GHSA-5p4m-2wfm-xmqj,
-  GHSA-2883-xcg3-v3hh) を修正しました (#337)。
-- **修正:** Build / CI: ビルドツールが推移的に依存する脆弱なパッケージ (tar, undici, @xmldom/xmldom, fast-uri,
-  http-cache-semantics, brace-expansion, source-map-js) を修正版に更新しました。sprintf-js は修正版がまだ
-  公開されていないため、脆弱性が残っています (#337)。
+- **変更:** zlib 1.4 で MSVC 向け静的ライブラリの名前が `zs.lib` から `libzs.lib` に変わったため、Windows の
+  ビルドで新しい名前をリンクするようにしました (#350)。
 
 ### Dependencies
-- Electron 44.7.2, Vite 8.3.4, pnpm 12.12.1, emsdk 6.0.12, Rust 1.99.0, `@vitejs/plugin-react` 6.1.2,
-  `@reduxjs/toolkit` 2.13.0, `@types/node` 24.19.2, Prettier 3.9.10, actions/setup-node 7.1.0。
+- Electron 45.2.3, electron-updater 6.8.12, electron-builder 26.18.1, Vite 8.3.6, pnpm 12.18.0,
+  emsdk 6.0.13, Rust 1.99.1, zlib 1.4, libaom 3.15.3, wasm-pack 0.15.1, wasm-bindgen 0.2.130,
+  React 19.3.1, react-redux 9.3.1, `@reduxjs/toolkit` 2.14.0, `@vitejs/plugin-react` 6.2.1,
+  `@types/node` 24.19.2, Prettier 3.9.10, tslib 2.9.1, Valgrind 3.28.0 (CI), actions/setup-node
+  7.1.0, pnpm/action-setup 6.1.1, pypa/gh-action-pypi-publish 1.14.3。
 
 ## [14.2.0] - 2026-09-10
 
