@@ -10,7 +10,7 @@
  */
 
 #define PY_SSIZE_T_CLEAN
-#define Py_LIMITED_API 0x030a0000  /* Python 3.10+ */
+#define Py_LIMITED_API 0x030a0000 /* Python 3.10+ */
 
 #include <Python.h>
 
@@ -27,13 +27,16 @@ typedef struct {
     int count;
 } protected_colors_t;
 
-static inline char *get_utf8_string(PyObject *obj) {
+static inline char *get_utf8_string(PyObject *obj)
+{
     PyObject *bytes;
     Py_ssize_t len;
     char *result, *str;
 
     bytes = PyUnicode_AsEncodedString(obj, "utf-8", "strict");
-    if (!bytes) return NULL;
+    if (!bytes) {
+        return NULL;
+    }
 
     if (PyBytes_AsStringAndSize(bytes, &str, &len) < 0) {
         Py_DECREF(bytes);
@@ -53,9 +56,11 @@ static inline char *get_utf8_string(PyObject *obj) {
     return result;
 }
 
-static PyObject *raise_colopresso_error(cpres_error_t err) {
+static PyObject *raise_colopresso_error(cpres_error_t err)
+{
     const char *msg = cpres_error_string(err);
-    PyObject *exc = PyObject_CallFunction(ColopressoError, "is", (int)err, msg ? msg : "Unknown error");
+    PyObject *exc =
+        PyObject_CallFunction(ColopressoError, "is", (int)err, msg ? msg : "Unknown error");
     if (exc) {
         PyErr_SetObject(ColopressoError, exc);
         Py_DECREF(exc);
@@ -63,7 +68,8 @@ static PyObject *raise_colopresso_error(cpres_error_t err) {
     return NULL;
 }
 
-static int parse_protected_colors(PyObject *list, protected_colors_t *pcolors) {
+static int parse_protected_colors(PyObject *list, protected_colors_t *pcolors)
+{
     Py_ssize_t len, i;
     PyObject *item;
     long r, g, b, a;
@@ -96,11 +102,12 @@ static int parse_protected_colors(PyObject *list, protected_colors_t *pcolors) {
     }
 
     for (i = 0; i < len; i++) {
-        item = PyList_GetItem(list, i);  /* borrowed reference */
+        item = PyList_GetItem(list, i); /* borrowed reference */
         if (!PyTuple_Check(item) || PyTuple_Size(item) != 4) {
             free(pcolors->colors);
             pcolors->colors = NULL;
-            PyErr_SetString(PyExc_TypeError, "Each protected color must be a tuple of (r, g, b, a)");
+            PyErr_SetString(PyExc_TypeError,
+                            "Each protected color must be a tuple of (r, g, b, a)");
             return -1;
         }
 
@@ -132,7 +139,8 @@ static int parse_protected_colors(PyObject *list, protected_colors_t *pcolors) {
     return 0;
 }
 
-static void free_protected_colors(protected_colors_t *pcolors) {
+static void free_protected_colors(protected_colors_t *pcolors)
+{
     if (pcolors->colors) {
         free(pcolors->colors);
         pcolors->colors = NULL;
@@ -140,7 +148,8 @@ static void free_protected_colors(protected_colors_t *pcolors) {
     pcolors->count = 0;
 }
 
-static int parse_config(PyObject *config_dict, cpres_config_t *config, protected_colors_t *pcolors) {
+static int parse_config(PyObject *config_dict, cpres_config_t *config, protected_colors_t *pcolors)
+{
     PyObject *key, *value;
     Py_ssize_t pos = 0;
     char *key_str;
@@ -326,7 +335,8 @@ static int parse_config(PyObject *config_dict, cpres_config_t *config, protected
     return 0;
 }
 
-static PyObject *py_encode_webp(PyObject *self, PyObject *args, PyObject *kwargs) {
+static PyObject *py_encode_webp(PyObject *self, PyObject *args, PyObject *kwargs)
+{
     static char *kwlist[] = {"png_data", "config", NULL};
     PyObject *config_dict = Py_None, *result, *png_obj;
     Py_ssize_t png_size;
@@ -357,12 +367,11 @@ static PyObject *py_encode_webp(PyObject *self, PyObject *args, PyObject *kwargs
         return NULL;
     }
 
-    Py_BEGIN_ALLOW_THREADS
-    err = cpres_encode_webp_memory((const uint8_t *)png_data, (size_t)png_size,
-                                   &out_data, &out_size, &config);
+    Py_BEGIN_ALLOW_THREADS err = cpres_encode_webp_memory(
+        (const uint8_t *)png_data, (size_t)png_size, &out_data, &out_size, &config);
     Py_END_ALLOW_THREADS
 
-    free_protected_colors(&pcolors);
+        free_protected_colors(&pcolors);
 
     if (err != CPRES_OK) {
         return raise_colopresso_error(err);
@@ -373,7 +382,8 @@ static PyObject *py_encode_webp(PyObject *self, PyObject *args, PyObject *kwargs
     return result;
 }
 
-static PyObject *py_encode_avif(PyObject *self, PyObject *args, PyObject *kwargs) {
+static PyObject *py_encode_avif(PyObject *self, PyObject *args, PyObject *kwargs)
+{
     static char *kwlist[] = {"png_data", "config", NULL};
     PyObject *config_dict = Py_None, *png_obj, *result;
     Py_ssize_t png_size;
@@ -404,12 +414,11 @@ static PyObject *py_encode_avif(PyObject *self, PyObject *args, PyObject *kwargs
         return NULL;
     }
 
-    Py_BEGIN_ALLOW_THREADS
-    err = cpres_encode_avif_memory((const uint8_t *)png_data, (size_t)png_size,
-                                   &out_data, &out_size, &config);
+    Py_BEGIN_ALLOW_THREADS err = cpres_encode_avif_memory(
+        (const uint8_t *)png_data, (size_t)png_size, &out_data, &out_size, &config);
     Py_END_ALLOW_THREADS
 
-    free_protected_colors(&pcolors);
+        free_protected_colors(&pcolors);
 
     if (err != CPRES_OK) {
         return raise_colopresso_error(err);
@@ -420,7 +429,8 @@ static PyObject *py_encode_avif(PyObject *self, PyObject *args, PyObject *kwargs
     return result;
 }
 
-static PyObject *py_encode_pngx(PyObject *self, PyObject *args, PyObject *kwargs) {
+static PyObject *py_encode_pngx(PyObject *self, PyObject *args, PyObject *kwargs)
+{
     static char *kwlist[] = {"png_data", "config", NULL};
     PyObject *config_dict = Py_None, *png_obj, *result;
     Py_ssize_t png_size;
@@ -451,12 +461,11 @@ static PyObject *py_encode_pngx(PyObject *self, PyObject *args, PyObject *kwargs
         return NULL;
     }
 
-    Py_BEGIN_ALLOW_THREADS
-    err = cpres_encode_pngx_memory((const uint8_t *)png_data, (size_t)png_size,
-                                   &out_data, &out_size, &config);
+    Py_BEGIN_ALLOW_THREADS err = cpres_encode_pngx_memory(
+        (const uint8_t *)png_data, (size_t)png_size, &out_data, &out_size, &config);
     Py_END_ALLOW_THREADS
 
-    free_protected_colors(&pcolors);
+        free_protected_colors(&pcolors);
 
     if (err != CPRES_OK) {
         return raise_colopresso_error(err);
@@ -467,66 +476,78 @@ static PyObject *py_encode_pngx(PyObject *self, PyObject *args, PyObject *kwargs
     return result;
 }
 
-static PyObject *py_get_version(PyObject *self, PyObject *Py_UNUSED(args)) {
+static PyObject *py_get_version(PyObject *self, PyObject *Py_UNUSED(args))
+{
     (void)self;
     return PyLong_FromUnsignedLong(cpres_get_version());
 }
 
-static PyObject *py_get_libwebp_version(PyObject *self, PyObject *Py_UNUSED(args)) {
+static PyObject *py_get_libwebp_version(PyObject *self, PyObject *Py_UNUSED(args))
+{
     (void)self;
     return PyLong_FromUnsignedLong(cpres_get_libwebp_version());
 }
 
-static PyObject *py_get_libpng_version(PyObject *self, PyObject *Py_UNUSED(args)) {
+static PyObject *py_get_libpng_version(PyObject *self, PyObject *Py_UNUSED(args))
+{
     (void)self;
     return PyLong_FromUnsignedLong(cpres_get_libpng_version());
 }
 
-static PyObject *py_get_libavif_version(PyObject *self, PyObject *Py_UNUSED(args)) {
+static PyObject *py_get_libavif_version(PyObject *self, PyObject *Py_UNUSED(args))
+{
     (void)self;
     return PyLong_FromUnsignedLong(cpres_get_libavif_version());
 }
 
-static PyObject *py_get_pngx_oxipng_version(PyObject *self, PyObject *Py_UNUSED(args)) {
+static PyObject *py_get_pngx_oxipng_version(PyObject *self, PyObject *Py_UNUSED(args))
+{
     (void)self;
     return PyLong_FromUnsignedLong(cpres_get_pngx_oxipng_version());
 }
 
-static PyObject *py_get_pngx_libimagequant_version(PyObject *self, PyObject *Py_UNUSED(args)) {
+static PyObject *py_get_pngx_libimagequant_version(PyObject *self, PyObject *Py_UNUSED(args))
+{
     (void)self;
     return PyLong_FromUnsignedLong(cpres_get_pngx_libimagequant_version());
 }
 
-static PyObject *py_get_buildtime(PyObject *self, PyObject *Py_UNUSED(args)) {
+static PyObject *py_get_buildtime(PyObject *self, PyObject *Py_UNUSED(args))
+{
     (void)self;
     return PyLong_FromUnsignedLong(cpres_get_buildtime());
 }
 
-static PyObject *py_get_compiler_version_string(PyObject *self, PyObject *Py_UNUSED(args)) {
+static PyObject *py_get_compiler_version_string(PyObject *self, PyObject *Py_UNUSED(args))
+{
     const char *s;
     (void)self;
     s = cpres_get_compiler_version_string();
     return PyUnicode_FromString(s ? s : "");
 }
 
-static PyObject *py_get_rust_version_string(PyObject *self, PyObject *Py_UNUSED(args)) {
+static PyObject *py_get_rust_version_string(PyObject *self, PyObject *Py_UNUSED(args))
+{
     const char *s;
     (void)self;
     s = cpres_get_rust_version_string();
     return PyUnicode_FromString(s ? s : "");
 }
 
-static PyObject *py_is_threads_enabled(PyObject *self, PyObject *Py_UNUSED(args)) {
+static PyObject *py_is_threads_enabled(PyObject *self, PyObject *Py_UNUSED(args))
+{
     (void)self;
     return PyBool_FromLong(cpres_is_threads_enabled());
 }
 
-static PyObject *py_get_default_thread_count(PyObject *self, PyObject *Py_UNUSED(args)) {
+static PyObject *py_get_default_thread_count(PyObject *self, PyObject *Py_UNUSED(args))
+{
     (void)self;
     return PyLong_FromUnsignedLong(cpres_get_default_thread_count());
 }
 
-static PyObject *py_get_max_thread_count(PyObject *self, PyObject *Py_UNUSED(args)) {
+static PyObject *py_get_max_thread_count(PyObject *self, PyObject *Py_UNUSED(args))
+{
     (void)self;
     return PyLong_FromUnsignedLong(cpres_get_max_thread_count());
 }
@@ -557,30 +578,32 @@ static PyMethodDef colopresso_methods[] = {
     {"get_libwebp_version", py_get_libwebp_version, METH_NOARGS, "Get libwebp version number"},
     {"get_libpng_version", py_get_libpng_version, METH_NOARGS, "Get libpng version number"},
     {"get_libavif_version", py_get_libavif_version, METH_NOARGS, "Get libavif version number"},
-    {"get_pngx_oxipng_version", py_get_pngx_oxipng_version, METH_NOARGS, "Get oxipng version number"},
-    {"get_pngx_libimagequant_version", py_get_pngx_libimagequant_version, METH_NOARGS, "Get libimagequant version number"},
+    {"get_pngx_oxipng_version", py_get_pngx_oxipng_version, METH_NOARGS,
+     "Get oxipng version number"},
+    {"get_pngx_libimagequant_version", py_get_pngx_libimagequant_version, METH_NOARGS,
+     "Get libimagequant version number"},
     {"get_buildtime", py_get_buildtime, METH_NOARGS, "Get build timestamp"},
-    {"get_compiler_version_string", py_get_compiler_version_string, METH_NOARGS, "Get compiler version string"},
+    {"get_compiler_version_string", py_get_compiler_version_string, METH_NOARGS,
+     "Get compiler version string"},
     {"get_rust_version_string", py_get_rust_version_string, METH_NOARGS, "Get Rust version string"},
     {"is_threads_enabled", py_is_threads_enabled, METH_NOARGS, "Check if threading is enabled"},
-    {"get_default_thread_count", py_get_default_thread_count, METH_NOARGS, "Get default thread count"},
+    {"get_default_thread_count", py_get_default_thread_count, METH_NOARGS,
+     "Get default thread count"},
     {"get_max_thread_count", py_get_max_thread_count, METH_NOARGS, "Get maximum thread count"},
-    {NULL, NULL, 0, NULL}
-};
+    {NULL, NULL, 0, NULL}};
 
-static struct PyModuleDef colopresso_module = {
-    PyModuleDef_HEAD_INIT,
-    "_colopresso",
-    "colopresso image compression library",
-    -1,
-    colopresso_methods,
-    NULL,
-    NULL,
-    NULL,
-    NULL
-};
+static struct PyModuleDef colopresso_module = {PyModuleDef_HEAD_INIT,
+                                               "_colopresso",
+                                               "colopresso image compression library",
+                                               -1,
+                                               colopresso_methods,
+                                               NULL,
+                                               NULL,
+                                               NULL,
+                                               NULL};
 
-PyMODINIT_FUNC PyInit__colopresso(void) {
+PyMODINIT_FUNC PyInit__colopresso(void)
+{
     PyObject *m;
 
     m = PyModule_Create(&colopresso_module);
@@ -602,9 +625,12 @@ PyMODINIT_FUNC PyInit__colopresso(void) {
         return NULL;
     }
 
-    if (PyModule_AddIntConstant(m, "PNGX_LOSSY_TYPE_PALETTE256", COLOPRESSO_PNGX_LOSSY_TYPE_PALETTE256) < 0 ||
-        PyModule_AddIntConstant(m, "PNGX_LOSSY_TYPE_LIMITED_RGBA4444", COLOPRESSO_PNGX_LOSSY_TYPE_LIMITED_RGBA4444) < 0 ||
-        PyModule_AddIntConstant(m, "PNGX_LOSSY_TYPE_REDUCED_RGBA32", COLOPRESSO_PNGX_LOSSY_TYPE_REDUCED_RGBA32) < 0) {
+    if (PyModule_AddIntConstant(m, "PNGX_LOSSY_TYPE_PALETTE256",
+                                COLOPRESSO_PNGX_LOSSY_TYPE_PALETTE256) < 0 ||
+        PyModule_AddIntConstant(m, "PNGX_LOSSY_TYPE_LIMITED_RGBA4444",
+                                COLOPRESSO_PNGX_LOSSY_TYPE_LIMITED_RGBA4444) < 0 ||
+        PyModule_AddIntConstant(m, "PNGX_LOSSY_TYPE_REDUCED_RGBA32",
+                                COLOPRESSO_PNGX_LOSSY_TYPE_REDUCED_RGBA32) < 0) {
         Py_DECREF(m);
         return NULL;
     }

@@ -23,7 +23,9 @@
 extern "C" {
 #endif
 
-cpres_error_t webp_encode_rgba_to_memory(uint8_t *rgba_data, uint32_t width, uint32_t height, uint8_t **webp_data, size_t *webp_size, const cpres_config_t *config);
+cpres_error_t webp_encode_rgba_to_memory(uint8_t *rgba_data, uint32_t width, uint32_t height,
+                                         uint8_t **webp_data, size_t *webp_size,
+                                         const cpres_config_t *config);
 
 int webp_get_last_error(void);
 void webp_set_last_error(int error_code);

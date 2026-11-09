@@ -30,73 +30,78 @@
 
 static colopresso_log_callback_t g_log_callback = NULL;
 
-void colopresso_log(colopresso_log_level_t level, const char *format, ...) {
-  const char truncated[] = "... [truncated]";
-  char buffer[2048];
-  int result;
-  va_list args;
-  size_t pos;
+void colopresso_log(colopresso_log_level_t level, const char *format, ...)
+{
+    const char truncated[] = "... [truncated]";
+    char buffer[2048];
+    int result;
+    va_list args;
+    size_t pos;
 #if defined(__EMSCRIPTEN__) && defined(COLOPRESSO_ELECTRON_APP)
-  int flags;
+    int flags;
 #endif
 
-  if (g_log_callback) {
-    va_start(args, format);
-    result = vsnprintf(buffer, sizeof(buffer), format, args);
-    va_end(args);
+    if (g_log_callback) {
+        va_start(args, format);
+        result = vsnprintf(buffer, sizeof(buffer), format, args);
+        va_end(args);
 
-    if (result >= (int)sizeof(buffer)) {
-      pos = sizeof(buffer) - sizeof(truncated) - 1;
-      if (pos > 0) {
-        snprintf(buffer + pos, sizeof(truncated), "%s", truncated);
-      }
+        if (result >= (int)sizeof(buffer)) {
+            pos = sizeof(buffer) - sizeof(truncated) - 1;
+            if (pos > 0) {
+                snprintf(buffer + pos, sizeof(truncated), "%s", truncated);
+            }
+        }
+
+        g_log_callback(level, buffer);
     }
-
-    g_log_callback(level, buffer);
-  }
 
 #if defined(__EMSCRIPTEN__) && defined(COLOPRESSO_ELECTRON_APP)
-  else {
-    flags = EM_LOG_CONSOLE;
+    else {
+        flags = EM_LOG_CONSOLE;
 
-    if (level >= CPRES_LOG_LEVEL_ERROR) {
-      flags |= EM_LOG_ERROR;
-    } else if (level >= CPRES_LOG_LEVEL_WARNING) {
-      flags |= EM_LOG_WARN;
-    } else if (!CPRES_DEBUG) {
-      return;
+        if (level >= CPRES_LOG_LEVEL_ERROR) {
+            flags |= EM_LOG_ERROR;
+        } else if (level >= CPRES_LOG_LEVEL_WARNING) {
+            flags |= EM_LOG_WARN;
+        } else if (!CPRES_DEBUG) {
+            return;
+        }
+
+        va_start(args, format);
+        result = vsnprintf(buffer, sizeof(buffer), format, args);
+        va_end(args);
+
+        if (result >= (int)sizeof(buffer)) {
+            pos = sizeof(buffer) - sizeof(truncated) - 1;
+            if (pos > 0) {
+                snprintf(buffer + pos, sizeof(truncated), "%s", truncated);
+            }
+        }
+
+        emscripten_log(flags, "%s", buffer);
     }
-
-    va_start(args, format);
-    result = vsnprintf(buffer, sizeof(buffer), format, args);
-    va_end(args);
-
-    if (result >= (int)sizeof(buffer)) {
-      pos = sizeof(buffer) - sizeof(truncated) - 1;
-      if (pos > 0) {
-        snprintf(buffer + pos, sizeof(truncated), "%s", truncated);
-      }
-    }
-
-    emscripten_log(flags, "%s", buffer);
-  }
 #else
-  else if (CPRES_DEBUG && level >= CPRES_LOG_LEVEL_DEBUG) {
-    va_start(args, format);
-    vfprintf(stderr, format, args);
-    va_end(args);
-    fprintf(stderr, "\n");
-  }
+    else if (CPRES_DEBUG && level >= CPRES_LOG_LEVEL_DEBUG) {
+        va_start(args, format);
+        vfprintf(stderr, format, args);
+        va_end(args);
+        fprintf(stderr, "\n");
+    }
 #endif
 }
 
-void colopresso_log_reset(void) { g_log_callback = NULL; }
+void colopresso_log_reset(void)
+{
+    g_log_callback = NULL;
+}
 
-extern void cpres_set_log_callback(colopresso_log_callback_t callback) {
-  if (!callback) {
-    colopresso_log_reset();
-    return;
-  }
+extern void cpres_set_log_callback(colopresso_log_callback_t callback)
+{
+    if (!callback) {
+        colopresso_log_reset();
+        return;
+    }
 
-  g_log_callback = callback;
+    g_log_callback = callback;
 }
