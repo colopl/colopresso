@@ -16,6 +16,7 @@
 #include <stdint.h>
 
 #define CPRES_DT_BUILDTIME_LENGTH 32 /* YYYY-MM-DD HH:ii UTC */
+
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -90,8 +90,8 @@ static inline void reduce_rgba_bitdepth_dither(uint32_t thread_count, uint8_t *r
 {
     uint32_t x, y;
     size_t row_stride;
-    float *err_curr, *err_next, *tmp;
     bool left_to_right;
+    float *err_curr, *err_next, *tmp;
 
     if (!rgba || width == 0 || height == 0 || bits_per_channel >= PNGX_FULL_CHANNEL_BITS) {
         return;
@@ -163,13 +163,14 @@ static inline void reduce_rgba_bitdepth(uint32_t thread_count, uint8_t *rgba, pn
     }
 }
 
-bool pngx_quantize_limited4444(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts,
-                               uint8_t **out_data, size_t *out_size)
+extern bool pngx_quantize_limited4444(const uint8_t *png_data, size_t png_size,
+                                      const pngx_options_t *opts, uint8_t **out_data,
+                                      size_t *out_size)
 {
-    pngx_rgba_image_t image;
     const char *label;
-    float resolved_dither;
+    pngx_rgba_image_t image;
     bool success;
+    float resolved_dither;
 
     if (!png_data || png_size == 0 || !opts || !out_data || !out_size) {
         return false;

@@ -26,16 +26,6 @@
 
 static int g_last_webp_error = 0;
 
-int webp_get_last_error(void)
-{
-    return g_last_webp_error;
-}
-
-void webp_set_last_error(int error_code)
-{
-    g_last_webp_error = error_code;
-}
-
 static void apply_webp_config(WebPConfig *webp_config, const cpres_config_t *config)
 {
     webp_config->quality = config->webp_quality;
@@ -65,9 +55,19 @@ static void apply_webp_config(WebPConfig *webp_config, const cpres_config_t *con
     webp_config->lossless = config->webp_lossless;
 }
 
-cpres_error_t webp_encode_rgba_to_memory(uint8_t *rgba_data, uint32_t width, uint32_t height,
-                                         uint8_t **webp_data, size_t *webp_size,
-                                         const cpres_config_t *config)
+extern int webp_get_last_error(void)
+{
+    return g_last_webp_error;
+}
+
+extern void webp_set_last_error(int error_code)
+{
+    g_last_webp_error = error_code;
+}
+
+extern cpres_error_t webp_encode_rgba_to_memory(uint8_t *rgba_data, uint32_t width, uint32_t height,
+                                                uint8_t **webp_data, size_t *webp_size,
+                                                const cpres_config_t *config)
 {
     WebPConfig webp_config;
     WebPPicture picture;

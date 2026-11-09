@@ -43,8 +43,8 @@ void tearDown(void)
 void test_webp_file_lossless_mode(void)
 {
     FILE *fp = NULL;
-    char input_path[512], output_path[512];
     cpres_error_t error = CPRES_OK;
+    char input_path[512], output_path[512];
 
     snprintf(input_path, sizeof(input_path), "%s/example.png", COLOPRESSO_TEST_ASSETS_DIR);
     snprintf(output_path, sizeof(output_path), "example_webp_lossless.webp");
@@ -64,9 +64,9 @@ void test_webp_file_lossless_mode(void)
 void test_webp_file_quality_variations(void)
 {
     FILE *fp = NULL;
-    char input_path[512], output_low[512], output_high[512];
     cpres_error_t error = CPRES_OK;
     long size_low = 0, size_high = 0;
+    char input_path[512], output_low[512], output_high[512];
 
     snprintf(input_path, sizeof(input_path), "%s/example.png", COLOPRESSO_TEST_ASSETS_DIR);
     snprintf(output_low, sizeof(output_low), "example_webp_quality_low.webp");
@@ -109,8 +109,8 @@ void test_webp_file_with_nonexistent_input(void)
 
 void test_webp_file_with_null_config(void)
 {
-    char input_path[512];
     cpres_error_t error = CPRES_OK;
+    char input_path[512];
 
     snprintf(input_path, sizeof(input_path), "%s/example.png", COLOPRESSO_TEST_ASSETS_DIR);
 
@@ -130,8 +130,8 @@ void test_webp_file_with_null_input_path(void)
 
 void test_webp_file_with_null_output_path(void)
 {
-    char input_path[512];
     cpres_error_t error = CPRES_OK;
+    char input_path[512];
 
     snprintf(input_path, sizeof(input_path), "%s/example.png", COLOPRESSO_TEST_ASSETS_DIR);
 
@@ -143,8 +143,8 @@ void test_webp_file_with_null_output_path(void)
 void test_webp_file_with_valid_png(void)
 {
     FILE *fp = NULL;
-    char input_path[512], output_path[512];
     cpres_error_t error = CPRES_OK;
+    char input_path[512], output_path[512];
 
     snprintf(input_path, sizeof(input_path), "%s/example.png", COLOPRESSO_TEST_ASSETS_DIR);
     snprintf(output_path, sizeof(output_path), "example_webp.webp");
@@ -165,8 +165,8 @@ void test_webp_file_with_valid_png(void)
 void test_webp_file_with_rgba64_png(void)
 {
     FILE *fp = NULL;
-    char input_path[512], output_path[512];
     cpres_error_t error = CPRES_OK;
+    char input_path[512], output_path[512];
 
     if (!format_test_asset_path(input_path, sizeof(input_path), "16bit.png")) {
         TEST_FAIL_MESSAGE("failed to format RGBA64 WebP input path");
@@ -208,10 +208,10 @@ void test_webp_free_with_valid_pointer(void)
 
 void test_webp_last_error(void)
 {
-    uint8_t rgba[4 * 2 * 2], *out_data = NULL;
-    size_t out_size = 0;
     cpres_config_t cfg;
     cpres_error_t error = CPRES_OK;
+    uint8_t rgba[4 * 2 * 2], *out_data = NULL;
+    size_t out_size = 0;
 
     memset(rgba, 128, sizeof(rgba));
     cpres_config_init_defaults(&cfg);
@@ -232,9 +232,9 @@ void test_webp_last_error(void)
 void test_webp_memory_alpha_compression_filtering_variations(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *webp_ac_on = NULL, *webp_ac_off = NULL;
     size_t png_size = 0, size_on = 0, size_off = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data,
@@ -261,9 +261,9 @@ void test_webp_memory_alpha_compression_filtering_variations(void)
 void test_webp_memory_alpha_quality_variations(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *webp_alpha_low = NULL, *webp_alpha_high = NULL;
     size_t png_size = 0, size_low = 0, size_high = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data,
@@ -288,9 +288,9 @@ void test_webp_memory_alpha_quality_variations(void)
 void test_webp_memory_emulate_jpeg_size_variations(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *webp_ej_on = NULL, *webp_ej_off = NULL;
     size_t png_size = 0, size_on = 0, size_off = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for webp emulate jpeg size test");
@@ -314,9 +314,9 @@ void test_webp_memory_emulate_jpeg_size_variations(void)
 void test_webp_memory_lossless_mode(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *webp_data = NULL;
     size_t png_size = 0, webp_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for webp lossless memory test");
@@ -334,9 +334,9 @@ void test_webp_memory_lossless_mode(void)
 void test_webp_memory_method_variations(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *webp_data = NULL;
     size_t png_size = 0, webp_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for webp method variations");
@@ -361,9 +361,9 @@ void test_webp_memory_method_variations(void)
 void test_webp_memory_near_lossless_variations(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *webp_nn_low = NULL, *webp_nn_high = NULL;
     size_t png_size = 0, size_low = 0, size_high = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data,
@@ -388,9 +388,9 @@ void test_webp_memory_near_lossless_variations(void)
 void test_webp_memory_output_not_smaller_error(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *webp_data = NULL;
     size_t png_size = 0, webp_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = test_get_tiny_png(&png_size);
     TEST_ASSERT_NOT_NULL(png_data);
@@ -411,9 +411,9 @@ void test_webp_memory_output_not_smaller_error(void)
 void test_webp_memory_partitions_segments_variations(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *webp_seg = NULL, *webp_part = NULL;
     size_t png_size = 0, size_seg = 0, size_part = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data,
@@ -440,9 +440,9 @@ void test_webp_memory_partitions_segments_variations(void)
 void test_webp_memory_quality_variations(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *webp_low = NULL, *webp_high = NULL;
     size_t png_size = 0, size_low = 0, size_high = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for webp quality variations");
@@ -466,9 +466,9 @@ void test_webp_memory_quality_variations(void)
 void test_webp_memory_target_size_psnr_ignored(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *webp_ts = NULL, *webp_tp = NULL;
     size_t png_size = 0, size_ts = 0, size_tp = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for webp target size/psnr test");
@@ -493,9 +493,9 @@ void test_webp_memory_target_size_psnr_ignored(void)
 void test_webp_memory_use_sharp_yuv_variations(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *webp_sharp_on = NULL, *webp_sharp_off = NULL;
     size_t png_size = 0, size_on = 0, size_off = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for webp sharp yuv test");
@@ -518,9 +518,9 @@ void test_webp_memory_use_sharp_yuv_variations(void)
 
 void test_webp_memory_with_null_config(void)
 {
+    cpres_error_t error = CPRES_OK;
     uint8_t png_data[100], *webp_data = NULL;
     size_t webp_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     error = cpres_encode_webp_memory(png_data, sizeof(png_data), &webp_data, &webp_size, NULL);
 
@@ -529,9 +529,9 @@ void test_webp_memory_with_null_config(void)
 
 void test_webp_memory_with_null_data_ptr(void)
 {
+    cpres_error_t error = CPRES_OK;
     uint8_t png_data[100];
     size_t webp_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     error = cpres_encode_webp_memory(png_data, sizeof(png_data), NULL, &webp_size, &g_config);
 
@@ -540,9 +540,9 @@ void test_webp_memory_with_null_data_ptr(void)
 
 void test_webp_memory_with_null_png_data(void)
 {
+    cpres_error_t error = CPRES_OK;
     uint8_t *webp_data = NULL;
     size_t webp_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     error = cpres_encode_webp_memory(NULL, 100, &webp_data, &webp_size, &g_config);
 
@@ -551,8 +551,8 @@ void test_webp_memory_with_null_png_data(void)
 
 void test_webp_memory_with_null_size_ptr(void)
 {
-    uint8_t png_data[100], *webp_data = NULL;
     cpres_error_t error = CPRES_OK;
+    uint8_t png_data[100], *webp_data = NULL;
 
     error = cpres_encode_webp_memory(png_data, sizeof(png_data), &webp_data, NULL, &g_config);
 
@@ -561,9 +561,9 @@ void test_webp_memory_with_null_size_ptr(void)
 
 void test_webp_memory_with_oversized_input(void)
 {
+    cpres_error_t error = CPRES_OK;
     uint8_t png_data[100], *webp_data = NULL;
     size_t webp_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     memset(png_data, 0, sizeof(png_data));
 
@@ -576,9 +576,9 @@ void test_webp_memory_with_oversized_input(void)
 void test_webp_memory_with_valid_png(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *webp_data = NULL;
     size_t png_size = 0, webp_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for webp memory test");
@@ -594,9 +594,9 @@ void test_webp_memory_with_valid_png(void)
 
 void test_webp_memory_with_rgba64_png(void)
 {
+    cpres_error_t error = CPRES_OK;
     uint8_t *png_data = NULL, *webp_data = NULL;
     size_t png_size = 0, webp_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = load_test_asset_png("16bit.png", &png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "16bit.png not found for WebP memory test");
@@ -613,9 +613,9 @@ void test_webp_memory_with_rgba64_png(void)
 
 void test_webp_memory_with_zero_size(void)
 {
+    cpres_error_t error = CPRES_OK;
     uint8_t png_data[100], *webp_data = NULL;
     size_t webp_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     error = cpres_encode_webp_memory(png_data, 0, &webp_data, &webp_size, &g_config);
 

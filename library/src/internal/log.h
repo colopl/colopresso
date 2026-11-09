@@ -18,8 +18,8 @@
 extern "C" {
 #endif
 
-void colopresso_log(colopresso_log_level_t level, const char *format, ...);
-void colopresso_log_reset(void);
+extern void colopresso_log(colopresso_log_level_t level, const char *format, ...);
+extern void colopresso_log_reset(void);
 
 #ifdef __cplusplus
 }

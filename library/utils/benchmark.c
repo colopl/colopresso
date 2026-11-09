@@ -51,8 +51,8 @@ typedef struct {
 
 static inline bool parse_thread_count_value(const char *value, int *out_threads)
 {
-    char *endptr = NULL;
     long parsed;
+    char *endptr = NULL;
 
     if (!value || !out_threads) {
         return false;
@@ -82,20 +82,6 @@ static inline void apply_thread_count(cpres_config_t *config, int thread_count)
     config->webp_thread_level = (thread_count > 1) ? 1 : 0;
     config->avif_threads = thread_count;
     config->pngx_threads = thread_count;
-}
-
-static void print_usage(const char *program_name)
-{
-    printf("Usage: %s [--threads N|-t N] [input.png]\n", program_name ? program_name : "benchmark");
-}
-
-static double get_time_us(void)
-{
-    struct timeval tv;
-
-    gettimeofday(&tv, NULL);
-
-    return (double)tv.tv_sec * 1000000.0 + (double)tv.tv_usec;
 }
 
 static inline double calculate_stddev(const double *values, uint8_t count, double mean)
@@ -134,14 +120,28 @@ static inline void print_result(const benchmark_result_t *result, size_t input_s
     printf(COLOR_BLUE "%.1f%%" COLOR_RESET " compression\n", result->compression_ratio * 100.0);
 }
 
+static void print_usage(const char *program_name)
+{
+    printf("Usage: %s [--threads N|-t N] [input.png]\n", program_name ? program_name : "benchmark");
+}
+
+static double get_time_us(void)
+{
+    struct timeval tv;
+
+    gettimeofday(&tv, NULL);
+
+    return (double)tv.tv_sec * 1000000.0 + (double)tv.tv_usec;
+}
+
 static benchmark_result_t benchmark_webp(const uint8_t *png_data, size_t png_size, const char *name,
                                          const cpres_config_t *config)
 {
-    double times[NUM_ITERATIONS], start, end, sum;
-    uint8_t *output_data = NULL, *tmp, i;
-    size_t output_size = 0, tmp_size;
     cpres_error_t err;
     benchmark_result_t result = {0};
+    uint8_t *output_data = NULL, *tmp, i;
+    size_t output_size = 0, tmp_size;
+    double times[NUM_ITERATIONS], start, end, sum;
 
     result.name = name;
     result.success = false;
@@ -206,11 +206,11 @@ static benchmark_result_t benchmark_webp(const uint8_t *png_data, size_t png_siz
 static benchmark_result_t benchmark_avif(const uint8_t *png_data, size_t png_size, const char *name,
                                          const cpres_config_t *config)
 {
-    double times[NUM_ITERATIONS], start, end, sum;
-    uint8_t *output_data = NULL, *tmp, i;
-    size_t output_size = 0, tmp_size;
     cpres_error_t err;
     benchmark_result_t result = {0};
+    uint8_t *output_data = NULL, *tmp, i;
+    size_t output_size = 0, tmp_size;
+    double times[NUM_ITERATIONS], start, end, sum;
 
     result.name = name;
     result.success = false;
@@ -249,7 +249,7 @@ static benchmark_result_t benchmark_avif(const uint8_t *png_data, size_t png_siz
     result.time_max_ms = times[0];
     sum = 0.0;
 
-    for (int i = 0; i < NUM_ITERATIONS; i++) {
+    for (i = 0; i < NUM_ITERATIONS; i++) {
         sum += times[i];
 
         if (times[i] < result.time_min_ms) {
@@ -275,11 +275,11 @@ static benchmark_result_t benchmark_avif(const uint8_t *png_data, size_t png_siz
 static benchmark_result_t benchmark_pngx(const uint8_t *png_data, size_t png_size, const char *name,
                                          const cpres_config_t *config)
 {
-    double times[NUM_ITERATIONS], start, end, sum = 0.0f;
-    uint8_t *output_data = NULL, *tmp = NULL, i;
-    size_t output_size = 0, tmp_size = 0;
     cpres_error_t err;
     benchmark_result_t result = {0};
+    uint8_t *output_data = NULL, *tmp = NULL, i;
+    size_t output_size = 0, tmp_size = 0;
+    double times[NUM_ITERATIONS], start, end, sum = 0.0f;
 
     result.name = name;
     result.success = false;
@@ -340,12 +340,12 @@ static benchmark_result_t benchmark_pngx(const uint8_t *png_data, size_t png_siz
 
 static void run_webp_benchmarks(const uint8_t *png_data, size_t png_size, int thread_count)
 {
-    const float qualities[] = {50.0f, 75.0f, 90.0f};
     const char *quality_names[] = {"WebP Quality 50 (Method 6)", "WebP Quality 75 (Method 6)",
                                    "WebP Quality 90 (Method 6)"};
-    uint8_t result_count = 0, i;
+    const float qualities[] = {50.0f, 75.0f, 90.0f};
     cpres_config_t config;
     benchmark_result_t results[10];
+    uint8_t result_count = 0, i;
 
     printf("\n" COLOR_BOLD COLOR_BLUE "━━━ WebP Encoding Benchmarks ━━━" COLOR_RESET "\n\n");
 
@@ -401,12 +401,12 @@ static void run_webp_benchmarks(const uint8_t *png_data, size_t png_size, int th
 
 static void run_avif_benchmarks(const uint8_t *png_data, size_t png_size, int thread_count)
 {
-    const float qualities[] = {40.0f, 50.0f, 60.0f, 80.0f};
     const char *quality_names[] = {"AVIF Quality 40 (Speed 6)", "AVIF Quality 50 (Speed 6)",
                                    "AVIF Quality 60 (Speed 6)", "AVIF Quality 80 (Speed 6)"};
-    uint8_t result_count = 0, i;
+    const float qualities[] = {40.0f, 50.0f, 60.0f, 80.0f};
     cpres_config_t config;
     benchmark_result_t results[10];
+    uint8_t result_count = 0, i;
 
     printf("\n" COLOR_BOLD COLOR_MAGENTA "━━━ AVIF Encoding Benchmarks ━━━" COLOR_RESET "\n\n");
 
@@ -453,9 +453,9 @@ static void run_pngx_benchmarks(const uint8_t *png_data, size_t png_size, int th
     const int levels[] = {1, 3, 5, 6};
     const char *level_names[] = {"PNGX Level 1 (fastest)", "PNGX Level 3 (balanced)",
                                  "PNGX Level 5 (default)", "PNGX Level 6 (maximum)"};
-    uint8_t result_count = 0, i;
     benchmark_result_t results[10];
     cpres_config_t config;
+    uint8_t result_count = 0, i;
 
     printf("\n" COLOR_BOLD COLOR_CYAN "━━━ PNGX Optimization Benchmarks ━━━" COLOR_RESET "\n\n");
 
@@ -532,15 +532,15 @@ static void print_summary(size_t png_size, int thread_count)
 int main(int argc, char *argv[])
 {
     const char *input_file = NULL, *arg, *value;
-    char default_path[512];
+    cpres_error_t read_error = CPRES_OK;
     uint32_t cpres_ver = cpres_get_version(), webp_ver = cpres_get_libwebp_version(),
              avif_ver = cpres_get_libavif_version(), oxipng_ver = cpres_get_pngx_oxipng_version(),
              imagequant_ver = cpres_get_pngx_libimagequant_version(), cpu_count;
     uint8_t *png_data = NULL;
+    int thread_count = -1, i;
     size_t png_size = 0;
     bool used_default_input = false, threads_specified = false;
-    int thread_count = -1, i;
-    cpres_error_t read_error = CPRES_OK;
+    char default_path[512];
 
     for (i = 1; i < argc; ++i) {
         arg = argv[i];

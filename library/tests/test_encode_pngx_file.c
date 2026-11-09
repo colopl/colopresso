@@ -38,8 +38,8 @@ void tearDown(void)
 void test_pngx_file_lossy_mode(void)
 {
     FILE *fp = NULL;
-    char input_path[512], output_path[512];
     cpres_error_t error = CPRES_OK;
+    char input_path[512], output_path[512];
 
     if (snprintf(input_path, sizeof(input_path), "%s/128x128.png", COLOPRESSO_TEST_ASSETS_DIR) <
         0) {
@@ -79,8 +79,8 @@ void test_pngx_file_with_nonexistent_input(void)
 
 void test_pngx_file_with_null_config(void)
 {
-    char input_path[512];
     cpres_error_t error = CPRES_OK;
+    char input_path[512];
 
     if (snprintf(input_path, sizeof(input_path), "%s/example.png", COLOPRESSO_TEST_ASSETS_DIR) <
         0) {
@@ -104,8 +104,8 @@ void test_pngx_file_with_null_input_path(void)
 void test_pngx_file_with_valid_png(void)
 {
     FILE *fp = NULL;
-    char input_path[512], output_path[512];
     cpres_error_t error = CPRES_OK;
+    char input_path[512], output_path[512];
 
     if (snprintf(input_path, sizeof(input_path), "%s/128x128.png", COLOPRESSO_TEST_ASSETS_DIR) <
         0) {
@@ -136,8 +136,8 @@ void test_pngx_file_with_valid_png(void)
 void test_pngx_file_with_rgba64_png(void)
 {
     FILE *fp = NULL;
-    char input_path[512], output_path[512];
     cpres_error_t error = CPRES_OK;
+    char input_path[512], output_path[512];
 
     if (!format_test_asset_path(input_path, sizeof(input_path), "16bit.png")) {
         TEST_FAIL_MESSAGE("failed to format RGBA64 PNG input path");

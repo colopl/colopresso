@@ -326,7 +326,7 @@ static inline void tune_quant_params_for_image(pngx_bridge_quant_params_t *param
     }
 }
 
-static void postprocess_indices_parallel_worker(void *context, uint32_t start, uint32_t end)
+static inline void postprocess_indices_parallel_worker(void *context, uint32_t start, uint32_t end)
 {
     postprocess_indices_parallel_ctx_t *ctx = (postprocess_indices_parallel_ctx_t *)context;
     uint32_t x, y, dist_sq, idx_start_y, idx_end_y;
@@ -435,10 +435,10 @@ static inline void postprocess_indices(uint32_t thread_count, uint8_t *indices, 
                                        size_t palette_len, const pngx_quant_support_t *support,
                                        const pngx_options_t *opts)
 {
+    postprocess_indices_parallel_ctx_t ctx;
     uint8_t *reference;
     size_t pixel_count;
     float cutoff;
-    postprocess_indices_parallel_ctx_t ctx;
 
     if (!indices || !support || !opts || width == 0 || height == 0) {
         return;
@@ -757,9 +757,9 @@ static bool palette256_prepare_context(palette256_context_t *ctx, const uint8_t 
                                        uint32_t *out_max_colors, float *out_dither_level,
                                        uint8_t **out_fixed_colors, size_t *out_fixed_colors_len)
 {
-    float estimated_dither, gradient_dither_floor;
-    bool use_importance_map;
     pngx_bridge_quant_params_t params = {0};
+    bool use_importance_map;
+    float estimated_dither, gradient_dither_floor;
 
     if (!png_data || png_size == 0 || !opts || !out_rgba || !out_width || !out_height) {
         return false;
@@ -878,8 +878,8 @@ static bool palette256_finalize_context(palette256_context_t *ctx, const uint8_t
                                         size_t indices_len, const cpres_rgba_color_t *palette,
                                         size_t palette_len, uint8_t **out_data, size_t *out_size)
 {
-    uint8_t *mutable_indices;
     cpres_rgba_color_t *mutable_palette;
+    uint8_t *mutable_indices;
     bool success;
 
     if (!ctx->initialized) {
@@ -1006,12 +1006,12 @@ extern bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size,
     pngx_bridge_quant_params_t params = {0}, fallback_params = {0};
     pngx_bridge_quant_output_t output = {0};
     pngx_bridge_quant_status_t status;
-    uint8_t *rgba, *importance_map, *fixed_colors, quality_min, quality_max;
     uint32_t width, height, max_colors;
+    uint8_t *rgba, *importance_map, *fixed_colors, quality_min, quality_max;
     int32_t speed;
     size_t pixel_count, importance_map_len, fixed_colors_len;
-    float dither_level;
     bool relaxed_quality, success;
+    float dither_level;
 
     if (!png_data || png_size == 0 || !opts || !out_data || !out_size) {
         return false;

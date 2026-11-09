@@ -282,6 +282,22 @@
 #define PNGX_POSTPROCESS_DISABLE_DITHER_THRESHOLD 0.25f
 #define PNGX_POSTPROCESS_MAX_COLOR_DISTANCE_SQ    900
 
+#define PNGX_DEFINE_CLAMP(type)                                                                    \
+    static inline type clamp_##type(type value, type min_value, type max_value)                    \
+    {                                                                                              \
+        assert(min_value <= max_value);                                                            \
+                                                                                                   \
+        if (value < min_value) {                                                                   \
+            return min_value;                                                                      \
+        }                                                                                          \
+                                                                                                   \
+        if (value > max_value) {                                                                   \
+            return max_value;                                                                      \
+        }                                                                                          \
+                                                                                                   \
+        return value;                                                                              \
+    }
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -412,75 +428,67 @@ typedef struct {
     size_t bit_hint_len;
 } pngx_quant_support_t;
 
+PNGX_DEFINE_CLAMP(int32_t)
+PNGX_DEFINE_CLAMP(uint32_t)
+PNGX_DEFINE_CLAMP(uint16_t)
+PNGX_DEFINE_CLAMP(uint8_t)
+PNGX_DEFINE_CLAMP(float)
+
 /* from pngx_bridge rust library */
-pngx_bridge_result_t pngx_bridge_optimize_lossless(const uint8_t *input_data, size_t input_size,
-                                                   uint8_t **output_data, size_t *output_size,
-                                                   const pngx_bridge_lossless_options_t *options);
-pngx_bridge_quant_status_t pngx_bridge_quantize(const cpres_rgba_color_t *pixels,
-                                                size_t pixel_count, uint32_t width, uint32_t height,
-                                                const pngx_bridge_quant_params_t *params,
-                                                pngx_bridge_quant_output_t *output);
-void pngx_bridge_free(uint8_t *ptr);
-uint32_t pngx_bridge_oxipng_version(void);
-uint32_t pngx_bridge_libimagequant_version(void);
-const char *pngx_bridge_rust_version_string(void);
-bool pngx_bridge_init_threads(int num_threads);
+extern pngx_bridge_result_t
+pngx_bridge_optimize_lossless(const uint8_t *input_data, size_t input_size, uint8_t **output_data,
+                              size_t *output_size, const pngx_bridge_lossless_options_t *options);
+extern pngx_bridge_quant_status_t pngx_bridge_quantize(const cpres_rgba_color_t *pixels,
+                                                       size_t pixel_count, uint32_t width,
+                                                       uint32_t height,
+                                                       const pngx_bridge_quant_params_t *params,
+                                                       pngx_bridge_quant_output_t *output);
+extern void pngx_bridge_free(uint8_t *ptr);
+extern uint32_t pngx_bridge_oxipng_version(void);
+extern uint32_t pngx_bridge_libimagequant_version(void);
+extern const char *pngx_bridge_rust_version_string(void);
+extern bool pngx_bridge_init_threads(int num_threads);
 
-#define PNGX_DEFINE_CLAMP(type)                                                                    \
-    static inline type clamp_##type(type value, type min_value, type max_value)                    \
-    {                                                                                              \
-        assert(min_value <= max_value);                                                            \
-                                                                                                   \
-        if (value < min_value) {                                                                   \
-            return min_value;                                                                      \
-        }                                                                                          \
-                                                                                                   \
-        if (value > max_value) {                                                                   \
-            return max_value;                                                                      \
-        }                                                                                          \
-                                                                                                   \
-        return value;                                                                              \
-    }
-
-PNGX_DEFINE_CLAMP(int32_t);
-PNGX_DEFINE_CLAMP(uint32_t);
-PNGX_DEFINE_CLAMP(uint16_t);
-PNGX_DEFINE_CLAMP(uint8_t);
-PNGX_DEFINE_CLAMP(float);
-
-bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts,
-                              uint8_t **out_data, size_t *out_size, int *quant_quality);
-bool pngx_palette256_prepare(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts,
-                             uint8_t **out_rgba, uint32_t *out_width, uint32_t *out_height,
-                             uint8_t **out_importance_map, size_t *out_importance_map_len,
-                             int32_t *out_speed, uint8_t *out_quality_min, uint8_t *out_quality_max,
-                             uint32_t *out_max_colors, float *out_dither_level,
-                             uint8_t **out_fixed_colors, size_t *out_fixed_colors_len);
-bool pngx_palette256_finalize(const uint8_t *indices, size_t indices_len,
-                              const cpres_rgba_color_t *palette, size_t palette_len,
-                              uint8_t **out_data, size_t *out_size);
-void pngx_palette256_cleanup(void);
-bool pngx_create_palette_png(const uint8_t *indices, size_t indices_len,
-                             const cpres_rgba_color_t *palette, size_t palette_len, uint32_t width,
-                             uint32_t height, uint8_t **out_data, size_t *out_size);
-bool create_rgba_png(const uint8_t *rgba, size_t pixel_count, uint32_t width, uint32_t height,
-                     uint8_t **out_data, size_t *out_size);
-bool pngx_quantize_limited4444(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts,
-                               uint8_t **out_data, size_t *out_size);
-bool pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t png_size,
-                                  const pngx_options_t *opts, uint32_t *resolved_target,
-                                  uint32_t *applied_colors, uint8_t **out_data, size_t *out_size);
-void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config);
-bool pngx_run_quantization(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts,
-                           uint8_t **out_data, size_t *out_size, int *quant_quality);
-bool pngx_run_lossless_optimization(const uint8_t *png_data, size_t png_size,
-                                    const pngx_options_t *opts, uint8_t **out_data,
+extern bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size,
+                                     const pngx_options_t *opts, uint8_t **out_data,
+                                     size_t *out_size, int *quant_quality);
+extern bool pngx_palette256_prepare(const uint8_t *png_data, size_t png_size,
+                                    const pngx_options_t *opts, uint8_t **out_rgba,
+                                    uint32_t *out_width, uint32_t *out_height,
+                                    uint8_t **out_importance_map, size_t *out_importance_map_len,
+                                    int32_t *out_speed, uint8_t *out_quality_min,
+                                    uint8_t *out_quality_max, uint32_t *out_max_colors,
+                                    float *out_dither_level, uint8_t **out_fixed_colors,
+                                    size_t *out_fixed_colors_len);
+extern bool pngx_palette256_finalize(const uint8_t *indices, size_t indices_len,
+                                     const cpres_rgba_color_t *palette, size_t palette_len,
+                                     uint8_t **out_data, size_t *out_size);
+extern void pngx_palette256_cleanup(void);
+extern bool pngx_create_palette_png(const uint8_t *indices, size_t indices_len,
+                                    const cpres_rgba_color_t *palette, size_t palette_len,
+                                    uint32_t width, uint32_t height, uint8_t **out_data,
                                     size_t *out_size);
-bool pngx_should_attempt_quantization(const pngx_options_t *opts);
-bool pngx_quantization_better(size_t baseline_size, size_t candidate_size);
+extern bool create_rgba_png(const uint8_t *rgba, size_t pixel_count, uint32_t width,
+                            uint32_t height, uint8_t **out_data, size_t *out_size);
+extern bool pngx_quantize_limited4444(const uint8_t *png_data, size_t png_size,
+                                      const pngx_options_t *opts, uint8_t **out_data,
+                                      size_t *out_size);
+extern bool pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t png_size,
+                                         const pngx_options_t *opts, uint32_t *resolved_target,
+                                         uint32_t *applied_colors, uint8_t **out_data,
+                                         size_t *out_size);
+extern void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config);
+extern bool pngx_run_quantization(const uint8_t *png_data, size_t png_size,
+                                  const pngx_options_t *opts, uint8_t **out_data, size_t *out_size,
+                                  int *quant_quality);
+extern bool pngx_run_lossless_optimization(const uint8_t *png_data, size_t png_size,
+                                           const pngx_options_t *opts, uint8_t **out_data,
+                                           size_t *out_size);
+extern bool pngx_should_attempt_quantization(const pngx_options_t *opts);
+extern bool pngx_quantization_better(size_t baseline_size, size_t candidate_size);
 
-int pngx_get_last_error(void);
-void pngx_set_last_error(int error_code);
+extern int pngx_get_last_error(void);
+extern void pngx_set_last_error(int error_code);
 
 #ifdef __cplusplus
 }

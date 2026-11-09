@@ -94,10 +94,10 @@ void test_pngx_limited_rgba4444_auto_dither_estimation(void)
 
 void test_pngx_limited_rgba4444_bitdepth_reduction(void)
 {
-    size_t png_size = 0, pngx_size = 0;
-    uint8_t *png_data = NULL, *pngx_data = NULL, *rgba = NULL;
     png_uint_32 width = 0, height = 0;
     cpres_error_t error = CPRES_OK;
+    uint8_t *png_data = NULL, *pngx_data = NULL, *rgba = NULL;
+    size_t png_size = 0, pngx_size = 0;
 
     png_data = load_test_asset_png("128x128.png", &png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "128x128.png not found for Limited RGBA4444 test");
@@ -127,11 +127,11 @@ void test_pngx_limited_rgba4444_bitdepth_reduction(void)
 
 void test_pngx_limited_rgba4444_color_usage_limits(void)
 {
-    size_t png_size = 0, pngx_size = 0, unique_colors = 0;
-    uint8_t *png_data = NULL, *pngx_data = NULL, *rgba = NULL;
     png_uint_32 width = 0, height = 0;
-    bool quant_success = false, counted = false;
     cpres_error_t error = CPRES_OK;
+    uint8_t *png_data = NULL, *pngx_data = NULL, *rgba = NULL;
+    size_t png_size = 0, pngx_size = 0, unique_colors = 0;
+    bool quant_success = false, counted = false;
 
     png_data = load_test_asset_png("128x128.png", &png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "128x128.png not found");
@@ -163,9 +163,9 @@ void test_pngx_limited_rgba4444_color_usage_limits(void)
 
 void test_pngx_limited_rgba4444_with_rgba64_png(void)
 {
-    size_t png_size = 0, pngx_size = 0;
-    uint8_t *png_data = NULL, *pngx_data = NULL;
     cpres_error_t error = CPRES_OK;
+    uint8_t *png_data = NULL, *pngx_data = NULL;
+    size_t png_size = 0, pngx_size = 0;
 
     png_data = load_test_asset_png("16bit.png", &png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "16bit.png not found for Limited RGBA4444 RGBA64 test");

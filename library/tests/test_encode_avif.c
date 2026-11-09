@@ -37,10 +37,10 @@ void tearDown(void)
 
 void test_avif_encode_rgba_with_zero_dimensions(void)
 {
-    uint8_t pixel[4] = {0, 0, 0, 0}, *out_data = NULL;
-    size_t out_size = 0;
     cpres_config_t cfg;
     cpres_error_t error = CPRES_OK;
+    uint8_t pixel[4] = {0, 0, 0, 0}, *out_data = NULL;
+    size_t out_size = 0;
 
     cpres_config_init_defaults(&cfg);
 
@@ -55,8 +55,8 @@ void test_avif_encode_rgba_with_zero_dimensions(void)
 void test_avif_file_lossless_mode(void)
 {
     FILE *fp = NULL;
-    char input_path[512], output_path[512];
     cpres_error_t error = CPRES_OK;
+    char input_path[512], output_path[512];
 
     snprintf(input_path, sizeof(input_path), "%s/example.png", COLOPRESSO_TEST_ASSETS_DIR);
     snprintf(output_path, sizeof(output_path), "example_avif_lossless.avif");
@@ -76,9 +76,9 @@ void test_avif_file_lossless_mode(void)
 void test_avif_file_quality_variations(void)
 {
     FILE *fp = NULL;
-    char input_path[512], output_low[512], output_high[512];
-    int32_t size_low = 0, size_high = 0;
     cpres_error_t error = CPRES_OK;
+    int32_t size_low = 0, size_high = 0;
+    char input_path[512], output_low[512], output_high[512];
 
     snprintf(input_path, sizeof(input_path), "%s/example.png", COLOPRESSO_TEST_ASSETS_DIR);
     snprintf(output_low, sizeof(output_low), "example_avif_quality_low.avif");
@@ -122,8 +122,8 @@ void test_avif_file_with_nonexistent_input(void)
 
 void test_avif_file_with_null_config(void)
 {
-    char input_path[512];
     cpres_error_t error = CPRES_OK;
+    char input_path[512];
 
     snprintf(input_path, sizeof(input_path), "%s/example.png", COLOPRESSO_TEST_ASSETS_DIR);
     error = cpres_encode_avif_file(input_path, "output.avif", NULL);
@@ -142,8 +142,8 @@ void test_avif_file_with_null_input_path(void)
 
 void test_avif_file_with_null_output_path(void)
 {
-    char input_path[512];
     cpres_error_t error = CPRES_OK;
+    char input_path[512];
 
     snprintf(input_path, sizeof(input_path), "%s/example.png", COLOPRESSO_TEST_ASSETS_DIR);
     error = cpres_encode_avif_file(input_path, NULL, &g_config);
@@ -154,8 +154,8 @@ void test_avif_file_with_null_output_path(void)
 void test_avif_file_with_valid_png(void)
 {
     FILE *fp = NULL;
-    char input_path[512], output_path[512];
     cpres_error_t error = CPRES_OK;
+    char input_path[512], output_path[512];
 
     snprintf(input_path, sizeof(input_path), "%s/example.png", COLOPRESSO_TEST_ASSETS_DIR);
     snprintf(output_path, sizeof(output_path), "example_avif.avif");
@@ -178,8 +178,8 @@ void test_avif_file_with_valid_png(void)
 void test_avif_file_with_rgba64_png(void)
 {
     FILE *fp = NULL;
-    char input_path[512], output_path[512];
     cpres_error_t error = CPRES_OK;
+    char input_path[512], output_path[512];
 
     if (!format_test_asset_path(input_path, sizeof(input_path), "16bit.png")) {
         TEST_FAIL_MESSAGE("failed to format RGBA64 AVIF input path");
@@ -229,10 +229,10 @@ void test_avif_last_error(void)
 void test_avif_memory_alpha_quality_variations(void)
 {
     const uint8_t *png_data = NULL;
-    uint8_t *avif_alpha_low = NULL, *avif_alpha_high = NULL;
-    size_t png_size = 0, size_low = 0, size_high = 0;
     cpres_error_t error = CPRES_OK;
+    uint8_t *avif_alpha_low = NULL, *avif_alpha_high = NULL;
     int32_t q_low = 0, q_high = 0;
+    size_t png_size = 0, size_low = 0, size_high = 0;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data,
@@ -260,9 +260,9 @@ void test_avif_memory_alpha_quality_variations(void)
 void test_avif_memory_clamps_extreme_values(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *avif_data = NULL;
     size_t png_size = 0, avif_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for AVIF clamp test");
@@ -291,9 +291,9 @@ void test_avif_memory_clamps_extreme_values(void)
 void test_avif_memory_lossless_mode(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *avif_data = NULL;
     size_t png_size = 0, avif_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for AVIF lossless memory test");
@@ -312,9 +312,9 @@ void test_avif_memory_lossless_mode(void)
 void test_avif_memory_output_not_smaller_error(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *avif_data = NULL;
     size_t png_size = 0, avif_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = test_get_tiny_png(&png_size);
     TEST_ASSERT_NOT_NULL(png_data);
@@ -335,9 +335,9 @@ void test_avif_memory_output_not_smaller_error(void)
 void test_avif_memory_quality_variations(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *avif_low = NULL, *avif_high = NULL;
     size_t png_size = 0, size_low = 0, size_high = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for AVIF quality variations");
@@ -360,9 +360,9 @@ void test_avif_memory_quality_variations(void)
 void test_avif_memory_speed_variations(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *avif_slow = NULL, *avif_fast = NULL;
     size_t png_size = 0, size_slow = 0, size_fast = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for AVIF speed variations");
@@ -384,9 +384,9 @@ void test_avif_memory_speed_variations(void)
 
 void test_avif_memory_with_null_config(void)
 {
+    cpres_error_t error = CPRES_OK;
     uint8_t png_data[10], *avif_data = NULL;
     size_t avif_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     error = cpres_encode_avif_memory(png_data, sizeof(png_data), &avif_data, &avif_size, NULL);
 
@@ -395,9 +395,9 @@ void test_avif_memory_with_null_config(void)
 
 void test_avif_memory_with_null_data_ptr(void)
 {
+    cpres_error_t error = CPRES_OK;
     uint8_t png_data[10];
     size_t avif_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     error = cpres_encode_avif_memory(png_data, sizeof(png_data), NULL, &avif_size, &g_config);
 
@@ -406,9 +406,9 @@ void test_avif_memory_with_null_data_ptr(void)
 
 void test_avif_memory_with_null_png_data(void)
 {
+    cpres_error_t error = CPRES_OK;
     uint8_t *avif_data = NULL;
     size_t avif_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     error = cpres_encode_avif_memory(NULL, 100, &avif_data, &avif_size, &g_config);
 
@@ -417,8 +417,8 @@ void test_avif_memory_with_null_png_data(void)
 
 void test_avif_memory_with_null_size_ptr(void)
 {
-    uint8_t png_data[10], *avif_data = NULL;
     cpres_error_t error = CPRES_OK;
+    uint8_t png_data[10], *avif_data = NULL;
 
     error = cpres_encode_avif_memory(png_data, sizeof(png_data), &avif_data, NULL, &g_config);
 
@@ -427,9 +427,9 @@ void test_avif_memory_with_null_size_ptr(void)
 
 void test_avif_memory_with_oversized_input(void)
 {
+    cpres_error_t error = CPRES_OK;
     uint8_t png_data[10], *avif_data = NULL;
     size_t avif_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     error = cpres_encode_avif_memory(png_data, (size_t)1024 * 1024 * 512 + 1, &avif_data,
                                      &avif_size, &g_config);
@@ -440,9 +440,9 @@ void test_avif_memory_with_oversized_input(void)
 void test_avif_memory_with_valid_png(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *avif_data = NULL;
     size_t png_size = 0, avif_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for AVIF memory test");
@@ -459,9 +459,9 @@ void test_avif_memory_with_valid_png(void)
 
 void test_avif_memory_with_rgba64_png(void)
 {
+    cpres_error_t error = CPRES_OK;
     uint8_t *png_data = NULL, *avif_data = NULL;
     size_t png_size = 0, avif_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = load_test_asset_png("16bit.png", &png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "16bit.png not found for AVIF memory test");
@@ -478,9 +478,9 @@ void test_avif_memory_with_rgba64_png(void)
 
 void test_avif_memory_with_zero_size(void)
 {
+    cpres_error_t error = CPRES_OK;
     uint8_t png_data[10], *avif_data = NULL;
     size_t avif_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     error = cpres_encode_avif_memory(png_data, 0, &avif_data, &avif_size, &g_config);
 
@@ -489,9 +489,9 @@ void test_avif_memory_with_zero_size(void)
 
 void test_avif_null_params(void)
 {
+    cpres_config_t cfg;
     uint8_t dummy[4] = {0, 0, 0, 0}, *out_data = NULL;
     size_t out_size = 0;
-    cpres_config_t cfg;
 
     cpres_config_init_defaults(&cfg);
 

@@ -37,9 +37,9 @@ void tearDown(void)
 void test_pngx_memory_lossy_dither_variations(void)
 {
     const uint8_t *png_data = NULL;
-    size_t png_size = 0, size_out = 0;
-    uint8_t *pngx_out = NULL;
     cpres_error_t error = CPRES_OK;
+    uint8_t *pngx_out = NULL;
+    size_t png_size = 0, size_out = 0;
 
     png_data = get_cached_tiny_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for PNGX dither variations");
@@ -57,9 +57,9 @@ void test_pngx_memory_lossy_dither_variations(void)
 void test_pngx_memory_lossy_max_colors_variations(void)
 {
     const uint8_t *png_data = NULL;
-    size_t png_size = 0, size_out = 0;
-    uint8_t *pngx_out = NULL;
     cpres_error_t error = CPRES_OK;
+    uint8_t *pngx_out = NULL;
+    size_t png_size = 0, size_out = 0;
 
     png_data = get_cached_tiny_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for PNGX max colors variations");
@@ -77,9 +77,9 @@ void test_pngx_memory_lossy_max_colors_variations(void)
 void test_pngx_memory_lossy_mode(void)
 {
     const uint8_t *png_data = NULL;
-    size_t png_size = 0, pngx_size = 0;
-    uint8_t *pngx_data = NULL;
     cpres_error_t error = CPRES_OK;
+    uint8_t *pngx_data = NULL;
+    size_t png_size = 0, pngx_size = 0;
 
     png_data = get_cached_tiny_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for PNGX lossy memory test");
@@ -102,9 +102,9 @@ void test_pngx_memory_lossy_mode(void)
 void test_pngx_memory_lossy_quality_swap(void)
 {
     const uint8_t *png_data = NULL;
-    size_t png_size = 0, pngx_size = 0;
-    uint8_t *pngx_out = NULL;
     cpres_error_t error = CPRES_OK;
+    uint8_t *pngx_out = NULL;
+    size_t png_size = 0, pngx_size = 0;
 
     png_data = get_cached_tiny_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for PNGX quality swap test");
@@ -125,9 +125,9 @@ void test_pngx_memory_lossy_quality_swap(void)
 void test_pngx_memory_lossy_quality_variations(void)
 {
     const uint8_t *png_data = NULL;
-    size_t png_size = 0, size_out = 0;
-    uint8_t *pngx_out = NULL;
     cpres_error_t error = CPRES_OK;
+    uint8_t *pngx_out = NULL;
+    size_t png_size = 0, size_out = 0;
 
     png_data = get_cached_tiny_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data,
@@ -147,9 +147,9 @@ void test_pngx_memory_lossy_quality_variations(void)
 void test_pngx_memory_lossy_speed_variations(void)
 {
     const uint8_t *png_data = NULL;
-    size_t png_size = 0, size_out = 0;
-    uint8_t *pngx_out = NULL;
     cpres_error_t error = CPRES_OK;
+    uint8_t *pngx_out = NULL;
+    size_t png_size = 0, size_out = 0;
 
     png_data = get_cached_tiny_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for PNGX speed variations");
@@ -167,9 +167,9 @@ void test_pngx_memory_lossy_speed_variations(void)
 void test_pngx_memory_optimization_level_variations(void)
 {
     const uint8_t *png_data = NULL;
-    size_t png_size = 0, size_out = 0;
-    uint8_t *pngx_out = NULL;
     cpres_error_t error = CPRES_OK;
+    uint8_t *pngx_out = NULL;
+    size_t png_size = 0, size_out = 0;
 
     png_data = get_cached_tiny_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data,
@@ -187,9 +187,9 @@ void test_pngx_memory_optimization_level_variations(void)
 void test_pngx_memory_output_not_smaller_error(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *pngx_data = NULL;
     size_t png_size = 0, pngx_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = test_get_tiny_png(&png_size);
     TEST_ASSERT_NOT_NULL(png_data);
@@ -208,9 +208,9 @@ void test_pngx_memory_output_not_smaller_error(void)
 
 void test_pngx_memory_with_null_config(void)
 {
+    cpres_error_t error = CPRES_OK;
     uint8_t png_data[10], *pngx_data = NULL;
     size_t pngx_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     error = cpres_encode_pngx_memory(png_data, sizeof(png_data), &pngx_data, &pngx_size, NULL);
 
@@ -219,9 +219,9 @@ void test_pngx_memory_with_null_config(void)
 
 void test_pngx_memory_with_null_data_ptr(void)
 {
+    cpres_error_t error = CPRES_OK;
     uint8_t png_data[10];
     size_t pngx_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     error = cpres_encode_pngx_memory(png_data, sizeof(png_data), NULL, &pngx_size, &g_config);
 
@@ -230,9 +230,9 @@ void test_pngx_memory_with_null_data_ptr(void)
 
 void test_pngx_memory_with_null_png_data(void)
 {
+    cpres_error_t error = CPRES_OK;
     uint8_t *pngx_data = NULL;
     size_t pngx_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     error = cpres_encode_pngx_memory(NULL, 100, &pngx_data, &pngx_size, &g_config);
 
@@ -241,8 +241,8 @@ void test_pngx_memory_with_null_png_data(void)
 
 void test_pngx_memory_with_null_size_ptr(void)
 {
-    uint8_t png_data[10], *pngx_data = NULL;
     cpres_error_t error = CPRES_OK;
+    uint8_t png_data[10], *pngx_data = NULL;
 
     error = cpres_encode_pngx_memory(png_data, sizeof(png_data), &pngx_data, NULL, &g_config);
 
@@ -252,9 +252,9 @@ void test_pngx_memory_with_null_size_ptr(void)
 void test_pngx_memory_with_threads_setting(void)
 {
     const uint8_t *png_data = NULL;
-    size_t png_size = 0, pngx_size = 0;
-    uint8_t *pngx_out = NULL;
     cpres_error_t error = CPRES_OK;
+    uint8_t *pngx_out = NULL;
+    size_t png_size = 0, pngx_size = 0;
 
     png_data = get_cached_tiny_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for PNGX threads test");
@@ -273,9 +273,9 @@ void test_pngx_memory_with_threads_setting(void)
 void test_pngx_memory_with_valid_png(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *pngx_data = NULL;
     size_t png_size = 0, pngx_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = get_cached_tiny_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for PNGX memory test");
@@ -292,9 +292,9 @@ void test_pngx_memory_with_valid_png(void)
 
 void test_pngx_memory_with_rgba64_png(void)
 {
+    cpres_error_t error = CPRES_OK;
     uint8_t *png_data = NULL, *pngx_data = NULL;
     size_t png_size = 0, pngx_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = load_test_asset_png("16bit.png", &png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "16bit.png not found for PNGX memory test");
@@ -311,9 +311,9 @@ void test_pngx_memory_with_rgba64_png(void)
 
 void test_pngx_memory_with_zero_size(void)
 {
+    cpres_error_t error = CPRES_OK;
     uint8_t png_data[10], *pngx_data = NULL;
     size_t pngx_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     error = cpres_encode_pngx_memory(png_data, 0, &pngx_data, &pngx_size, &g_config);
 

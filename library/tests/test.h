@@ -24,6 +24,18 @@
 #define COLOPRESSO_TEST_ASSETS_DIR "./assets"
 #endif
 
+typedef struct {
+    colopresso_log_level_t last_level;
+    char message[2048];
+    bool called;
+} test_log_capture_t;
+
+static uint8_t *g_test_cached_example_png_data = NULL;
+static uint8_t *g_test_cached_tiny_example_png_data = NULL;
+static size_t g_test_cached_example_png_size = 0;
+static size_t g_test_cached_tiny_example_png_size = 0;
+static test_log_capture_t *g_test_log_capture_target = NULL;
+
 static inline bool format_test_asset_path(char *buffer, size_t buffer_size, const char *name)
 {
     int written = 0;
@@ -40,19 +52,7 @@ static inline bool format_test_asset_path(char *buffer, size_t buffer_size, cons
     return (size_t)written < buffer_size;
 }
 
-typedef struct {
-    colopresso_log_level_t last_level;
-    char message[2048];
-    bool called;
-} test_log_capture_t;
-
-static uint8_t *g_test_cached_example_png_data = NULL;
-static uint8_t *g_test_cached_tiny_example_png_data = NULL;
-static size_t g_test_cached_example_png_size = 0;
-static size_t g_test_cached_tiny_example_png_size = 0;
-static test_log_capture_t *g_test_log_capture_target = NULL;
-
-static void common_log_capture_callback(colopresso_log_level_t level, const char *message)
+static inline void common_log_capture_callback(colopresso_log_level_t level, const char *message)
 {
     if (!g_test_log_capture_target) {
         return;
@@ -74,9 +74,9 @@ static void common_log_capture_callback(colopresso_log_level_t level, const char
 static inline bool bits_required_for_channel(const uint8_t *rgba, size_t pixel_count,
                                              uint8_t channel, uint8_t *out_bits)
 {
-    bool used[256];
-    size_t i, unique;
     uint32_t mask, value;
+    size_t i, unique;
+    bool used[256];
 
     if (!rgba || pixel_count == 0 || channel > 3 || !out_bits) {
         return false;
@@ -159,10 +159,10 @@ static inline bool count_unique_rgba_colors(const uint8_t *rgba, size_t pixel_co
 
 static inline uint8_t *load_test_asset_png(const char *name, size_t *out_size)
 {
-    char path[512];
     FILE *fp = NULL;
     uint8_t *buffer = NULL;
     long file_size = 0;
+    char path[512];
 
     if (out_size) {
         *out_size = 0;
@@ -267,8 +267,8 @@ static inline const uint8_t *test_get_tiny_png(size_t *out_size)
 static inline const uint8_t *get_cached_tiny_example_png(size_t *out_size)
 {
     FILE *fp = NULL;
-    char path[512];
     long fsz = 0;
+    char path[512];
 
     if (out_size) {
         *out_size = 0;
@@ -332,8 +332,8 @@ static inline const uint8_t *get_cached_tiny_example_png(size_t *out_size)
 static inline const uint8_t *get_cached_example_png(size_t *out_size)
 {
     FILE *fp = NULL;
-    char path[512];
     long fsz = 0;
+    char path[512];
 
     if (out_size) {
         *out_size = 0;

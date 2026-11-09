@@ -39,9 +39,9 @@ void tearDown(void)
 
 void test_pngx_handles_rgba64_png_input(void)
 {
+    cpres_error_t error = CPRES_OK;
     uint8_t *png_data = NULL, *pngx_data = NULL;
     size_t png_size = 0, pngx_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = load_test_asset_png("16bit.png", &png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "16bit.png not found for PNGX misc test");
@@ -116,8 +116,8 @@ void test_pngx_estimate_bitdepth_dither_level_uniform_black(void)
 
 void test_pngx_estimate_bitdepth_dither_level_gradient(void)
 {
-    uint8_t rgba[256];
     uint32_t i;
+    uint8_t rgba[256];
     float dither;
 
     for (i = 0; i < 64; ++i) {

@@ -21,10 +21,6 @@
 #include "../src/internal/log.h"
 #include "test.h"
 
-#ifndef COLOPRESSO_TEST_ASSETS_DIR
-#define COLOPRESSO_TEST_ASSETS_DIR "./assets"
-#endif
-
 void setUp(void)
 {
     cpres_set_log_callback(NULL);
@@ -56,9 +52,9 @@ void test_log_callback_and_truncate(void)
 void test_log_set_callback_multiple_times(void)
 {
     test_log_capture_t capture;
+    cpres_config_t config;
     uint8_t *webp_data = NULL, invalid_data[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07};
     size_t webp_size = 0;
-    cpres_config_t config;
 
     test_log_capture_begin(&capture);
     cpres_set_log_callback(common_log_capture_callback);
@@ -72,9 +68,9 @@ void test_log_set_callback_multiple_times(void)
 void test_log_set_callback_with_null(void)
 {
     test_log_capture_t capture;
+    cpres_config_t config;
     uint8_t *webp_data = NULL, invalid_data[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07};
     size_t webp_size = 0;
-    cpres_config_t config;
 
     test_log_capture_begin(&capture);
     test_log_capture_end();
@@ -87,9 +83,9 @@ void test_log_set_callback_with_null(void)
 void test_log_set_callback_with_valid_callback(void)
 {
     test_log_capture_t capture;
+    cpres_config_t config;
     uint8_t *webp_data = NULL, invalid_data[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07};
     size_t webp_size = 0;
-    cpres_config_t config;
 
     test_log_capture_begin(&capture);
     cpres_config_init_defaults(&config);

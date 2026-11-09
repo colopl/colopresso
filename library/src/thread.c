@@ -38,26 +38,25 @@ static void *thread_worker(void *arg)
     return NULL;
 }
 
-uint32_t cpres_get_default_thread_count(void)
+extern uint32_t cpres_get_default_thread_count(void)
 {
-    uint32_t cpu_count = colopresso_get_cpu_count();
-    uint32_t half = (uint32_t)(cpu_count / 2);
+    uint32_t cpu_count = colopresso_get_cpu_count(), half = (uint32_t)(cpu_count / 2);
 
     return half > 0 ? half : 1;
 }
 
-uint32_t cpres_get_max_thread_count(void)
+extern uint32_t cpres_get_max_thread_count(void)
 {
     return colopresso_get_cpu_count();
 }
 
-bool cpres_is_threads_enabled(void)
+extern bool cpres_is_threads_enabled(void)
 {
     return true;
 }
 
-bool colopresso_parallel_for(uint32_t use_threads, uint32_t total_items, parallel_func_t func,
-                             void *context)
+extern bool colopresso_parallel_for(uint32_t use_threads, uint32_t total_items,
+                                    parallel_func_t func, void *context)
 {
     colopresso_thread_t *threads;
     thread_work_t *works;
@@ -137,21 +136,23 @@ bool colopresso_parallel_for(uint32_t use_threads, uint32_t total_items, paralle
 
 #else
 
-uint32_t cpres_get_default_thread_count(void)
+extern uint32_t cpres_get_default_thread_count(void)
 {
     return 1;
 }
-uint32_t cpres_get_max_thread_count(void)
+
+extern uint32_t cpres_get_max_thread_count(void)
 {
     return 1;
 }
-bool cpres_is_threads_enabled(void)
+
+extern bool cpres_is_threads_enabled(void)
 {
     return false;
 }
 
-bool colopresso_parallel_for(uint32_t use_threads, uint32_t total_items, parallel_func_t func,
-                             void *context)
+extern bool colopresso_parallel_for(uint32_t use_threads, uint32_t total_items,
+                                    parallel_func_t func, void *context)
 {
     if (!func || total_items == 0) {
         return false;

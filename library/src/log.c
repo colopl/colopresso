@@ -30,16 +30,16 @@
 
 static colopresso_log_callback_t g_log_callback = NULL;
 
-void colopresso_log(colopresso_log_level_t level, const char *format, ...)
+extern void colopresso_log(colopresso_log_level_t level, const char *format, ...)
 {
     const char truncated[] = "... [truncated]";
-    char buffer[2048];
-    int result;
     va_list args;
-    size_t pos;
+    int result;
 #if defined(__EMSCRIPTEN__) && defined(COLOPRESSO_ELECTRON_APP)
     int flags;
 #endif
+    size_t pos;
+    char buffer[2048];
 
     if (g_log_callback) {
         va_start(args, format);
@@ -91,7 +91,7 @@ void colopresso_log(colopresso_log_level_t level, const char *format, ...)
 #endif
 }
 
-void colopresso_log_reset(void)
+extern void colopresso_log_reset(void)
 {
     g_log_callback = NULL;
 }

@@ -20,12 +20,16 @@
 #include <colopresso/portable.h>
 
 #ifdef _WIN32
-
 #include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#else
+#include <stdlib.h>
+#endif
+
+#ifdef _WIN32
 
 char *optarg = NULL;
 int optind = 1;
@@ -37,9 +41,7 @@ static int nextchar = 0;
 static DWORD WINAPI cpres_thread_wrapper(LPVOID arg)
 {
     cpres_pthread_wrapper_ctx_t *ctx = (cpres_pthread_wrapper_ctx_t *)arg;
-
-    void *(*start_routine)(void *);
-    void *routine_arg;
+    void *routine_arg, *(*start_routine)(void *);
 
     if (!ctx) {
         return 1;
@@ -56,8 +58,30 @@ static DWORD WINAPI cpres_thread_wrapper(LPVOID arg)
     return 0;
 }
 
-int colopresso_thread_create(colopresso_thread_t *thread, const void *attr,
-                             void *(*start_routine)(void *), void *arg)
+static const struct option *match_long_option(const char *name, size_t name_len,
+                                              const struct option *longopts, int *index_out)
+{
+    int i;
+
+    if (!longopts) {
+        return NULL;
+    }
+
+    for (i = 0; longopts[i].name != NULL; i++) {
+        if (strncmp(longopts[i].name, name, name_len) == 0 && longopts[i].name[name_len] == '\0') {
+            if (index_out) {
+                *index_out = i;
+            }
+
+            return &longopts[i];
+        }
+    }
+
+    return NULL;
+}
+
+extern int colopresso_thread_create(colopresso_thread_t *thread, const void *attr,
+                                    void *(*start_routine)(void *), void *arg)
 {
     cpres_pthread_wrapper_ctx_t *ctx;
     HANDLE handle;
@@ -88,7 +112,7 @@ int colopresso_thread_create(colopresso_thread_t *thread, const void *attr,
     return 0;
 }
 
-int colopresso_thread_join(colopresso_thread_t thread, void **retval)
+extern int colopresso_thread_join(colopresso_thread_t thread, void **retval)
 {
     DWORD result;
 
@@ -108,7 +132,7 @@ int colopresso_thread_join(colopresso_thread_t thread, void **retval)
     return 0;
 }
 
-int colopresso_mutex_init(colopresso_mutex_t *mutex, const void *attr)
+extern int colopresso_mutex_init(colopresso_mutex_t *mutex, const void *attr)
 {
     (void)attr;
 
@@ -121,7 +145,7 @@ int colopresso_mutex_init(colopresso_mutex_t *mutex, const void *attr)
     return 0;
 }
 
-int colopresso_mutex_lock(colopresso_mutex_t *mutex)
+extern int colopresso_mutex_lock(colopresso_mutex_t *mutex)
 {
     if (!mutex) {
         return EINVAL;
@@ -132,7 +156,7 @@ int colopresso_mutex_lock(colopresso_mutex_t *mutex)
     return 0;
 }
 
-int colopresso_mutex_unlock(colopresso_mutex_t *mutex)
+extern int colopresso_mutex_unlock(colopresso_mutex_t *mutex)
 {
     if (!mutex) {
         return EINVAL;
@@ -143,7 +167,7 @@ int colopresso_mutex_unlock(colopresso_mutex_t *mutex)
     return 0;
 }
 
-int colopresso_mutex_destroy(colopresso_mutex_t *mutex)
+extern int colopresso_mutex_destroy(colopresso_mutex_t *mutex)
 {
     if (!mutex) {
         return EINVAL;
@@ -154,35 +178,13 @@ int colopresso_mutex_destroy(colopresso_mutex_t *mutex)
     return 0;
 }
 
-static const struct option *match_long_option(const char *name, size_t name_len,
-                                              const struct option *longopts, int *index_out)
-{
-    int i;
-
-    if (!longopts) {
-        return NULL;
-    }
-
-    for (i = 0; longopts[i].name != NULL; i++) {
-        if (strncmp(longopts[i].name, name, name_len) == 0 && longopts[i].name[name_len] == '\0') {
-            if (index_out) {
-                *index_out = i;
-            }
-
-            return &longopts[i];
-        }
-    }
-
-    return NULL;
-}
-
-int getopt_long(int argc, char *const argv[], const char *optstring, const struct option *longopts,
-                int *longindex)
+extern int getopt_long(int argc, char *const argv[], const char *optstring,
+                       const struct option *longopts, int *longindex)
 {
     const struct option *opt_entry;
     const char *arg, *name, *eq, *spec;
-    char opt;
     size_t name_len;
+    char opt;
 
     optarg = NULL;
 
@@ -305,7 +307,7 @@ int getopt_long(int argc, char *const argv[], const char *optstring, const struc
         }
 
         if (arg[nextchar] != '\0') {
-            optarg = &arg[nextchar];
+            optarg = (char *)&arg[nextchar];
             optind++;
             nextchar = 0;
 
@@ -343,7 +345,7 @@ int getopt_long(int argc, char *const argv[], const char *optstring, const struc
     return -1;
 }
 
-struct tm *gmtime_r(const time_t *timer, struct tm *buf)
+extern struct tm *gmtime_r(const time_t *timer, struct tm *buf)
 {
     struct tm *tmp;
 
@@ -361,17 +363,17 @@ struct tm *gmtime_r(const time_t *timer, struct tm *buf)
     return buf;
 }
 
-#else
-
-#include <stdlib.h>
-
 #endif
 
-uint32_t colopresso_get_cpu_count(void)
+extern uint32_t colopresso_get_cpu_count(void)
 {
 #ifdef _WIN32
     SYSTEM_INFO sysinfo;
+#else
+    long nprocs;
+#endif
 
+#ifdef _WIN32
     GetSystemInfo(&sysinfo);
     if (sysinfo.dwNumberOfProcessors == 0) {
         return 1;
@@ -379,8 +381,6 @@ uint32_t colopresso_get_cpu_count(void)
 
     return (int32_t)sysinfo.dwNumberOfProcessors;
 #else
-    long nprocs;
-
     nprocs = sysconf(_SC_NPROCESSORS_ONLN);
     if (nprocs <= 0) {
         return 1;
@@ -394,7 +394,7 @@ uint32_t colopresso_get_cpu_count(void)
 #endif
 }
 
-const char *colopresso_extract_extension(const char *path)
+extern const char *colopresso_extract_extension(const char *path)
 {
     const char *last_slash, *filename, *dot;
 #ifdef _WIN32
@@ -422,7 +422,7 @@ const char *colopresso_extract_extension(const char *path)
     return dot;
 }
 
-void colopresso_tm_set_gmt_offset(struct tm *tm)
+extern void colopresso_tm_set_gmt_offset(struct tm *tm)
 {
     if (!tm) {
         return;
@@ -434,7 +434,7 @@ void colopresso_tm_set_gmt_offset(struct tm *tm)
 }
 
 #if COLOPRESSO_WITH_FILE_OPS
-bool colopresso_fseeko(FILE *fp, uint64_t offset, int whence)
+extern bool colopresso_fseeko(FILE *fp, uint64_t offset, int whence)
 {
     if (!fp || offset > (uint64_t)INT64_MAX) {
         return false;
@@ -447,7 +447,7 @@ bool colopresso_fseeko(FILE *fp, uint64_t offset, int whence)
 #endif
 }
 
-bool colopresso_ftello(FILE *fp, uint64_t *position_out)
+extern bool colopresso_ftello(FILE *fp, uint64_t *position_out)
 {
     int64_t pos;
 

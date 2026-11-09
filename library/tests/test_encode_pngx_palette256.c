@@ -35,16 +35,16 @@ typedef struct {
 static cpres_config_t g_config;
 static const uint8_t g_sig[8] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
 
-static void png_flush_cb(png_structp png_ptr)
+static inline void png_flush_cb(png_structp png_ptr)
 {
     (void)png_ptr;
 }
 
-static void png_write_cb(png_structp png_ptr, png_bytep data, png_size_t length)
+static inline void png_write_cb(png_structp png_ptr, png_bytep data, png_size_t length)
 {
-    size_t required, new_capacity;
-    uint8_t *new_data;
     test_png_mem_buffer_t *buf;
+    uint8_t *new_data;
+    size_t required, new_capacity;
 
     buf = (test_png_mem_buffer_t *)png_get_io_ptr(png_ptr);
     if (!buf || !data || length == 0) {
@@ -87,10 +87,10 @@ static void png_write_cb(png_structp png_ptr, png_bytep data, png_size_t length)
 
 static inline int32_t parse_png_palette_count(const uint8_t *png, size_t size)
 {
-    size_t off = 8;
     uint32_t len = 0, clen = 0;
     uint8_t color_type = 0, *ctype = NULL;
     int32_t palette_entries = 0, saw_plte = 0, is_indexed = 0;
+    size_t off = 8;
 
     if (!png || size < 8) {
         return -1;
@@ -101,7 +101,8 @@ static inline int32_t parse_png_palette_count(const uint8_t *png, size_t size)
     }
 
     if (off + 25 <= size) {
-        len = (png[off] << 24) | (png[off + 1] << 16) | (png[off + 2] << 8) | png[off + 3];
+        len = ((uint32_t)png[off] << 24) | ((uint32_t)png[off + 1] << 16) |
+              ((uint32_t)png[off + 2] << 8) | (uint32_t)png[off + 3];
         if (len == 13 && memcmp(png + off + 4, "IHDR", 4) == 0) {
             color_type = png[off + 4 + 8 + 4];
             if (color_type == 3) {
@@ -111,7 +112,8 @@ static inline int32_t parse_png_palette_count(const uint8_t *png, size_t size)
     }
 
     while (off + 8 <= size) {
-        clen = (png[off] << 24) | (png[off + 1] << 16) | (png[off + 2] << 8) | (png[off + 3]);
+        clen = ((uint32_t)png[off] << 24) | ((uint32_t)png[off + 1] << 16) |
+               ((uint32_t)png[off + 2] << 8) | (uint32_t)png[off + 3];
         ctype = (uint8_t *)(png + off + 4);
         off += 8;
         if (off + clen + 4 > size) {
@@ -160,9 +162,9 @@ static inline bool create_png_rgba_memory(const uint8_t *rgba, uint32_t width, u
     png_structp png_ptr;
     png_infop info_ptr;
     png_bytep *row_pointers;
+    test_png_mem_buffer_t buf;
     uint32_t y;
     size_t rowbytes, base;
-    test_png_mem_buffer_t buf;
 
     if (out_png) {
         *out_png = NULL;
@@ -183,16 +185,28 @@ static inline bool create_png_rgba_memory(const uint8_t *rgba, uint32_t width, u
     rowbytes = (size_t)width * 4;
 
     memset(&buf, 0, sizeof(buf));
-    row_pointers = NULL;
+
+    row_pointers = (png_bytep *)calloc(height, sizeof(png_bytep));
+    if (!row_pointers) {
+        return false;
+    }
+
+    for (y = 0; y < height; ++y) {
+        base = (size_t)y * rowbytes;
+        row_pointers[y] = (png_bytep)(rgba + base);
+    }
 
     png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if (!png_ptr) {
+        free(row_pointers);
+
         return false;
     }
 
     info_ptr = png_create_info_struct(png_ptr);
     if (!info_ptr) {
         png_destroy_write_struct(&png_ptr, NULL);
+        free(row_pointers);
 
         return false;
     }
@@ -203,18 +217,6 @@ static inline bool create_png_rgba_memory(const uint8_t *rgba, uint32_t width, u
         free(row_pointers);
 
         return false;
-    }
-
-    row_pointers = (png_bytep *)calloc(height, sizeof(png_bytep));
-    if (!row_pointers) {
-        png_destroy_write_struct(&png_ptr, &info_ptr);
-
-        return false;
-    }
-
-    for (y = 0; y < height; ++y) {
-        base = (size_t)y * rowbytes;
-        row_pointers[y] = (png_bytep)(rgba + base);
     }
 
     png_set_write_fn(png_ptr, &buf, png_write_cb, png_flush_cb);
@@ -255,10 +257,10 @@ void tearDown(void)
 void test_pngx_palette256_color_count_verification(void)
 {
     const uint8_t *png_data = NULL;
-    uint8_t *pngx_data = NULL, bit_depth = 0, color_type = 0;
-    size_t png_size = 0, pngx_size = 0;
-    int max_colors = 128, palette_count = 0;
     cpres_error_t error = CPRES_OK;
+    uint8_t *pngx_data = NULL, bit_depth = 0, color_type = 0;
+    int max_colors = 128, palette_count = 0;
+    size_t png_size = 0, pngx_size = 0;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for palette256 color count test");
@@ -291,10 +293,10 @@ void test_pngx_palette256_color_count_verification(void)
 void test_pngx_palette256_lossy_parameter_clamp_and_palette_reduction(void)
 {
     const uint8_t *png_data = NULL;
+    cpres_error_t error = CPRES_OK;
     uint8_t *pngx_data = NULL;
     int32_t orig_palette = 0, opt_palette = 0;
     size_t png_size = 0, pngx_size = 0;
-    cpres_error_t error = CPRES_OK;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found for palette256 lossy clamp test");
@@ -326,16 +328,16 @@ void test_pngx_palette256_lossy_parameter_clamp_and_palette_reduction(void)
 void test_pngx_palette256_protected_colors(void)
 {
     const uint8_t *png_data = NULL;
-    bool found_plte = false, found_this_color = false;
-    char chunk_type[5] = {0}, msg[256] = {0};
+    png_uint_32 width = 0, height = 0;
+    cpres_error_t decode_error = CPRES_OK, error = CPRES_OK;
+    cpres_rgba_color_t protected_colors[16];
     uint32_t total_pixels = 0, pixel_index = 0, chunk_len = 0, num_palette_entries = 0, j = 0;
     uint8_t *pngx_data = NULL, *rgba_data = NULL, *palette = NULL, bit_depth = 0, color_type = 0,
             r = 0, g = 0, b = 0, i = 0;
     int32_t protected_colors_found = 0;
     size_t png_size = 0, pngx_size = 0, pixel_offset = 0, chunk_offset = 0;
-    png_uint_32 width = 0, height = 0;
-    cpres_error_t decode_error = CPRES_OK, error = CPRES_OK;
-    cpres_rgba_color_t protected_colors[16];
+    bool found_plte = false, found_this_color = false;
+    char chunk_type[5] = {0}, msg[256] = {0};
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL(png_data);
@@ -446,11 +448,11 @@ void test_pngx_palette256_protected_colors(void)
 
 void test_pngx_palette256_postprocess_smoothing_with_low_dither(void)
 {
+    cpres_error_t error;
     uint32_t width = 32, height = 32, x, y;
     uint8_t *rgba = NULL, *png_data = NULL, *pngx_data = NULL;
     size_t base, png_size = 0, pngx_size = 0;
     bool ok;
-    cpres_error_t error;
 
     rgba = (uint8_t *)malloc((size_t)width * (size_t)height * 4);
     TEST_ASSERT_NOT_NULL(rgba);
@@ -496,13 +498,13 @@ void test_pngx_palette256_postprocess_smoothing_with_low_dither(void)
 void test_pngx_palette256_postprocess_indices_executes_without_internal_tests(void)
 {
     png_uint_32 decoded_width = 0, decoded_height = 0;
-    uint32_t width = 64, height = 64, x, y, isolated_x = 10, isolated_y = 10;
-    uint8_t *rgba = NULL, *png_data = NULL, *out_png = NULL, *decoded = NULL;
-    size_t png_size = 0, out_size = 0, base, center, left, right, up, down;
-    bool ok, success;
-    int quant_quality = -1;
     pngx_options_t opts;
     cpres_error_t decode_error;
+    uint32_t width = 64, height = 64, x, y, isolated_x = 10, isolated_y = 10;
+    uint8_t *rgba = NULL, *png_data = NULL, *out_png = NULL, *decoded = NULL;
+    int quant_quality = -1;
+    size_t png_size = 0, out_size = 0, base, center, left, right, up, down;
+    bool ok, success;
 
     rgba = (uint8_t *)malloc((size_t)width * (size_t)height * 4);
     TEST_ASSERT_NOT_NULL(rgba);
@@ -604,14 +606,14 @@ void test_pngx_palette256_postprocess_indices_executes_without_internal_tests(vo
 void test_pngx_palette256_saliency_map_toggle_gates_importance_map(void)
 {
     const uint8_t *png_data = NULL;
+    pngx_options_t opts;
+    uint32_t width = 0, height = 0, max_colors = 0;
     uint8_t *rgba = NULL, *importance_map = NULL, *fixed_colors = NULL, quality_min = 0,
             quality_max = 0;
-    uint32_t width = 0, height = 0, max_colors = 0;
     int32_t speed = 0;
     size_t png_size = 0, importance_map_len = 0, fixed_colors_len = 0;
-    float dither_level = 0.0f;
     bool success;
-    pngx_options_t opts;
+    float dither_level = 0.0f;
 
     png_data = get_cached_example_png(&png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "example.png not found");
@@ -651,11 +653,11 @@ void test_pngx_palette256_saliency_map_toggle_gates_importance_map(void)
 
 void test_pngx_palette256_alpha_bleed_seedless_transparent_image(void)
 {
+    cpres_error_t error;
     uint32_t width = 64, height = 64;
     uint8_t *rgba = NULL, *png_data = NULL, *pngx_data = NULL;
     size_t png_size = 0, pngx_size = 0;
     bool ok;
-    cpres_error_t error;
 
     rgba = (uint8_t *)malloc((size_t)width * (size_t)height * 4);
     TEST_ASSERT_NOT_NULL(rgba);
@@ -686,10 +688,10 @@ void test_pngx_palette256_alpha_bleed_seedless_transparent_image(void)
 
 void test_pngx_palette256_alpha_bleed_applies_to_soft_pixels(void)
 {
+    cpres_error_t error;
     uint8_t rgba[2 * 4], *png_data = NULL, *pngx_data = NULL;
     size_t png_size = 0, pngx_size = 0;
     bool ok;
-    cpres_error_t error;
 
     rgba[0] = 255;
     rgba[1] = 0;
@@ -728,11 +730,11 @@ void test_pngx_palette256_alpha_bleed_applies_to_soft_pixels(void)
 
 void test_pngx_palette256_gradient_profile_prefer_uniform_path(void)
 {
+    cpres_error_t error;
     uint32_t width = 64, height = 64, x, y;
     uint8_t *rgba = NULL, *png_data = NULL, *pngx_data = NULL;
     size_t png_size = 0, pngx_size = 0, base;
     bool ok;
-    cpres_error_t error;
 
     rgba = (uint8_t *)malloc((size_t)width * (size_t)height * 4);
     TEST_ASSERT_NOT_NULL(rgba);
@@ -775,11 +777,11 @@ void test_pngx_palette256_gradient_profile_prefer_uniform_path(void)
 
 void test_pngx_palette256_tune_quant_params_clamps_speed_and_quality(void)
 {
+    cpres_error_t error;
     uint32_t width = 64, height = 64;
     uint8_t *rgba = NULL, *png_data = NULL, *pngx_data = NULL;
     size_t png_size = 0, pngx_size = 0;
     bool ok;
-    cpres_error_t error;
 
     rgba = (uint8_t *)malloc((size_t)width * (size_t)height * 4);
     TEST_ASSERT_NOT_NULL(rgba);
@@ -820,11 +822,11 @@ void test_pngx_palette256_tune_quant_params_clamps_speed_and_quality(void)
 
 void test_pngx_palette256_profile_defaults_are_accepted_when_negative(void)
 {
+    cpres_error_t error;
     uint32_t width = 64, height = 64;
     uint8_t *rgba = NULL, *png_data = NULL, *pngx_data = NULL;
     size_t png_size = 0, pngx_size = 0;
     bool ok;
-    cpres_error_t error;
 
     rgba = (uint8_t *)malloc((size_t)width * (size_t)height * 4);
     TEST_ASSERT_NOT_NULL(rgba);

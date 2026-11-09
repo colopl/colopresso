@@ -21,18 +21,19 @@
 
 static int g_pngx_last_error = 0;
 
-int pngx_get_last_error(void)
+extern int pngx_get_last_error(void)
 {
     return g_pngx_last_error;
 }
 
-void pngx_set_last_error(int error_code)
+extern void pngx_set_last_error(int error_code)
 {
     g_pngx_last_error = error_code;
 }
 
-bool pngx_run_quantization(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts,
-                           uint8_t **out_data, size_t *out_size, int *quant_quality)
+extern bool pngx_run_quantization(const uint8_t *png_data, size_t png_size,
+                                  const pngx_options_t *opts, uint8_t **out_data, size_t *out_size,
+                                  int *quant_quality)
 {
     const char *label;
     uint32_t resolved_colors = 0, applied_colors = 0;
@@ -68,7 +69,7 @@ bool pngx_run_quantization(const uint8_t *png_data, size_t png_size, const pngx_
     return pngx_quantize_palette256(png_data, png_size, opts, out_data, out_size, quant_quality);
 }
 
-void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config)
+extern void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config)
 {
     uint16_t lossy_max_colors = COLOPRESSO_PNGX_DEFAULT_LOSSY_MAX_COLORS,
              palette256_alpha_bleed_max_distance =
@@ -402,9 +403,9 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config)
     opts->thread_count = thread_count;
 }
 
-bool pngx_run_lossless_optimization(const uint8_t *png_data, size_t png_size,
-                                    const pngx_options_t *opts, uint8_t **out_data,
-                                    size_t *out_size)
+extern bool pngx_run_lossless_optimization(const uint8_t *png_data, size_t png_size,
+                                           const pngx_options_t *opts, uint8_t **out_data,
+                                           size_t *out_size)
 {
     pngx_bridge_lossless_options_t lossless;
     pngx_bridge_result_t result;
@@ -430,7 +431,7 @@ bool pngx_run_lossless_optimization(const uint8_t *png_data, size_t png_size,
     return true;
 }
 
-bool pngx_should_attempt_quantization(const pngx_options_t *opts)
+extern bool pngx_should_attempt_quantization(const pngx_options_t *opts)
 {
     if (!opts) {
         return false;
@@ -439,7 +440,7 @@ bool pngx_should_attempt_quantization(const pngx_options_t *opts)
     return opts->lossy_enable;
 }
 
-bool pngx_quantization_better(size_t baseline_size, size_t candidate_size)
+extern bool pngx_quantization_better(size_t baseline_size, size_t candidate_size)
 {
     return candidate_size == 0 ? false
                                : (baseline_size == 0 ? true : candidate_size < baseline_size);

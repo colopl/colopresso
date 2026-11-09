@@ -28,27 +28,6 @@
 
 static cpres_config_t g_config;
 
-static void fill_rgba_grid_2bit_unique(uint8_t *rgba, uint32_t width, uint32_t height)
-{
-    static const uint8_t levels[4] = {0, 85, 170, 255};
-    uint32_t x, y;
-    size_t idx, base;
-    uint32_t v;
-
-    for (y = 0; y < height; ++y) {
-        for (x = 0; x < width; ++x) {
-            idx = (size_t)y * (size_t)width + (size_t)x;
-            base = idx * PNGX_RGBA_CHANNELS;
-            v = (uint32_t)idx;
-
-            rgba[base + 0] = levels[v & 3u];
-            rgba[base + 1] = levels[(v >> 2) & 3u];
-            rgba[base + 2] = levels[(v >> 4) & 3u];
-            rgba[base + 3] = levels[(v >> 6) & 3u];
-        }
-    }
-}
-
 static inline uint8_t quantize_to_bits_for_test(uint8_t value, uint8_t bits)
 {
     uint32_t levels;
@@ -78,6 +57,26 @@ static inline uint8_t quantize_to_bits_for_test(uint8_t value, uint8_t bits)
     return (uint8_t)(quantized + 0.5);
 }
 
+static void fill_rgba_grid_2bit_unique(uint8_t *rgba, uint32_t width, uint32_t height)
+{
+    static const uint8_t levels[4] = {0, 85, 170, 255};
+    uint32_t x, y, v;
+    size_t idx, base;
+
+    for (y = 0; y < height; ++y) {
+        for (x = 0; x < width; ++x) {
+            idx = (size_t)y * (size_t)width + (size_t)x;
+            base = idx * PNGX_RGBA_CHANNELS;
+            v = (uint32_t)idx;
+
+            rgba[base + 0] = levels[v & 3u];
+            rgba[base + 1] = levels[(v >> 2) & 3u];
+            rgba[base + 2] = levels[(v >> 4) & 3u];
+            rgba[base + 3] = levels[(v >> 6) & 3u];
+        }
+    }
+}
+
 void setUp(void)
 {
     cpres_config_init_defaults(&g_config);
@@ -92,11 +91,11 @@ void tearDown(void)
 void test_pngx_reduced_rgba32_manual_target(void)
 {
     const size_t target_colors = 64;
-    size_t png_size = 0, pngx_size = 0, unique_colors = 0;
-    uint8_t *png_data = NULL, *pngx_data = NULL, *rgba = NULL;
     png_uint_32 width = 0, height = 0;
-    bool counted = false;
     cpres_error_t error = CPRES_OK;
+    uint8_t *png_data = NULL, *pngx_data = NULL, *rgba = NULL;
+    size_t png_size = 0, pngx_size = 0, unique_colors = 0;
+    bool counted = false;
 
     png_data = load_test_asset_png("example_reduce.png", &png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data,
@@ -130,11 +129,11 @@ void test_pngx_reduced_rgba32_manual_target(void)
 
 void test_pngx_reduced_rgba32_auto_target(void)
 {
-    size_t png_size = 0, pngx_size = 0, unique_in = 0, unique_out = 0;
-    uint8_t *png_data = NULL, *pngx_data = NULL, *src_rgba = NULL, *dst_rgba = NULL;
     png_uint_32 width = 0, height = 0;
-    bool counted = false;
     cpres_error_t error = CPRES_OK;
+    uint8_t *png_data = NULL, *pngx_data = NULL, *src_rgba = NULL, *dst_rgba = NULL;
+    size_t png_size = 0, pngx_size = 0, unique_in = 0, unique_out = 0;
+    bool counted = false;
 
     png_data = load_test_asset_png("example_reduce.png", &png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data,
@@ -172,10 +171,10 @@ void test_pngx_reduced_rgba32_auto_target(void)
 void test_pngx_reduced_rgba32_grid_bits(void)
 {
     const uint8_t rgb_bits = 4, alpha_bits = 4;
-    uint8_t *png_data = NULL, *pngx_data = NULL, *rgba = NULL, r, g, b, a;
-    size_t png_size = 0, pngx_size = 0, pixel_count, base, i;
     png_uint_32 width = 0, height = 0;
     cpres_error_t error = CPRES_OK;
+    uint8_t *png_data = NULL, *pngx_data = NULL, *rgba = NULL, r, g, b, a;
+    size_t png_size = 0, pngx_size = 0, pixel_count, base, i;
 
     png_data = load_test_asset_png("example_reduce.png", &png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data,
@@ -221,17 +220,17 @@ void test_pngx_reduced_rgba32_grid_bits(void)
 
 void test_pngx_reduced_rgba32_zero_dither_no_dither_quantization(void)
 {
+    const uint32_t width = 2, height = 2;
     static const uint8_t source_rgba[] = {
         5, 17, 249, 255, 123, 210, 55, 255, 200, 50, 10, 200, 10, 220, 230, 80,
     };
-    const uint32_t width = 2, height = 2;
     const uint8_t rgb_bits = 3, alpha_bits = 2;
     const size_t pixel_count = sizeof(source_rgba) / PNGX_RGBA_CHANNELS;
+    png_uint_32 decoded_width = 0, decoded_height = 0;
+    cpres_error_t error;
     uint8_t *png_data = NULL, *pngx_data = NULL, *decoded = NULL, r, g, b, a;
     size_t base, png_size = 0, pngx_size = 0, i;
     bool written;
-    png_uint_32 decoded_width = 0, decoded_height = 0;
-    cpres_error_t error;
 
     written = create_rgba_png(source_rgba, pixel_count, width, height, &png_data, &png_size);
     TEST_ASSERT_TRUE_MESSAGE(written, "failed to create synthetic RGBA PNG");
@@ -286,9 +285,9 @@ void test_pngx_reduced_rgba32_zero_dither_no_dither_quantization(void)
 
 void test_pngx_reduced_rgba32_with_rgba64_png(void)
 {
-    size_t png_size = 0, pngx_size = 0;
-    uint8_t *png_data = NULL, *pngx_data = NULL;
     cpres_error_t error = CPRES_OK;
+    uint8_t *png_data = NULL, *pngx_data = NULL;
+    size_t png_size = 0, pngx_size = 0;
 
     png_data = load_test_asset_png("16bit.png", &png_size);
     TEST_ASSERT_NOT_NULL_MESSAGE(png_data, "16bit.png not found for Reduced RGBA32 RGBA64 test");
@@ -311,13 +310,13 @@ void test_pngx_reduced_rgba32_grid_passthrough_auto_target(void)
     const uint32_t width = 16, height = 16;
     const uint8_t rgb_bits = 2, alpha_bits = 2;
     const size_t pixel_count = (size_t)width * (size_t)height;
+    png_uint_32 decoded_width = 0, decoded_height = 0;
+    pngx_options_t opts;
+    cpres_error_t decode_error;
     uint32_t resolved_target = 0, applied_colors = 0;
     uint8_t *rgba = NULL, *png_data = NULL, *out_png = NULL, *decoded = NULL, r, g, b, a;
     size_t png_size = 0, out_size = 0, unique_out = 0, i, base;
-    png_uint_32 decoded_width = 0, decoded_height = 0;
-    pngx_options_t opts;
     bool written, success, counted;
-    cpres_error_t decode_error;
 
     rgba = (uint8_t *)malloc(pixel_count * PNGX_RGBA_CHANNELS);
     TEST_ASSERT_NOT_NULL(rgba);
@@ -400,13 +399,13 @@ void test_pngx_reduced_rgba32_auto_trim_applies_on_head_dominant_long_tail_image
     const uint8_t rgb_bits = 8, alpha_bits = 8;
     const size_t pixel_count = (size_t)width * (size_t)height, base_pixels = pixel_count / 2,
                  tail_pixels = pixel_count - base_pixels, tail_unique = 2500;
+    png_uint_32 decoded_width = 0, decoded_height = 0;
+    pngx_options_t opts;
+    cpres_error_t decode_error;
     uint32_t resolved_target = 0, applied_colors = 0, v;
     uint8_t *rgba = NULL, *png_data = NULL, *out_png = NULL, *decoded = NULL;
     size_t png_size = 0, out_size = 0, unique_out = 0, i, base;
-    png_uint_32 decoded_width = 0, decoded_height = 0;
-    pngx_options_t opts;
     bool written, success, counted;
-    cpres_error_t decode_error;
 
     rgba = (uint8_t *)malloc(pixel_count * PNGX_RGBA_CHANNELS);
     TEST_ASSERT_NOT_NULL(rgba);
@@ -483,13 +482,13 @@ void test_pngx_reduced_rgba32_gentle_cut_path_executes_for_1024_unique_colors(vo
 {
     const uint32_t width = 32, height = 32;
     const size_t pixel_count = (size_t)width * (size_t)height;
+    png_uint_32 decoded_width = 0, decoded_height = 0;
+    pngx_options_t opts;
+    cpres_error_t decode_error;
     uint32_t resolved_target = 0, applied_colors = 0, v;
     uint8_t *rgba = NULL, *png_data = NULL, *out_png = NULL, *decoded = NULL;
     size_t png_size = 0, out_size = 0, unique_out = 0, i, base;
-    png_uint_32 decoded_width = 0, decoded_height = 0;
-    pngx_options_t opts;
     bool written, success, counted;
-    cpres_error_t decode_error;
 
     rgba = (uint8_t *)malloc(pixel_count * PNGX_RGBA_CHANNELS);
     TEST_ASSERT_NOT_NULL(rgba);
@@ -555,19 +554,19 @@ void test_pngx_reduced_rgba32_gentle_cut_path_executes_for_1024_unique_colors(vo
 
 void test_pngx_reduced_rgba32_all_colors_protected_results_in_no_unlocked_entries(void)
 {
+    const uint32_t width = 4, height = 1;
     static const uint8_t source_rgba[] = {
         0, 0, 0, 255, 17, 0, 0, 255, 0, 17, 0, 255, 0, 0, 17, 255,
     };
-    const uint32_t width = 4, height = 1;
     const size_t pixel_count = sizeof(source_rgba) / PNGX_RGBA_CHANNELS;
+    png_uint_32 decoded_width = 0, decoded_height = 0;
+    pngx_options_t opts;
+    cpres_error_t decode_error;
+    cpres_rgba_color_t protected_colors[4];
     uint32_t resolved_target = 0, applied_colors = 0;
     uint8_t *png_data = NULL, *out_png = NULL, *decoded = NULL;
     size_t png_size = 0, out_size = 0, unique_out = 0;
-    png_uint_32 decoded_width = 0, decoded_height = 0;
-    pngx_options_t opts;
     bool written, success, counted;
-    cpres_error_t decode_error;
-    cpres_rgba_color_t protected_colors[4];
 
     written = create_rgba_png(source_rgba, pixel_count, width, height, &png_data, &png_size);
     TEST_ASSERT_TRUE(written);

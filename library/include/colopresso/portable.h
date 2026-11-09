@@ -27,16 +27,38 @@ extern "C" {
 #include <sys/types.h>
 #include <windows.h>
 
+#define no_argument       0
+#define required_argument 1
+#define optional_argument 2
+
+#define S_ISREG(m) (((m) & _S_IFMT) == _S_IFREG)
+#define stat       _stat64
+#define strtok_r   strtok_s
+
+#else
+
+#include <getopt.h>
+#include <pthread.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#define colopresso_thread_create pthread_create
+#define colopresso_thread_join   pthread_join
+#define colopresso_mutex_init    pthread_mutex_init
+#define colopresso_mutex_lock    pthread_mutex_lock
+#define colopresso_mutex_unlock  pthread_mutex_unlock
+#define colopresso_mutex_destroy pthread_mutex_destroy
+
+#endif
+
+#ifdef _WIN32
+
 struct option {
     const char *name;
     int has_arg;
     int *flag;
     int val;
 };
-
-#define no_argument       0
-#define required_argument 1
-#define optional_argument 2
 
 extern char *optarg;
 extern int optind;
@@ -46,10 +68,6 @@ extern int optopt;
 extern int getopt_long(int argc, char *const argv[], const char *optstring,
                        const struct option *longopts, int *longindex);
 extern struct tm *gmtime_r(const time_t *timer, struct tm *buf);
-
-#define S_ISREG(m) (((m) & _S_IFMT) == _S_IFREG)
-#define stat       _stat64
-#define strtok_r   strtok_s
 
 typedef HANDLE colopresso_thread_t;
 
@@ -71,20 +89,8 @@ extern int colopresso_mutex_destroy(colopresso_mutex_t *mutex);
 
 #else
 
-#include <getopt.h>
-#include <pthread.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
 typedef pthread_t colopresso_thread_t;
 typedef pthread_mutex_t colopresso_mutex_t;
-
-#define colopresso_thread_create pthread_create
-#define colopresso_thread_join   pthread_join
-#define colopresso_mutex_init    pthread_mutex_init
-#define colopresso_mutex_lock    pthread_mutex_lock
-#define colopresso_mutex_unlock  pthread_mutex_unlock
-#define colopresso_mutex_destroy pthread_mutex_destroy
 
 #endif
 

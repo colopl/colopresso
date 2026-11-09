@@ -974,8 +974,8 @@ uint8_t *emscripten_decode_png_to_rgba(const uint8_t *png_data, size_t png_size,
                                        uint32_t *out_width, uint32_t *out_height)
 {
     cpres_error_t result;
-    uint8_t *rgba_data = NULL;
     png_uint_32 width = 0, height = 0;
+    uint8_t *rgba_data = NULL;
 
     if (!png_data || !out_width || !out_height || png_size == 0) {
         g_last_error = CPRES_ERROR_INVALID_PARAMETER;
@@ -1081,8 +1081,8 @@ uint8_t *emscripten_pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t
                                                  float dither_level, size_t *out_size)
 {
     pngx_options_t opts;
-    uint8_t *out_data = NULL;
     uint32_t resolved_target = 0, applied_colors = 0;
+    uint8_t *out_data = NULL;
     bool success;
 
     if (!png_data || !out_size || png_size == 0) {

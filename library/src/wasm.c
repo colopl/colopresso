@@ -62,9 +62,9 @@ typedef struct {
     int32_t quality;
 } pngx_bridge_quant_output_t;
 
-pngx_bridge_result_t pngx_bridge_optimize_lossless(const uint8_t *input_data, size_t input_size,
-                                                   uint8_t **output_data, size_t *output_size,
-                                                   const pngx_bridge_lossless_options_t *options)
+extern pngx_bridge_result_t
+pngx_bridge_optimize_lossless(const uint8_t *input_data, size_t input_size, uint8_t **output_data,
+                              size_t *output_size, const pngx_bridge_lossless_options_t *options)
 {
     (void)input_data;
     (void)input_size;
@@ -81,10 +81,11 @@ pngx_bridge_result_t pngx_bridge_optimize_lossless(const uint8_t *input_data, si
     return PNGX_BRIDGE_RESULT_WASM_SEPARATION;
 }
 
-pngx_bridge_quant_status_t pngx_bridge_quantize(const cpres_rgba_color_t *pixels,
-                                                size_t pixel_count, uint32_t width, uint32_t height,
-                                                const pngx_bridge_quant_params_t *params,
-                                                pngx_bridge_quant_output_t *output)
+extern pngx_bridge_quant_status_t pngx_bridge_quantize(const cpres_rgba_color_t *pixels,
+                                                       size_t pixel_count, uint32_t width,
+                                                       uint32_t height,
+                                                       const pngx_bridge_quant_params_t *params,
+                                                       pngx_bridge_quant_output_t *output)
 {
     (void)pixels;
     (void)pixel_count;
@@ -103,27 +104,27 @@ pngx_bridge_quant_status_t pngx_bridge_quantize(const cpres_rgba_color_t *pixels
     return PNGX_BRIDGE_QUANT_WASM_SEPARATION;
 }
 
-void pngx_bridge_free(uint8_t *ptr)
+extern void pngx_bridge_free(uint8_t *ptr)
 {
     (void)ptr;
 }
 
-uint32_t pngx_bridge_oxipng_version(void)
+extern uint32_t pngx_bridge_oxipng_version(void)
 {
     return 0;
 }
 
-uint32_t pngx_bridge_libimagequant_version(void)
+extern uint32_t pngx_bridge_libimagequant_version(void)
 {
     return 0;
 }
 
-const char *pngx_bridge_rust_version_string(void)
+extern const char *pngx_bridge_rust_version_string(void)
 {
     return "unknown";
 }
 
-bool pngx_bridge_init_threads(int num_threads)
+extern bool pngx_bridge_init_threads(int num_threads)
 {
     (void)num_threads;
 

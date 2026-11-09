@@ -125,8 +125,8 @@ extern cpres_error_t cpres_encode_webp_memory(const uint8_t *png_data, size_t pn
                                               uint8_t **webp_data, size_t *webp_size,
                                               const cpres_config_t *config)
 {
-    uint32_t width, height;
     cpres_error_t error;
+    uint32_t width, height;
     uint8_t *rgba_data;
     size_t encoded_size;
 
@@ -180,10 +180,10 @@ extern cpres_error_t cpres_encode_avif_memory(const uint8_t *png_data, size_t pn
                                               uint8_t **avif_data, size_t *avif_size,
                                               const cpres_config_t *config)
 {
+    cpres_error_t error;
     uint32_t width, height;
     uint8_t *rgba_data;
     size_t encoded_size;
-    cpres_error_t error;
 
     if (!png_data || !avif_data || !avif_size || !config) {
         return CPRES_ERROR_INVALID_PARAMETER;
@@ -238,9 +238,9 @@ extern cpres_error_t cpres_encode_pngx_memory(const uint8_t *png_data, size_t pn
 {
     pngx_options_t opts;
     uint8_t *lossless_data, *quant_data, *quant_optimized, *final_data;
+    int quant_quality, threads;
     size_t lossless_size, quant_size, quant_optimized_size, final_size, candidate_size;
     bool lossless_ok, quant_ok, quant_lossless_ok, quant_is_rgba_lossy, final_is_quantized;
-    int quant_quality, threads;
 
     if (!png_data || png_size == 0 || !optimized_data || !optimized_size || !config) {
         return CPRES_ERROR_INVALID_PARAMETER;

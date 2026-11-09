@@ -81,9 +81,8 @@ extern cpres_datetime_t *cpres_datetime_create(void)
 
 extern cpres_datetime_timestamp_t cpres_datetime_get_timestamp(const cpres_datetime_t *pdt)
 {
-    struct tm tm = {0};
+    struct tm tm = {0}, gmt_tm;
     time_t local_time, gmt_time;
-    struct tm gmt_tm;
 
     if (!pdt) {
         return 0;
@@ -213,9 +212,8 @@ cpres_datetime_encode_buildtime(cpres_datetime_timestamp_t timestamp)
 extern cpres_datetime_timestamp_t
 cpres_datetime_decode_buildtime(cpres_datetime_buildtime_t buildtime)
 {
-    struct tm t = {0};
+    struct tm t = {0}, gmt_tm;
     time_t local_time, gmt_time;
-    struct tm gmt_tm;
 
     t.tm_year = ((buildtime >> 20) & 0xFFF) - 1900;
     t.tm_mon = ((buildtime >> 16) & 0xF) - 1;

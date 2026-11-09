@@ -24,6 +24,10 @@
 #include <colopresso.h>
 #include <colopresso/portable.h>
 
+#define PNGX_TOGGLE_ENTRY(option_name, field, enabled, limited)                                    \
+    {option_name, offsetof(cpres_config_t, field), enabled, limited}
+#define PNGX_TOGGLE_OPTION_COUNT (sizeof(kPngxToggleOptions) / sizeof(kPngxToggleOptions[0]))
+
 typedef enum { FORMAT_WEBP, FORMAT_AVIF, FORMAT_PNGX, FORMAT_UNKNOWN } output_format_t;
 
 typedef struct {
@@ -43,10 +47,6 @@ typedef struct {
     bool limited_available; /* false: the toggle is ignored by Limited RGBA4444 and rejected when
                                enabled with it */
 } pngx_toggle_option_t;
-
-#define PNGX_TOGGLE_ENTRY(option_name, field, enabled, limited)                                    \
-    {option_name, offsetof(cpres_config_t, field), enabled, limited}
-#define PNGX_TOGGLE_OPTION_COUNT (sizeof(kPngxToggleOptions) / sizeof(kPngxToggleOptions[0]))
 
 static const pngx_toggle_option_t kPngxToggleOptions[] = {
     PNGX_TOGGLE_ENTRY("strip-safe", pngx_strip_safe, true, true),
@@ -155,7 +155,7 @@ static inline const char *toggle_label(bool enabled)
     return enabled ? "on" : "off";
 }
 
-static const char *describe_pngx_type(int type)
+static inline const char *describe_pngx_type(int type)
 {
     switch (type) {
     case CPRES_PNGX_LOSSY_TYPE_PALETTE256:
@@ -173,8 +173,8 @@ static const char *describe_pngx_type(int type)
 
 static inline bool parse_pngx_type_option(const char *value, int *type_out)
 {
-    char lowered[32], normalized[32];
     size_t len, i, norm_len = 0;
+    char lowered[32], normalized[32];
 
     if (!value || !type_out) {
         return false;
@@ -274,10 +274,10 @@ static inline void format_libpng_version(uint32_t version, char *buf, size_t buf
 
 static inline void format_bytes(int64_t bytes, char *buf, size_t buf_size)
 {
-    const double k = 1024.0;
     const char *sizes[] = {"B", "KiB", "MiB", "GiB"};
-    double size = (double)bytes;
+    const double k = 1024.0;
     uint8_t i = 0;
+    double size = (double)bytes;
 
     if (bytes == 0) {
         snprintf(buf, buf_size, "0 B");
@@ -359,8 +359,8 @@ static inline void print_output_larger_warning(const char *format_name, int64_t 
 
 static inline bool parse_long_value(const char *str, long *value)
 {
-    char *endptr = NULL;
     long parsed;
+    char *endptr = NULL;
 
     if (!str || !value) {
         return false;
@@ -490,9 +490,9 @@ static inline bool parse_hex_color(const char *hex_str, cpres_rgba_color_t *colo
 static inline int32_t parse_protected_colors(const char *color_list,
                                              cpres_rgba_color_t **colors_out)
 {
+    cpres_rgba_color_t *colors;
     int32_t count = 0, i = 0;
     char *token, *saveptr, *list_copy_tmp = NULL, *list_copy = NULL;
-    cpres_rgba_color_t *colors;
 
     if (!color_list || color_list[0] == '\0' || !colors_out) {
         return 0;
@@ -569,8 +569,8 @@ static inline bool parse_quality_range(const char *input, int32_t *min_quality,
                                        int32_t *max_quality)
 {
     const char *separator;
-    int32_t qmin, qmax, tmp;
     long parsed_min, parsed_max;
+    int32_t qmin, qmax, tmp;
     size_t min_len;
     char min_text[16];
 
@@ -627,8 +627,8 @@ static inline output_format_t parse_format(const char *format_str)
 static inline output_format_t infer_format_from_extension(const char *path)
 {
     const char *ext = colopresso_extract_extension(path);
-    char lower_ext[16];
     size_t i, len;
+    char lower_ext[16];
 
     if (!ext) {
         return FORMAT_UNKNOWN;
@@ -758,9 +758,9 @@ static inline void print_verbose_summary(const cpres_config_t *config, output_fo
                                          const cpres_rgba_color_t *protected_colors,
                                          uint16_t protected_colors_count)
 {
-    char version_buf[32], size_buf[32];
     uint16_t i;
     bool limited_mode, reduced_mode, palette_mode;
+    char version_buf[32], size_buf[32];
 
     printf("Converting: %s -> %s\n", input_file, output_file);
     printf("Format: %s\n", get_format_name(format));
@@ -992,8 +992,8 @@ static inline void print_conversion_success(int64_t input_size, int64_t output_s
 
 static inline uint8_t handle_size_increase_error(int64_t input_size, int64_t output_size)
 {
-    double ratio, reduction;
     char input_size_buf[32], output_size_buf[32];
+    double ratio, reduction;
 
     if (input_size >= 0 && output_size >= 0) {
         ratio = ((double)output_size / (double)input_size) * 100.0;
@@ -1019,11 +1019,11 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
                                       uint16_t *protected_colors_count, bool *dither_specified,
                                       uint32_t *limited_unavailable_requested)
 {
+    cpres_rgba_color_t *parsed_colors;
     long long_val;
-    double double_val;
     int32_t count;
     size_t i, j;
-    cpres_rgba_color_t *parsed_colors;
+    double double_val;
 
     for (i = 0; i < PNGX_TOGGLE_OPTION_COUNT; ++i) {
         if (strcmp(name, kPngxToggleOptions[i].name) != 0) {
@@ -1816,9 +1816,9 @@ static inline void format_buildtime(uint32_t buildtime, char *buf, size_t buf_si
 
 static inline void print_version(void)
 {
-    char version_buf[32], buildtime_buf[32];
     const char *compiler_version, *rust_version;
     uint32_t buildtime;
+    char version_buf[32], buildtime_buf[32];
 
     format_version(cpres_get_version(), version_buf, sizeof(version_buf));
     printf("colopresso CLI v%s\n", version_buf);
@@ -1902,16 +1902,16 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
 {
     const char *input_file, *output_base, *output_extension, *name;
     output_format_t format = FORMAT_UNKNOWN, inferred_format;
+    uint32_t limited_unavailable_requested = 0;
+    long parsed_long = 0;
     int32_t quality_min = 0, quality_max = 0;
+    int opt, option_index = 0;
+    size_t i;
     bool format_specified = false, verbose = false, append_extension, quality_scalar_set = false,
          quality_range_set = false, pngx_type_specified = false, dither_specified = false;
     char *output_file;
-    int opt, option_index = 0;
-    long parsed_long = 0;
-    float quality_scalar_value = 0.0f;
     double parsed_double = 0.0;
-    uint32_t limited_unavailable_requested = 0;
-    size_t i;
+    float quality_scalar_value = 0.0f;
 
     if (argc < 2) {
         print_usage(argv[0]);
@@ -2183,14 +2183,12 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
 
 static inline int run_conversion(cli_context_t *ctx)
 {
-    int64_t input_size, output_size, ref_input_size;
-    uint8_t size_check, *png_data = NULL, *encoded_data = NULL;
-    size_t encoded_size = 0, png_size = 0;
-
-    void (*encoded_deallocator)(uint8_t *) = NULL;
-    int ret = 1;
-    bool force_rgba_output = false;
     cpres_error_t result = CPRES_ERROR_INVALID_FORMAT, read_error = CPRES_OK;
+    uint8_t size_check, *png_data = NULL, *encoded_data = NULL;
+    int64_t input_size, output_size, ref_input_size;
+    int ret = 1;
+    size_t encoded_size = 0, png_size = 0;
+    bool force_rgba_output = false;
 
     input_size = get_file_size(ctx->input_file);
     force_rgba_output = (ctx->format == FORMAT_PNGX && ctx->config.pngx_lossy_enable &&
@@ -2217,19 +2215,16 @@ static inline int run_conversion(cli_context_t *ctx)
 
     switch (ctx->format) {
     case FORMAT_WEBP:
-        encoded_deallocator = cpres_free;
         result = cpres_encode_webp_memory(png_data, png_size, &encoded_data, &encoded_size,
                                           &ctx->config);
 
         break;
     case FORMAT_AVIF:
-        encoded_deallocator = cpres_free;
         result = cpres_encode_avif_memory(png_data, png_size, &encoded_data, &encoded_size,
                                           &ctx->config);
 
         break;
     case FORMAT_PNGX:
-        encoded_deallocator = cpres_free;
         result = cpres_encode_pngx_memory(png_data, png_size, &encoded_data, &encoded_size,
                                           &ctx->config);
 
@@ -2256,10 +2251,7 @@ static inline int run_conversion(cli_context_t *ctx)
             goto bailout;
         }
 
-        if (encoded_deallocator) {
-            encoded_deallocator(encoded_data);
-        }
-
+        cpres_free(encoded_data);
         encoded_data = NULL;
 
         ret = 0;
@@ -2296,9 +2288,7 @@ static inline int run_conversion(cli_context_t *ctx)
     fprintf(stderr, "Error: %s\n", cpres_error_string(result));
 
 bailout:
-    if (encoded_deallocator && encoded_data) {
-        encoded_deallocator(encoded_data);
-    }
+    cpres_free(encoded_data);
 
     if (png_data) {
         free(png_data);

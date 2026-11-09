@@ -119,11 +119,11 @@ extern cpres_error_t cpres_encode_webp_file(const char *input_path, const char *
                                             const cpres_config_t *config)
 {
     FILE *fp = NULL;
+    cpres_error_t error;
     uint32_t width, height;
     uint8_t *rgba_data = NULL, *webp_data = NULL;
     size_t written, input_size = 0, webp_size = 0;
     bool have_input_size;
-    cpres_error_t error;
 
     if (!input_path || !output_path || !config) {
         return CPRES_ERROR_INVALID_PARAMETER;
@@ -180,11 +180,11 @@ extern cpres_error_t cpres_encode_avif_file(const char *input_path, const char *
                                             const cpres_config_t *config)
 {
     FILE *fp = NULL;
+    cpres_error_t error;
     uint32_t width, height;
     uint8_t *rgba_data = NULL, *avif_data = NULL;
     size_t written, avif_size = 0, input_size = 0;
     bool have_input_size;
-    cpres_error_t error;
 
     if (!input_path || !output_path || !config) {
         return CPRES_ERROR_INVALID_PARAMETER;
@@ -242,10 +242,10 @@ extern cpres_error_t cpres_encode_pngx_file(const char *input_path, const char *
                                             const cpres_config_t *config)
 {
     FILE *fp = NULL;
+    cpres_error_t err;
     uint8_t *input_data = NULL, *optimized_data = NULL;
     size_t input_size = 0, png_size = 0, optimized_size = 0, written = 0;
     bool have_input_size = false, allow_lossy_rgba_larger_output = false;
-    cpres_error_t err;
 
     if (!input_path || !output_path || !config) {
         return CPRES_ERROR_INVALID_PARAMETER;

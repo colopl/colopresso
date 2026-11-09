@@ -21,16 +21,7 @@
 
 #include "../src/internal/threads.h"
 
-void setUp(void)
-{
-}
-
-void tearDown(void)
-{
-}
-
 #if COLOPRESSO_ENABLE_THREADS
-
 typedef struct {
     uint32_t call_count;
     uint32_t total_items;
@@ -48,7 +39,17 @@ static void parallel_test_worker(void *context, uint32_t start_index, uint32_t e
         colopresso_mutex_unlock(&ctx->mutex);
     }
 }
+#endif
 
+void setUp(void)
+{
+}
+
+void tearDown(void)
+{
+}
+
+#if COLOPRESSO_ENABLE_THREADS
 void test_thread_is_threads_enabled(void)
 {
     bool enabled = cpres_is_threads_enabled();
@@ -80,7 +81,7 @@ void test_thread_parallel_for_with_null_func(void)
 
 void test_thread_parallel_for_with_zero_items(void)
 {
-    parallel_test_ctx_t ctx = {0, 0};
+    parallel_test_ctx_t ctx = {0};
     bool result;
 
     colopresso_mutex_init(&ctx.mutex, NULL);
@@ -93,7 +94,7 @@ void test_thread_parallel_for_with_zero_items(void)
 
 void test_thread_parallel_for_single_threaded(void)
 {
-    parallel_test_ctx_t ctx = {0, 0};
+    parallel_test_ctx_t ctx = {0};
     bool result;
 
     colopresso_mutex_init(&ctx.mutex, NULL);
@@ -107,7 +108,7 @@ void test_thread_parallel_for_single_threaded(void)
 
 void test_thread_parallel_for_multi_threaded(void)
 {
-    parallel_test_ctx_t ctx = {0, 0};
+    parallel_test_ctx_t ctx = {0};
     bool result;
 
     colopresso_mutex_init(&ctx.mutex, NULL);
@@ -121,7 +122,7 @@ void test_thread_parallel_for_multi_threaded(void)
 
 void test_thread_parallel_for_default_threads(void)
 {
-    parallel_test_ctx_t ctx = {0, 0};
+    parallel_test_ctx_t ctx = {0};
     bool result;
 
     colopresso_mutex_init(&ctx.mutex, NULL);
@@ -134,7 +135,7 @@ void test_thread_parallel_for_default_threads(void)
 
 void test_thread_parallel_for_more_threads_than_items(void)
 {
-    parallel_test_ctx_t ctx = {0, 0};
+    parallel_test_ctx_t ctx = {0};
     bool result;
 
     colopresso_mutex_init(&ctx.mutex, NULL);
@@ -147,7 +148,7 @@ void test_thread_parallel_for_more_threads_than_items(void)
 
 void test_thread_parallel_for_large_item_count(void)
 {
-    parallel_test_ctx_t ctx = {0, 0};
+    parallel_test_ctx_t ctx = {0};
     bool result;
 
     colopresso_mutex_init(&ctx.mutex, NULL);
@@ -157,7 +158,6 @@ void test_thread_parallel_for_large_item_count(void)
     TEST_ASSERT_EQUAL_UINT32(10000, ctx.total_items);
     colopresso_mutex_destroy(&ctx.mutex);
 }
-
 #endif
 
 void test_thread_dummy(void)

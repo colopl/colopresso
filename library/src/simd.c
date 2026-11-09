@@ -15,9 +15,8 @@
 
 static inline uint32_t color_distance_sq_sse(uint32_t lhs, uint32_t rhs)
 {
-    __m128i a = _mm_cvtsi32_si128((int)lhs);
-    __m128i b = _mm_cvtsi32_si128((int)rhs);
-    __m128i a16, b16, diff, diff_sq;
+    __m128i a = _mm_cvtsi32_si128((int)lhs), b = _mm_cvtsi32_si128((int)rhs), a16, b16, diff,
+            diff_sq;
     int result;
 
     a16 = _mm_unpacklo_epi8(a, _mm_setzero_si128());
@@ -77,7 +76,7 @@ static inline uint32_t color_distance_sq_scalar(uint32_t lhs, uint32_t rhs)
 
 #endif
 
-uint32_t simd_color_distance_sq_u32(uint32_t lhs, uint32_t rhs)
+extern uint32_t simd_color_distance_sq_u32(uint32_t lhs, uint32_t rhs)
 {
 #if defined(CPRES_SIMD_WASM128)
     return color_distance_sq_wasm(lhs, rhs);

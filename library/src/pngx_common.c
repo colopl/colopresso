@@ -39,32 +39,6 @@ typedef struct {
     uint8_t bits_alpha;
 } snap_rgba_parallel_ctx_t;
 
-static void snap_rgba_parallel_worker(void *context, uint32_t start, uint32_t end)
-{
-    snap_rgba_parallel_ctx_t *ctx = (snap_rgba_parallel_ctx_t *)context;
-    uint8_t r, g, b, a;
-    size_t base, i;
-
-    if (!ctx || !ctx->rgba) {
-        return;
-    }
-
-    for (i = (size_t)start; i < (size_t)end && i < ctx->pixel_count; ++i) {
-        base = i * 4;
-        r = ctx->rgba[base + 0];
-        g = ctx->rgba[base + 1];
-        b = ctx->rgba[base + 2];
-        a = ctx->rgba[base + 3];
-
-        snap_rgba_to_bits(&r, &g, &b, &a, ctx->bits_rgb, ctx->bits_alpha);
-
-        ctx->rgba[base + 0] = r;
-        ctx->rgba[base + 1] = g;
-        ctx->rgba[base + 2] = b;
-        ctx->rgba[base + 3] = a;
-    }
-}
-
 static inline float absf(float value)
 {
     return (value < 0.0f) ? -value : value;
@@ -136,8 +110,8 @@ static inline void extract_chroma_anchors(pngx_quant_support_t *support, chroma_
     cpres_rgba_color_t chosen[PNGX_MAX_DERIVED_COLORS];
     chroma_bucket_t *bucket;
     size_t selected, best_index, i, dst, auto_limit, scaled, check;
-    float best_score, score, importance_boost;
     bool duplicate;
+    float best_score, score, importance_boost;
 
     if (!support || !buckets || bucket_count == 0) {
         return;
@@ -236,7 +210,33 @@ static inline void extract_chroma_anchors(pngx_quant_support_t *support, chroma_
     support->derived_colors_len = dst;
 }
 
-void image_stats_reset(pngx_image_stats_t *stats)
+static void snap_rgba_parallel_worker(void *context, uint32_t start, uint32_t end)
+{
+    snap_rgba_parallel_ctx_t *ctx = (snap_rgba_parallel_ctx_t *)context;
+    uint8_t r, g, b, a;
+    size_t base, i;
+
+    if (!ctx || !ctx->rgba) {
+        return;
+    }
+
+    for (i = (size_t)start; i < (size_t)end && i < ctx->pixel_count; ++i) {
+        base = i * 4;
+        r = ctx->rgba[base + 0];
+        g = ctx->rgba[base + 1];
+        b = ctx->rgba[base + 2];
+        a = ctx->rgba[base + 3];
+
+        snap_rgba_to_bits(&r, &g, &b, &a, ctx->bits_rgb, ctx->bits_alpha);
+
+        ctx->rgba[base + 0] = r;
+        ctx->rgba[base + 1] = g;
+        ctx->rgba[base + 2] = b;
+        ctx->rgba[base + 3] = a;
+    }
+}
+
+extern void image_stats_reset(pngx_image_stats_t *stats)
 {
     if (!stats) {
         return;
@@ -250,7 +250,7 @@ void image_stats_reset(pngx_image_stats_t *stats)
     stats->vibrant_ratio = 0.0f;
 }
 
-void quant_support_reset(pngx_quant_support_t *support)
+extern void quant_support_reset(pngx_quant_support_t *support)
 {
     if (!support) {
         return;
@@ -273,7 +273,7 @@ void quant_support_reset(pngx_quant_support_t *support)
     support->bit_hint_len = 0;
 }
 
-const char *lossy_type_label(uint8_t lossy_type)
+extern const char *lossy_type_label(uint8_t lossy_type)
 {
     switch (lossy_type) {
     case PNGX_LOSSY_TYPE_LIMITED_RGBA4444:
@@ -285,7 +285,7 @@ const char *lossy_type_label(uint8_t lossy_type)
     }
 }
 
-void rgba_image_reset(pngx_rgba_image_t *image)
+extern void rgba_image_reset(pngx_rgba_image_t *image)
 {
     if (!image) {
         return;
@@ -298,7 +298,7 @@ void rgba_image_reset(pngx_rgba_image_t *image)
     image->pixel_count = 0;
 }
 
-bool load_rgba_image(const uint8_t *png_data, size_t png_size, pngx_rgba_image_t *image)
+extern bool load_rgba_image(const uint8_t *png_data, size_t png_size, pngx_rgba_image_t *image)
 {
     if (!png_data || png_size == 0 || !image) {
         return false;
@@ -332,7 +332,7 @@ bool load_rgba_image(const uint8_t *png_data, size_t png_size, pngx_rgba_image_t
     return true;
 }
 
-uint8_t clamp_reduced_bits(uint8_t bits)
+extern uint8_t clamp_reduced_bits(uint8_t bits)
 {
     const uint8_t min_bits = (uint8_t)COLOPRESSO_PNGX_REDUCED_BITS_MIN,
                   max_bits = (uint8_t)COLOPRESSO_PNGX_REDUCED_BITS_MAX;
@@ -340,7 +340,7 @@ uint8_t clamp_reduced_bits(uint8_t bits)
     return bits < min_bits ? min_bits : (bits > max_bits ? max_bits : bits);
 }
 
-uint8_t quantize_channel_value(float value, uint8_t bits_per_channel)
+extern uint8_t quantize_channel_value(float value, uint8_t bits_per_channel)
 {
     uint32_t levels;
     float clamped, scaled, rounded, quantized;
@@ -387,7 +387,7 @@ uint8_t quantize_channel_value(float value, uint8_t bits_per_channel)
     return (uint8_t)(quantized + 0.5f);
 }
 
-uint8_t quantize_bits(uint8_t value, uint8_t bits)
+extern uint8_t quantize_bits(uint8_t value, uint8_t bits)
 {
     if (bits >= 8) {
         return value;
@@ -396,8 +396,8 @@ uint8_t quantize_bits(uint8_t value, uint8_t bits)
     return quantize_channel_value((float)value, bits);
 }
 
-void snap_rgba_to_bits(uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a, uint8_t bits_rgb,
-                       uint8_t bits_alpha)
+extern void snap_rgba_to_bits(uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a, uint8_t bits_rgb,
+                              uint8_t bits_alpha)
 {
     uint8_t rgb = clamp_reduced_bits(bits_rgb);
 
@@ -418,8 +418,8 @@ void snap_rgba_to_bits(uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a, uint8_t b
     }
 }
 
-void snap_rgba_image_to_bits(uint32_t thread_count, uint8_t *rgba, size_t pixel_count,
-                             uint8_t bits_rgb, uint8_t bits_alpha)
+extern void snap_rgba_image_to_bits(uint32_t thread_count, uint8_t *rgba, size_t pixel_count,
+                                    uint8_t bits_rgb, uint8_t bits_alpha)
 {
     snap_rgba_parallel_ctx_t ctx;
 
@@ -443,7 +443,7 @@ void snap_rgba_image_to_bits(uint32_t thread_count, uint8_t *rgba, size_t pixel_
 #endif
 }
 
-uint32_t color_distance_sq(const cpres_rgba_color_t *lhs, const cpres_rgba_color_t *rhs)
+extern uint32_t color_distance_sq(const cpres_rgba_color_t *lhs, const cpres_rgba_color_t *rhs)
 {
     uint32_t lhs_packed, rhs_packed;
 
@@ -459,15 +459,15 @@ uint32_t color_distance_sq(const cpres_rgba_color_t *lhs, const cpres_rgba_color
     return simd_color_distance_sq_u32(lhs_packed, rhs_packed);
 }
 
-float estimate_bitdepth_dither_level(const uint8_t *rgba, png_uint_32 width, png_uint_32 height,
-                                     uint8_t bits_per_channel)
+extern float estimate_bitdepth_dither_level(const uint8_t *rgba, png_uint_32 width,
+                                            png_uint_32 height, uint8_t bits_per_channel)
 {
     png_uint_32 y, x;
     uint8_t r, g, b, a;
     size_t pixel_count, gradient_samples, opaque_pixels, translucent_pixels, base, right, below;
+    double gradient_accum;
     float base_level, target, right_luma, below_luma, luma, normalized_gradient, opaque_ratio,
         translucent_ratio, min_luma, max_luma, coverage, gradient_span;
-    double gradient_accum;
 
     if (!rgba || width == 0 || height == 0) {
         return clamp_float(COLOPRESSO_PNGX_DEFAULT_LOSSY_DITHER_LEVEL, 0.0f, 1.0f);
@@ -585,15 +585,15 @@ float estimate_bitdepth_dither_level(const uint8_t *rgba, png_uint_32 width, png
     return clamp_float(target, PNGX_COMMON_DITHER_MIN, PNGX_COMMON_DITHER_MAX);
 }
 
-float estimate_bitdepth_dither_level_limited4444(const uint8_t *rgba, png_uint_32 width,
-                                                 png_uint_32 height)
+extern float estimate_bitdepth_dither_level_limited4444(const uint8_t *rgba, png_uint_32 width,
+                                                        png_uint_32 height)
 {
+    png_uint_32 y, x;
     uint8_t r, g, b, a;
     size_t pixel_count, gradient_samples, opaque_pixels, translucent_pixels, base, right, below;
+    double gradient_accum;
     float right_luma, below_luma, luma, normalized_gradient, opaque_ratio, translucent_ratio,
         min_luma, max_luma, coverage, gradient_span, target;
-    double gradient_accum;
-    png_uint_32 y, x;
 
     if (!rgba || width == 0 || height == 0) {
         return 0.0f;
@@ -684,8 +684,8 @@ float estimate_bitdepth_dither_level_limited4444(const uint8_t *rgba, png_uint_3
     return clamp_float(target, 0.0f, 1.0f);
 }
 
-void build_fixed_palette(const pngx_options_t *source_opts, pngx_quant_support_t *support,
-                         pngx_options_t *patched_opts)
+extern void build_fixed_palette(const pngx_options_t *source_opts, pngx_quant_support_t *support,
+                                pngx_options_t *patched_opts)
 {
     size_t user_count, derived_count, total_cap, i, j;
     bool duplicate;
@@ -748,7 +748,7 @@ void build_fixed_palette(const pngx_options_t *source_opts, pngx_quant_support_t
     }
 }
 
-float resolve_quant_dither(const pngx_options_t *opts, const pngx_image_stats_t *stats)
+extern float resolve_quant_dither(const pngx_options_t *opts, const pngx_image_stats_t *stats)
 {
     float resolved, gradient_mean, saturation_mean, opaque_ratio, vibrant_ratio, gradient_max;
 
@@ -809,18 +809,18 @@ float resolve_quant_dither(const pngx_options_t *opts, const pngx_image_stats_t 
     return resolved;
 }
 
-bool prepare_quant_support(const pngx_rgba_image_t *image, const pngx_options_t *opts,
-                           pngx_quant_support_t *support, pngx_image_stats_t *stats)
+extern bool prepare_quant_support(const pngx_rgba_image_t *image, const pngx_options_t *opts,
+                                  pngx_quant_support_t *support, pngx_image_stats_t *stats)
 {
     chroma_bucket_t *buckets = NULL, *bucket_entry;
     uint32_t x, y, range, sample;
     uint16_t *importance_work = NULL, raw_min, raw_max;
     uint8_t r, g, b, a, value;
     size_t pixel_index, base, next_row_base, opaque_pixels, translucent_pixels, vibrant_pixels;
+    bool need_map, need_buckets;
     float gradient_sum, saturation_sum, luma, gradient, saturation, importance, alpha_factor,
         anchor_score, right_luma, below_luma, importance_mix, *luma_row_curr = NULL,
                                                               *luma_row_next = NULL, *luma_row_tmp;
-    bool need_map, need_buckets;
 
     if (!image || !opts || !support || !stats || image->pixel_count == 0) {
         return false;

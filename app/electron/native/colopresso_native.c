@@ -108,8 +108,8 @@ static napi_value throw_type_error(napi_env env, const char *message)
 static bool get_named_property(napi_env env, napi_value object, const char *name,
                                napi_value *out_value)
 {
-    bool has_property;
     napi_valuetype value_type;
+    bool has_property;
 
     if (!object || !name || !out_value) {
         return false;
@@ -243,8 +243,8 @@ static bool read_bool_property(napi_env env, napi_value object, const char *name
 {
     napi_value value;
     napi_valuetype value_type;
-    double numeric_value;
     char text[COLOPRESSO_NATIVE_SCALAR_STRING_MAX];
+    double numeric_value;
 
     if (!get_named_property(env, object, name, &value)) {
         return false;
@@ -327,11 +327,11 @@ static void apply_bool_property(napi_env env, napi_value options, const char *na
 
 static bool read_input_bytes(napi_env env, napi_value value, uint8_t **out_data, size_t *out_size)
 {
-    bool is_buffer, is_typed_array, is_array_buffer;
-    void *source_data;
-    size_t source_size, typed_array_length, byte_offset;
     napi_typedarray_type typed_array_type;
     napi_value array_buffer;
+    size_t source_size, typed_array_length, byte_offset;
+    bool is_buffer, is_typed_array, is_array_buffer;
+    void *source_data;
 
     if (!out_data || !out_size) {
         return false;
@@ -390,9 +390,9 @@ static bool apply_protected_colors(napi_env env, napi_value options,
                                    colopresso_convert_work_t *work)
 {
     napi_value colors_value, color_value;
-    bool is_array;
     uint32_t colors_length, index;
     int red, green, blue, alpha;
+    bool is_array;
 
     if (!get_named_property(env, options, "pngx_protected_colors", &colors_value)) {
         return true;
@@ -492,8 +492,8 @@ static void apply_webp_options(napi_env env, napi_value options, cpres_config_t 
 
 static void apply_avif_options(napi_env env, napi_value options, cpres_config_t *config)
 {
-    double value;
     bool bool_value;
+    double value;
 
     if (read_double_property(env, options, "avif_quality", &value) ||
         read_double_property(env, options, "quality", &value)) {
@@ -727,8 +727,8 @@ static bool apply_options(napi_env env, napi_value options, colopresso_convert_w
 
 static void execute_convert(napi_env env, void *data)
 {
-    colopresso_convert_work_t *work;
     const char *message, *code;
+    colopresso_convert_work_t *work;
 
     (void)env;
 
@@ -871,8 +871,8 @@ static void complete_convert(napi_env env, napi_status status, void *data)
 
 static napi_value get_version_info(napi_env env, napi_callback_info info)
 {
-    napi_value result, value;
     const char *compiler_version, *rust_version;
+    napi_value result, value;
 
     (void)info;
 
@@ -923,12 +923,12 @@ static napi_value get_thread_info(napi_env env, napi_callback_info info)
 static napi_value convert(napi_env env, napi_callback_info info)
 {
     napi_value args[4], promise, resource_name, undefined;
-    size_t argc, format_length;
     napi_valuetype thread_arg_type;
     colopresso_convert_work_t *work;
-    double numeric_threads;
     int argument_threads;
+    size_t argc, format_length;
     bool has_argument_threads;
+    double numeric_threads;
 
     argc = 4;
     if (napi_get_cb_info(env, info, &argc, args, NULL, NULL) != napi_ok || argc < 3) {

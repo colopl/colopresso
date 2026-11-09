@@ -45,7 +45,7 @@ extern "C" {
 #endif
 #endif
 
-uint32_t simd_color_distance_sq_u32(uint32_t lhs, uint32_t rhs);
+extern uint32_t simd_color_distance_sq_u32(uint32_t lhs, uint32_t rhs);
 
 #ifdef __cplusplus
 }
