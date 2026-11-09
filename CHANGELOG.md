@@ -77,6 +77,24 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
   clone it only on a cache miss. CMake builds from such a checkout when it is present. The libaom
   version logic moved to `cmake/libaom.cmake`, which `cmake -P cmake/libaom.cmake` runs to print the
   tag (#352).
+- **Changed:** The Linux CI job runs its modes (native, ASan, UBSan and the integrated Node.js /
+  WebAssembly build) as separate parallel jobs for each architecture, such as
+  `LinuxAndWasm (amd64, asan)`, instead of one after another (#352).
+- **Changed:** `Dockerfile` has a new `toolchain` stage with the compilers and SDKs (GCC, LLVM 22,
+  Rust, Emscripten and ccache), which `builder` and `devcontainer` build on. It reads only
+  `rust-toolchain.toml` and the scripts of the `third_party/emsdk` submodule, so CI keeps its layers in
+  the Actions cache and rebuilds them only when the toolchain changes; the Alpine image of the Linux
+  CLI job is cached the same way. The Emscripten SDK is installed in `/opt/emsdk` instead of
+  `/project/third_party/emsdk`, and `EMSDK_VERSION=0` (the default) installs the release the submodule
+  is pinned to without reading its Git metadata (#352).
+- **Changed:** Container builds in CI compile C and C++ through ccache. Each architecture and mode
+  keeps its ccache directory in the Actions cache, keyed by the submodule commits and the Dockerfile.
+  Image layers and ccache directories are saved only by pushes and manual runs; pull requests reuse
+  those of main (#352).
+- **Changed:** A push to main or a manual run is no longer cancelled by a later one; only an outdated
+  run of a pull request is cancelled. The CI workflow's `GITHUB_TOKEN` is read-only
+  (`contents: read`). The release workflow keeps `contents: write`, and its code signing, which uses
+  secrets, is unaffected (#352).
 - **Changed:** CI and release jobs fetch the Electron zip, its `SHASUMS256.txt` and the
   `virtualenv.pyz` that cibuildwheel uses on Windows and macOS through the GitHub API with the job
   token, and put them where electron-builder and cibuildwheel look first. electron-builder downloaded

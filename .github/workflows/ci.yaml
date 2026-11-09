@@ -7,9 +7,14 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+# A new push to a pull request cancels the older run of that pull request. Pushes to main and manual
+# runs are grouped by commit, so none of them is cancelled or held back by a later one.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   Approval:
@@ -87,19 +92,28 @@ jobs:
           path: ./dummy-versioned-code.tar.gz
           retention-days: 1
   LinuxAndWasm:
-    name: LinuxAndWasm (${{ matrix.arch }})
+    name: LinuxAndWasm (${{ matrix.arch.name }}, ${{ matrix.mode }})
     needs: Prepare
     if: needs.Prepare.outputs.native == 'true'
     strategy:
+      # Every mode is an independent check, so one failing must not cancel the others.
+      fail-fast: false
       matrix:
-        include:
-          - arch: amd64
+        arch:
+          - name: amd64
             platform: linux/amd64
             runs-on: ubuntu-26.04
-          - arch: arm64
+          - name: arm64
             platform: linux/arm64
             runs-on: ubuntu-26.04-arm
-    runs-on: ${{ matrix.runs-on }}
+        mode:
+          - native
+          - asan
+          - ubsan
+          - wasm
+    runs-on: ${{ matrix.arch.runs-on }}
+    env:
+      DOCKER_BUILD_RECORD_UPLOAD: false
     steps:
       - name: Download dummy versioned code
         uses: actions/download-artifact@v8
@@ -112,66 +126,120 @@ jobs:
           rm -rf "dummy-versioned-code.tar.gz"
       - name: Restore libaom source
         uses: ./.github/actions/libaom-source
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      # The toolchain stage does not depend on the project sources, so its layers come from the
+      # Actions cache unless the Dockerfile, rust-toolchain.toml or the emsdk submodule changed. The
+      # four modes of an architecture build the same image; only the native job writes the cache, and
+      # only outside pull requests, so pull requests reuse the image of main without adding to the
+      # cache storage of the repository.
       - name: Build container
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile
+          target: toolchain
+          build-args: |
+            PLATFORM=${{ matrix.arch.platform }}
+            ENABLE_VALGRIND=0
+            ENABLE_CLANG=1
+            ENABLE_EMSDK=1
+            EMSDK_VERSION=${{ needs.Prepare.outputs.emsdk_version }}
+          tags: ci
+          load: true
+          cache-from: type=gha,scope=ci-${{ matrix.arch.name }}
+          cache-to: ${{ github.event_name != 'pull_request' && matrix.mode == 'native' && format('type=gha,scope=ci-{0},mode=max,ignore-error=true', matrix.arch.name) || '' }}
+      # The objects of the third-party libraries (libaom, libavif, libwebp, ...) dominate the build.
+      # The key changes with the submodules and the toolchain. A key is saved once, outside pull
+      # requests; pull requests and later runs restore it (or the latest entry of the mode), so the
+      # number of entries does not grow with the number of runs.
+      - name: Resolve ccache key
+        id: ccache_key
         run: |
-          docker build \
-            --file "Dockerfile" \
-            --build-arg PLATFORM="${{ matrix.platform }}" \
-            --build-arg ENABLE_VALGRIND="0" \
-            --build-arg ENABLE_CLANG="1" \
-            --build-arg ENABLE_EMSDK="1" \
-            --build-arg EMSDK_VERSION="${{ needs.Prepare.outputs.emsdk_version }}" \
-            --target "builder" \
-            --tag "ci" \
-            .
-      - name: Build and test native and integrated Node/WebAssembly modes
+          SUBMODULES="$(git ls-tree HEAD third_party/ | sha256sum | cut -c1-16)"
+          echo "prefix=ccache-${{ runner.os }}-${{ matrix.arch.name }}-${{ matrix.mode }}-" >> "${GITHUB_OUTPUT}"
+          echo "key=ccache-${{ runner.os }}-${{ matrix.arch.name }}-${{ matrix.mode }}-${SUBMODULES}-${{ hashFiles('Dockerfile', 'cmake/libaom.cmake') }}" >> "${GITHUB_OUTPUT}"
+      - name: Restore ccache
+        id: ccache
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/ccache
+          key: ${{ steps.ccache_key.outputs.key }}
+          restore-keys: ${{ steps.ccache_key.outputs.prefix }}
+      - name: Build and test
+        env:
+          MODE: ${{ matrix.mode }}
         run: |
           docker run \
             --rm \
             --volume "${PWD}:/workspace" \
             --workdir "/workspace" \
+            --env MODE \
+            --env CCACHE_DIR="/workspace/.cache/ccache" \
+            --env CCACHE_BASEDIR="/workspace" \
+            --env CCACHE_MAXSIZE="250M" \
             ci \
             /bin/bash -lc '
               set -e
 
-              rm -rf "build"
-              cmake -B "build" \
-                -DCMAKE_BUILD_TYPE="Release" \
-                -DCOLOPRESSO_USE_TESTS=ON \
-                -DCOLOPRESSO_USE_UTILS=ON \
-                -DCOLOPRESSO_USE_CLI=ON
-              cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
-              ctest --test-dir "build" --output-on-failure --parallel
+              ccache --zero-stats > /dev/null
+              LAUNCHER=(-DCMAKE_C_COMPILER_LAUNCHER="ccache" -DCMAKE_CXX_COMPILER_LAUNCHER="ccache")
 
-              for OPTS in ASAN UBSAN; do
-                rm -rf "build"
-                cmake -B "build" \
-                  -DCMAKE_C_COMPILER="$(command -v "clang")" \
-                  -DCMAKE_CXX_COMPILER="$(command -v "clang++")" \
-                  -DCMAKE_BUILD_TYPE="Debug" \
-                  -DCOLOPRESSO_USE_TESTS=ON \
-                  -DCOLOPRESSO_USE_UTILS=ON \
-                  -DCOLOPRESSO_USE_CLI=ON \
-                  -DCOLOPRESSO_USE_${OPTS}=ON
-                cmake --build "build" --config "Debug" --parallel="$(($(nproc)-1))"
-                ctest --test-dir "build" --output-on-failure --parallel
-              done
+              case "${MODE}" in
+                native)
+                  cmake -B "build" \
+                    -DCMAKE_BUILD_TYPE="Release" \
+                    -DCOLOPRESSO_USE_TESTS=ON \
+                    -DCOLOPRESSO_USE_UTILS=ON \
+                    -DCOLOPRESSO_USE_CLI=ON \
+                    "${LAUNCHER[@]}"
+                  cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
+                  ctest --test-dir "build" --output-on-failure --parallel
+                  ;;
+                asan | ubsan)
+                  cmake -B "build" \
+                    -DCMAKE_C_COMPILER="$(command -v "clang")" \
+                    -DCMAKE_CXX_COMPILER="$(command -v "clang++")" \
+                    -DCMAKE_BUILD_TYPE="Debug" \
+                    -DCOLOPRESSO_USE_TESTS=ON \
+                    -DCOLOPRESSO_USE_UTILS=ON \
+                    -DCOLOPRESSO_USE_CLI=ON \
+                    -DCOLOPRESSO_USE_${MODE^^}=ON \
+                    "${LAUNCHER[@]}"
+                  cmake --build "build" --config "Debug" --parallel="$(($(nproc)-1))"
+                  ctest --test-dir "build" --output-on-failure --parallel
+                  ;;
+                wasm)
+                  # emcc runs the compiler through this wrapper.
+                  export EM_COMPILER_WRAPPER="ccache"
+                  emcmake cmake -B "build" \
+                    -DCMAKE_BUILD_TYPE="Release" \
+                    -DCOLOPRESSO_NODE_BUILD=ON \
+                    -DCOLOPRESSO_USE_TESTS=ON \
+                    -DCOLOPRESSO_USE_UTILS=ON \
+                    -DCOLOPRESSO_USE_CLI=ON
+                  cmake --build "build" --target "pngx_bridge_build" --parallel="$(($(nproc)-1))"
+                  if emnm "build/pngx_bridge/target/wasm32-unknown-emscripten/release/libpngx_bridge.a" | grep -Eq "(_Unwind_|__cxa_throw|__cxa_begin_catch|__gxx_personality_v0|__clang_call_terminate)"; then
+                    echo "pngx_bridge archive still depends on unwind exception symbols"
+                    exit 1
+                  fi
+                  cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
+                  ctest --test-dir "build" --output-on-failure --parallel
+                  ;;
+                *)
+                  echo "Unknown mode: ${MODE}" >&2
+                  exit 1
+                  ;;
+              esac
 
-              rm -rf "build"
-              emcmake cmake -B "build" \
-                -DCMAKE_BUILD_TYPE="Release" \
-                -DCOLOPRESSO_NODE_BUILD=ON \
-                -DCOLOPRESSO_USE_TESTS=ON \
-                -DCOLOPRESSO_USE_UTILS=ON \
-                -DCOLOPRESSO_USE_CLI=ON
-              cmake --build "build" --target "pngx_bridge_build" --parallel="$(($(nproc)-1))"
-              if emnm "build/pngx_bridge/target/wasm32-unknown-emscripten/release/libpngx_bridge.a" | grep -Eq "(_Unwind_|__cxa_throw|__cxa_begin_catch|__gxx_personality_v0|__clang_call_terminate)"; then
-                echo "pngx_bridge archive still depends on unwind exception symbols"
-                exit 1
-              fi
-              cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
-              ctest --test-dir "build" --output-on-failure --parallel
+              ccache --show-stats
             '
+      - name: Save ccache
+        if: ${{ !cancelled() && github.event_name != 'pull_request' && steps.ccache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .cache/ccache
+          key: ${{ steps.ccache_key.outputs.key }}
   Valgrind:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: Prepare
@@ -580,6 +648,8 @@ jobs:
           - arch: arm64
             runs-on: ubuntu-26.04-arm
     runs-on: ${{ matrix.runs-on }}
+    env:
+      DOCKER_BUILD_RECORD_UPLOAD: false
     steps:
       - name: Download dummy versioned code
         uses: actions/download-artifact@v8
@@ -592,33 +662,64 @@ jobs:
           rm -rf "dummy-versioned-code.tar.gz"
       - name: Restore libaom source
         uses: ./.github/actions/libaom-source
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Build container
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile.alpine
+          tags: cli
+          load: true
+          cache-from: type=gha,scope=cli-${{ matrix.arch }}
+          cache-to: ${{ github.event_name != 'pull_request' && format('type=gha,scope=cli-{0},mode=max,ignore-error=true', matrix.arch) || '' }}
+      - name: Resolve ccache key
+        id: ccache_key
         run: |
-          docker build \
-            --file "Dockerfile.alpine" \
-            --tag "cli" \
-            .
+          SUBMODULES="$(git ls-tree HEAD third_party/ | sha256sum | cut -c1-16)"
+          echo "prefix=ccache-${{ runner.os }}-${{ matrix.arch }}-cli-" >> "${GITHUB_OUTPUT}"
+          echo "key=ccache-${{ runner.os }}-${{ matrix.arch }}-cli-${SUBMODULES}-${{ hashFiles('Dockerfile.alpine', 'cmake/libaom.cmake') }}" >> "${GITHUB_OUTPUT}"
+      - name: Restore ccache
+        id: ccache
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/ccache
+          key: ${{ steps.ccache_key.outputs.key }}
+          restore-keys: ${{ steps.ccache_key.outputs.prefix }}
       - name: Build CLI in container
         run: |
           docker run \
             --rm \
             --volume "${PWD}:/workspace" \
             --workdir "/workspace" \
+            --env CCACHE_DIR="/workspace/.cache/ccache" \
+            --env CCACHE_BASEDIR="/workspace" \
+            --env CCACHE_MAXSIZE="250M" \
             "cli" \
             /bin/sh -c '
               set -e
+              ccache --zero-stats > /dev/null
               cmake -B build \
                 -DCMAKE_BUILD_TYPE="Release" \
                 -DCMAKE_EXE_LINKER_FLAGS="-static" \
+                -DCMAKE_C_COMPILER_LAUNCHER="ccache" \
+                -DCMAKE_CXX_COMPILER_LAUNCHER="ccache" \
                 -DCOLOPRESSO_USE_CLI=ON \
                 -DCOLOPRESSO_USE_TESTS=ON
               cmake --build "build" --config "Release" --target "colopresso_cli" --parallel="$(($(nproc)-1))"
+              ccache --show-stats
               strip build/cli/colopresso
               build/cli/colopresso --version
               build/cli/colopresso --verbose --format=webp assets/example.png "/tmp/example.webp"
               build/cli/colopresso --verbose --format=avif assets/example.png "/tmp/example.avif"
               build/cli/colopresso --verbose --format=pngx assets/example.png "/tmp/example.png"
             '
+      - name: Save ccache
+        if: ${{ !cancelled() && github.event_name != 'pull_request' && steps.ccache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .cache/ccache
+          key: ${{ steps.ccache_key.outputs.key }}
       - name: Test binary in minimal container
         run: |
           docker run \

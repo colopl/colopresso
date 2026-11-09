@@ -74,6 +74,23 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
   しました。使う版の libaom を Actions のキャッシュから `.cache/libaom/<tag>` に復元し、キャッシュがないときだけ
   clone します。CMake は、そこに同じ版があればそれを使ってビルドします。libaom の版を決める処理は
   `cmake/libaom.cmake` に移し、`cmake -P cmake/libaom.cmake` でタグを表示できます (#352)。
+- **変更:** Linux の CI ジョブで、各モード (ネイティブ, ASan, UBSan, Node.js / WebAssembly の統合ビルド) を
+  順に実行するのをやめ、アーキテクチャごとに別々のジョブ (`LinuxAndWasm (amd64, asan)` など) として並列に
+  実行するようにしました (#352)。
+- **変更:** `Dockerfile` に、コンパイラと SDK (GCC, LLVM 22, Rust, Emscripten, ccache) を入れる `toolchain`
+  ステージを追加し、`builder` と `devcontainer` はその上に作るようにしました。このステージが読むのは
+  `rust-toolchain.toml` と `third_party/emsdk` submodule のスクリプトだけなので、CI はその層を Actions の
+  キャッシュに保存し、ツールチェーンが変わったときだけ作り直します。Linux の CLI ジョブの Alpine イメージも
+  同じようにキャッシュします。Emscripten SDK のインストール先は `/project/third_party/emsdk` から
+  `/opt/emsdk` に変わりました。`EMSDK_VERSION=0` (既定値) では、Git のメタデータを読まずに、submodule が
+  固定しているリリースを入れます (#352)。
+- **変更:** CI のコンテナ内のビルドで、C と C++ を ccache 経由でコンパイルするようにしました。ccache の
+  ディレクトリはアーキテクチャとモードごとに Actions のキャッシュに保存し、キーには submodule のコミットと
+  Dockerfile を使います。イメージの層と ccache を保存するのは push と手動実行のときだけで、Pull Request では
+  main のものを使います (#352)。
+- **変更:** main への push と手動実行は、後の実行で取り消されないようにしました。取り消すのは Pull Request の
+  古い実行だけです。CI ワークフローの `GITHUB_TOKEN` を読み取り専用 (`contents: read`) にしました。リリースの
+  ワークフローは `contents: write` のままで、secrets を使うコード署名には影響しません (#352)。
 - **変更:** CI とリリースのジョブで、Electron の zip とその `SHASUMS256.txt`、および Windows と macOS で
   cibuildwheel が使う `virtualenv.pyz` を、ジョブのトークンを使って GitHub の API から取得し、electron-builder と
   cibuildwheel が最初に探す場所に置くようにしました。これまで electron-builder は zip がキャッシュにあっても

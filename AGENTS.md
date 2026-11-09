@@ -49,6 +49,7 @@
 - `/build`: ビルド用ディレクトリです。基本的に CMake で指定されます
 - `/.claude/skills`: Claude Code 用のスキルです。 `rollup-dependencies` は依存関係をまとめて更新する (ロールアップ) 手順、 `colopresso-electron-e2e` はビルドした Electron アプリを Playwright で操作して GUI からの変換を確かめる手順です
 - `/.devcontainer`, `Dockerfile`, `Dockerfile.alpine`: Linux 開発環境 (Dev Container) と CI 用のコンテナ定義です
+    - `Dockerfile` の `toolchain` ステージ (コンパイラと SDK) は CI が Actions のキャッシュに保存して使い回します。このステージではプロジェクト全体を `COPY` せず、必要なファイルだけを読むようにしてください。読むファイルが変わるたびにキャッシュが無効になります
 - `/.github/workflows`: CI (`ci.yaml`), カバレッジ (`coverage.yaml`), リリース (`release.yaml`) のワークフローです
 - `CMakeLists.txt`: プロジェクト全体の CMake 構成ファイルです
 - `CHANGELOG.md`, `CHANGELOG_ja.md`: 変更履歴です (英語 / 日本語)。書式は「変更履歴の記載」を参照してください

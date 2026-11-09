@@ -122,7 +122,7 @@ push や PR 作成の前には、取り込む内容・見送る内容・確認�
 | 共通 | `pnpm install --frozen-lockfile`、`tsc -p app/electron/tsconfig.json --noEmit` と `app/shared` の同様の検査、`prettier --check`、`node --test utils/*.test.mjs` |
 | macOS ネイティブ | README の「Build (macOS)」。ビルドディレクトリはリポジトリの外に新しく作る (`/build` は Dev Container で構成されていることがある) |
 | macOS Electron | README の「Build (Electron)」。`dist_build/` と `build/electron` にソースツリー基準で出力されるため、既存の成果物を壊さないよう、作業ツリーの複製 (ビルド成果物を除いて rsync) でビルドする。wasm-pack は `cargo install wasm-pack --version <固定版> --locked --root <一時ディレクトリ>` で入れて PATH の先頭に置き、ユーザー環境の版は変えない。ログで `electron=<版>` を確かめる |
-| Linux | `Dockerfile` の `builder` を ci.yaml と同じ引数 (emsdk の版は submodule のタグ) でビルドし、ci.yaml の LinuxAndWasm のスクリプト (ネイティブ, ASan, UBSan, 統合 Node/WASM) を作業ツリーの複製をマウントして実行する。ローカルで試すのはホストと同じアーキテクチャだけでよい |
+| Linux | `Dockerfile` の `toolchain` ステージを ci.yaml と同じ引数 (emsdk の版は submodule のタグ) でビルドし、ci.yaml の LinuxAndWasm のスクリプトを、作業ツリーの複製をマウントしてモード (`MODE` が `native`, `asan`, `ubsan`, `wasm`) ごとに実行する。ローカルで試すのはホストと同じアーキテクチャだけでよい |
 | Valgrind | CI では main への push でしか動かない。Valgrind の版やメモリまわりが変わったときは、`ENABLE_VALGRIND=1` のイメージをローカルでビルドして少なくとも `valgrind --version` まで確かめる |
 | Windows, Python wheel, もう一方のアーキテクチャ | CI でしか確かめられない。push と PR の了承を得てから CI の結果で確認する。Linux 上の Electron パッケージングは非対応なので試さない |
 
