@@ -157,6 +157,7 @@ printf '%s\n' launch "format avif" "mock-folder /tmp/in" pick "wait 600" files "
 - **macOS には `timeout` コマンドがない:** 時間制限を付けたいときは、ドライバの `wait` の秒数で調整する。
 - **Windows のパッケージング:** CI の Windows ランナーで electron-builder がビルドディレクトリを
   カレントディレクトリとして起動され、`Cannot find package.json in the ...\build` で失敗したことが
-  ある。`cmake/electron_app.cmake` で `--projectDir` を明示して渡していれば起きない。
+  ある。現在は `cmake/electron_app.cmake` が `--projectDir` を明示して渡すので起きない。この引数を
+  外すと再発する。
 - **Windows での実行は未検証:** ドライバは Windows の実行ファイルのパスにも対応しているが、
   この手順を Windows で通したことはまだない。
