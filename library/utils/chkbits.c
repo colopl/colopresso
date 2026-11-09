@@ -74,6 +74,13 @@ typedef struct {
     uint8_t overflow_bits;
 } capacity_value_t;
 
+/* Filled by read_png_rows(); owned by its caller so that the buffers keep their values when libpng
+ * longjmps out of the reader. */
+typedef struct {
+    png_bytep image_data;
+    png_bytep *row_pointers;
+} png_row_buffers_t;
+
 static const char *const G_CHANNEL_LABELS[CHANNEL_COUNT] = {"R", "G", "B", "A"};
 
 static inline capacity_value_t capacity_from_u64(uint64_t value)
@@ -119,46 +126,6 @@ static inline uint8_t clamp_bit_depth(uint8_t bit_depth)
     return bit_depth;
 }
 
-static bool pow2_to_decimal_string(uint8_t bits, char *buffer, size_t buffer_size)
-{
-    uint16_t value;
-    uint8_t digits[40] = {0}, carry = 0;
-    size_t digit_count = 1, idx, i;
-
-    if (!buffer || buffer_size == 0) {
-        return false;
-    }
-
-    digits[0] = 1;
-    for (i = 0; i < bits; i++) {
-        for (idx = 0; idx < digit_count; idx++) {
-            value = (uint16_t)(digits[idx] * 2) + carry;
-            digits[idx] = (uint8_t)(value % 10);
-            carry = (uint8_t)(value / 10);
-        }
-
-        if (carry != 0) {
-            if (digit_count >= sizeof(digits)) {
-                return false;
-            }
-
-            digits[digit_count++] = carry;
-        }
-    }
-
-    if (digit_count + 1 > buffer_size) {
-        return false;
-    }
-
-    for (i = 0; i < digit_count; i++) {
-        buffer[i] = (char)('0' + digits[digit_count - 1 - i]);
-    }
-
-    buffer[digit_count] = '\0';
-
-    return true;
-}
-
 static inline void free_png_image(png_image_t *image)
 {
     if (!image) {
@@ -169,195 +136,6 @@ static inline void free_png_image(png_image_t *image)
         free(image->rgba);
         image->rgba = NULL;
     }
-}
-
-static bool decode_png_image(const char *path, png_image_t *out)
-{
-    FILE *fp = NULL;
-    png_structp png_ptr = NULL;
-    png_infop info_ptr = NULL;
-    png_bytep image_data = NULL, *row_pointers = NULL;
-    png_colorp palette = NULL;
-    png_image_t result = {0};
-    png_size_t rowbytes;
-    png_uint_32 y;
-    uint32_t bit_depth, color_type;
-    size_t pixel_count, samples, src, row_span, image_size, i;
-    int num_palette = 0;
-
-    if (!path || !out) {
-        return false;
-    }
-
-    fp = fopen(path, "rb");
-    if (!fp) {
-        return false;
-    }
-
-    png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-    if (!png_ptr) {
-        goto bailout;
-    }
-
-    info_ptr = png_create_info_struct(png_ptr);
-    if (!info_ptr) {
-        goto bailout;
-    }
-
-    if (setjmp(png_jmpbuf(png_ptr))) {
-        goto bailout;
-    }
-
-    png_init_io(png_ptr, fp);
-    png_read_info(png_ptr, info_ptr);
-
-    result.width = png_get_image_width(png_ptr, info_ptr);
-    result.height = png_get_image_height(png_ptr, info_ptr);
-    bit_depth = png_get_bit_depth(png_ptr, info_ptr);
-    color_type = png_get_color_type(png_ptr, info_ptr);
-
-    result.metadata.available = true;
-    result.metadata.color_type = (uint8_t)color_type;
-    result.metadata.bit_depth = clamp_bit_depth((uint8_t)bit_depth);
-    result.metadata.palette_entries = 0;
-
-    if (color_type == PNG_COLOR_TYPE_PALETTE && png_get_valid(png_ptr, info_ptr, PNG_INFO_PLTE)) {
-        png_get_PLTE(png_ptr, info_ptr, &palette, &num_palette);
-        if (num_palette > 256) {
-            num_palette = 256;
-        }
-
-        if (num_palette > 0) {
-            result.metadata.palette_entries = (uint16_t)num_palette;
-        }
-    }
-
-    if (color_type == PNG_COLOR_TYPE_PALETTE) {
-        png_set_palette_to_rgb(png_ptr);
-    }
-
-    if ((color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA) &&
-        bit_depth < 8) {
-        png_set_expand_gray_1_2_4_to_8(png_ptr);
-    }
-
-    if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) {
-        png_set_tRNS_to_alpha(png_ptr);
-    }
-
-    if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA) {
-        png_set_gray_to_rgb(png_ptr);
-    }
-
-    if (!(color_type & PNG_COLOR_MASK_ALPHA) && !png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) {
-        png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER);
-    }
-
-    if (png_get_interlace_type(png_ptr, info_ptr) != PNG_INTERLACE_NONE) {
-        png_set_interlace_handling(png_ptr);
-    }
-
-    png_read_update_info(png_ptr, info_ptr);
-
-    result.width = png_get_image_width(png_ptr, info_ptr);
-    result.height = png_get_image_height(png_ptr, info_ptr);
-    result.sample_bit_depth = (uint8_t)png_get_bit_depth(png_ptr, info_ptr);
-    if (result.sample_bit_depth > MAX_BIT_DEPTH) {
-        result.sample_bit_depth = MAX_BIT_DEPTH;
-    }
-
-    if (result.sample_bit_depth <= 8) {
-        result.sample_bit_depth = 8;
-    }
-
-    rowbytes = png_get_rowbytes(png_ptr, info_ptr);
-    row_span = (size_t)rowbytes;
-    if (result.height != 0 && row_span > SIZE_MAX / result.height) {
-        goto bailout;
-    }
-
-    image_size = row_span * (size_t)result.height;
-
-    if (result.height != 0 && result.width > SIZE_MAX / result.height) {
-        goto bailout;
-    }
-
-    pixel_count = (size_t)result.width * (size_t)result.height;
-    if (pixel_count == 0) {
-        goto bailout;
-    }
-
-    if (pixel_count > SIZE_MAX / CHANNEL_COUNT) {
-        goto bailout;
-    }
-
-    image_data = (png_bytep)malloc(image_size);
-    if (!image_data) {
-        goto bailout;
-    }
-
-    row_pointers = (png_bytep *)malloc((size_t)result.height * sizeof(png_bytep));
-    if (!row_pointers) {
-        goto bailout;
-    }
-
-    for (y = 0; y < result.height; y++) {
-        row_pointers[y] = image_data + (size_t)y * row_span;
-    }
-
-    png_read_image(png_ptr, row_pointers);
-
-    samples = pixel_count * CHANNEL_COUNT;
-    if (samples > SIZE_MAX / sizeof(uint16_t)) {
-        goto bailout;
-    }
-
-    result.rgba = (uint16_t *)malloc(samples * sizeof(uint16_t));
-    if (!result.rgba) {
-        goto bailout;
-    }
-
-    if (result.sample_bit_depth <= 8) {
-        for (i = 0; i < samples; i++) {
-            result.rgba[i] = (uint16_t)image_data[i];
-        }
-    } else {
-        src = 0;
-        for (i = 0; i < samples; i++) {
-            result.rgba[i] = ((uint16_t)image_data[src] << 8) | (uint16_t)image_data[src + 1];
-            src += 2;
-        }
-    }
-
-    png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-    fclose(fp);
-    free(row_pointers);
-    free(image_data);
-
-    *out = result;
-
-    return true;
-
-bailout:
-    if (row_pointers) {
-        free(row_pointers);
-    }
-
-    if (image_data) {
-        free(image_data);
-    }
-
-    free_png_image(&result);
-
-    if (png_ptr || info_ptr) {
-        png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-    }
-
-    if (fp) {
-        fclose(fp);
-    }
-
-    return false;
 }
 
 static inline uint64_t count_unique_colors(uint64_t *colors, size_t count)
@@ -551,18 +329,255 @@ static inline uint64_t pack_rgba64(const uint16_t *pixel, uint8_t channel_bits)
     return packed;
 }
 
+static bool pow2_to_decimal_string(uint8_t bits, char *buffer, size_t buffer_size)
+{
+    uint16_t value;
+    uint8_t digits[40] = {0}, carry = 0;
+    size_t digit_count = 1, idx, i;
+
+    if (!buffer || buffer_size == 0) {
+        return false;
+    }
+
+    digits[0] = 1;
+    for (i = 0; i < bits; i++) {
+        for (idx = 0; idx < digit_count; idx++) {
+            value = (uint16_t)(digits[idx] * 2) + carry;
+            digits[idx] = (uint8_t)(value % 10);
+            carry = (uint8_t)(value / 10);
+        }
+
+        if (carry != 0) {
+            if (digit_count >= sizeof(digits)) {
+                return false;
+            }
+
+            digits[digit_count++] = carry;
+        }
+    }
+
+    if (digit_count + 1 > buffer_size) {
+        return false;
+    }
+
+    for (i = 0; i < digit_count; i++) {
+        buffer[i] = (char)('0' + digits[digit_count - 1 - i]);
+    }
+
+    buffer[digit_count] = '\0';
+
+    return true;
+}
+
+static bool read_png_rows(png_structp png_ptr, png_infop info_ptr, FILE *fp, png_image_t *result,
+                          png_row_buffers_t *buffers)
+{
+    png_colorp palette = NULL;
+    png_size_t rowbytes;
+    png_uint_32 y;
+    uint32_t bit_depth, color_type;
+    int num_palette = 0;
+    size_t pixel_count, row_span, image_size;
+
+    if (setjmp(png_jmpbuf(png_ptr))) {
+        return false;
+    }
+
+    png_init_io(png_ptr, fp);
+    png_read_info(png_ptr, info_ptr);
+
+    result->width = png_get_image_width(png_ptr, info_ptr);
+    result->height = png_get_image_height(png_ptr, info_ptr);
+    bit_depth = png_get_bit_depth(png_ptr, info_ptr);
+    color_type = png_get_color_type(png_ptr, info_ptr);
+
+    result->metadata.available = true;
+    result->metadata.color_type = (uint8_t)color_type;
+    result->metadata.bit_depth = clamp_bit_depth((uint8_t)bit_depth);
+    result->metadata.palette_entries = 0;
+
+    if (color_type == PNG_COLOR_TYPE_PALETTE && png_get_valid(png_ptr, info_ptr, PNG_INFO_PLTE)) {
+        png_get_PLTE(png_ptr, info_ptr, &palette, &num_palette);
+        if (num_palette > 256) {
+            num_palette = 256;
+        }
+
+        if (num_palette > 0) {
+            result->metadata.palette_entries = (uint16_t)num_palette;
+        }
+    }
+
+    if (color_type == PNG_COLOR_TYPE_PALETTE) {
+        png_set_palette_to_rgb(png_ptr);
+    }
+
+    if ((color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA) &&
+        bit_depth < 8) {
+        png_set_expand_gray_1_2_4_to_8(png_ptr);
+    }
+
+    if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) {
+        png_set_tRNS_to_alpha(png_ptr);
+    }
+
+    if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA) {
+        png_set_gray_to_rgb(png_ptr);
+    }
+
+    if (!(color_type & PNG_COLOR_MASK_ALPHA) && !png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) {
+        png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER);
+    }
+
+    if (png_get_interlace_type(png_ptr, info_ptr) != PNG_INTERLACE_NONE) {
+        png_set_interlace_handling(png_ptr);
+    }
+
+    png_read_update_info(png_ptr, info_ptr);
+
+    result->width = png_get_image_width(png_ptr, info_ptr);
+    result->height = png_get_image_height(png_ptr, info_ptr);
+    result->sample_bit_depth = (uint8_t)png_get_bit_depth(png_ptr, info_ptr);
+    if (result->sample_bit_depth > MAX_BIT_DEPTH) {
+        result->sample_bit_depth = MAX_BIT_DEPTH;
+    }
+
+    if (result->sample_bit_depth <= 8) {
+        result->sample_bit_depth = 8;
+    }
+
+    rowbytes = png_get_rowbytes(png_ptr, info_ptr);
+    row_span = (size_t)rowbytes;
+    if (result->height != 0 && row_span > SIZE_MAX / result->height) {
+        return false;
+    }
+
+    image_size = row_span * (size_t)result->height;
+
+    if (result->height != 0 && result->width > SIZE_MAX / result->height) {
+        return false;
+    }
+
+    pixel_count = (size_t)result->width * (size_t)result->height;
+    if (pixel_count == 0) {
+        return false;
+    }
+
+    if (pixel_count > SIZE_MAX / CHANNEL_COUNT) {
+        return false;
+    }
+
+    buffers->image_data = (png_bytep)malloc(image_size);
+    if (!buffers->image_data) {
+        return false;
+    }
+
+    buffers->row_pointers = (png_bytep *)malloc((size_t)result->height * sizeof(png_bytep));
+    if (!buffers->row_pointers) {
+        return false;
+    }
+
+    for (y = 0; y < result->height; y++) {
+        buffers->row_pointers[y] = buffers->image_data + (size_t)y * row_span;
+    }
+
+    png_read_image(png_ptr, buffers->row_pointers);
+
+    return true;
+}
+
+static bool decode_png_image(const char *path, png_image_t *out)
+{
+    png_row_buffers_t buffers = {0};
+    png_image_t result = {0};
+    png_structp png_ptr = NULL;
+    png_infop info_ptr = NULL;
+    FILE *fp = NULL;
+    size_t pixel_count, samples, src, i;
+    bool success = false;
+
+    if (!path || !out) {
+        return false;
+    }
+
+    fp = fopen(path, "rb");
+    if (!fp) {
+        return false;
+    }
+
+    png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    if (!png_ptr) {
+        goto bailout;
+    }
+
+    info_ptr = png_create_info_struct(png_ptr);
+    if (!info_ptr) {
+        goto bailout;
+    }
+
+    if (!read_png_rows(png_ptr, info_ptr, fp, &result, &buffers)) {
+        goto bailout;
+    }
+
+    pixel_count = (size_t)result.width * (size_t)result.height;
+
+    samples = pixel_count * CHANNEL_COUNT;
+    if (samples > SIZE_MAX / sizeof(uint16_t)) {
+        goto bailout;
+    }
+
+    result.rgba = (uint16_t *)malloc(samples * sizeof(uint16_t));
+    if (!result.rgba) {
+        goto bailout;
+    }
+
+    if (result.sample_bit_depth <= 8) {
+        for (i = 0; i < samples; i++) {
+            result.rgba[i] = (uint16_t)buffers.image_data[i];
+        }
+    } else {
+        src = 0;
+        for (i = 0; i < samples; i++) {
+            result.rgba[i] =
+                ((uint16_t)buffers.image_data[src] << 8) | (uint16_t)buffers.image_data[src + 1];
+            src += 2;
+        }
+    }
+
+    success = true;
+
+bailout:
+    free(buffers.row_pointers);
+    free(buffers.image_data);
+
+    if (png_ptr || info_ptr) {
+        png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+    }
+
+    fclose(fp);
+
+    if (!success) {
+        free_png_image(&result);
+
+        return false;
+    }
+
+    *out = result;
+
+    return true;
+}
+
 int main(int argc, char **argv)
 {
     const char *input_path;
-    char capacity_buffer[64];
-    uint64_t *colors = NULL, unique_colors = 0;
-    uint8_t idx, channel_bits, *value_seen = NULL, *value_rows[CHANNEL_COUNT] = {NULL};
-    size_t pixel_count = 0, base = 0, value_limit, i;
     png_image_t image = {0};
     channel_stats_t channels[CHANNEL_COUNT] = {{0}};
     capacity_value_t max_colors = capacity_from_u64(0);
     color_mode_t color_mode;
+    uint64_t *colors = NULL, unique_colors = 0;
+    uint8_t idx, channel_bits, *value_seen = NULL, *value_rows[CHANNEL_COUNT] = {NULL};
     int exit_code = EXIT_OK;
+    size_t pixel_count = 0, base = 0, value_limit, i;
+    char capacity_buffer[64];
 
     if (argc != 2) {
         print_usage(argv[0]);

@@ -35,10 +35,26 @@ typedef struct {
     size_t size;
 } metrics_t;
 
+typedef enum {
+    PNG_ROWS_OK,
+    PNG_ROWS_LIBPNG_ERROR,
+    PNG_ROWS_OUT_OF_MEMORY,
+} png_rows_status_t;
+
+/* Filled by read_png_rows(); owned by its caller so that the buffers keep their values when libpng
+ * longjmps out of the reader. */
+typedef struct {
+    png_bytep row_buffer;
+    png_bytep *row_ptrs;
+    png_uint_32 width;
+    png_uint_32 height;
+} png_rows_t;
+
 static inline uint32_t min_u32(uint32_t a, uint32_t b)
 {
     return (a < b) ? a : b;
 }
+
 static inline double clamp_nonnegative(double value)
 {
     return (value < 0.0) ? 0.0 : value;
@@ -73,137 +89,6 @@ static inline bool get_file_size(const char *path, size_t *out_size)
     *out_size = (size_t)st.st_size;
 
     return true;
-}
-
-static inline bool load_png_rgb(const char *path, image_rgb_t *out_img)
-{
-    FILE *fp;
-    png_structp png_ptr;
-    png_infop info_ptr;
-    png_bytep row_buffer, *row_ptrs, src;
-    png_uint_32 width = 0, height = 0;
-    uint32_t x, y;
-    uint8_t *rgb_data = NULL, *dst;
-    size_t rowbytes, total_bytes, idx, didx;
-    int bit_depth = 0, color_type = 0;
-    bool success = false;
-
-    if (!path || !out_img) {
-        return false;
-    }
-
-    memset(out_img, 0, sizeof(*out_img));
-
-    fp = fopen(path, "rb");
-    if (!fp) {
-        fprintf(stderr, "Error: failed to open '%s': %s\n", path, strerror(errno));
-
-        goto bailout;
-    }
-
-    png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-    if (!png_ptr) {
-        fprintf(stderr, "Error: png_create_read_struct failed for '%s'\n", path);
-
-        goto bailout;
-    }
-
-    info_ptr = png_create_info_struct(png_ptr);
-    if (!info_ptr) {
-        fprintf(stderr, "Error: png_create_info_struct failed for '%s'\n", path);
-
-        goto bailout;
-    }
-
-    if (setjmp(png_jmpbuf(png_ptr))) {
-        fprintf(stderr, "Error: libpng failed while reading '%s'\n", path);
-
-        goto bailout;
-    }
-
-    png_init_io(png_ptr, fp);
-    png_read_info(png_ptr, info_ptr);
-    png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth, &color_type, NULL, NULL, NULL);
-
-    if (bit_depth == 16) {
-        png_set_strip_16(png_ptr);
-    }
-
-    if (color_type == PNG_COLOR_TYPE_PALETTE ||
-        (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8) ||
-        png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) {
-        png_set_expand(png_ptr);
-    }
-
-    if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA) {
-        png_set_gray_to_rgb(png_ptr);
-    }
-
-    png_set_filler(png_ptr, 0xff, PNG_FILLER_AFTER);
-    png_set_interlace_handling(png_ptr);
-    png_read_update_info(png_ptr, info_ptr);
-
-    rowbytes = png_get_rowbytes(png_ptr, info_ptr);
-    total_bytes = (size_t)rowbytes * (size_t)height;
-    row_buffer = (png_bytep)malloc(total_bytes);
-    row_ptrs = (png_bytep *)malloc(sizeof(png_bytep) * (size_t)height);
-    if (!row_buffer || !row_ptrs) {
-        fprintf(stderr, "Error: out of memory while reading '%s'\n", path);
-
-        goto bailout;
-    }
-
-    for (y = 0; y < height; ++y) {
-        row_ptrs[y] = row_buffer + (size_t)y * rowbytes;
-    }
-
-    png_read_image(png_ptr, row_ptrs);
-
-    rgb_data = (uint8_t *)malloc((size_t)width * (size_t)height * CHANNELS);
-    if (!rgb_data) {
-        fprintf(stderr, "Error: out of memory while storing '%s'\n", path);
-
-        goto bailout;
-    }
-
-    for (y = 0; y < height; ++y) {
-        src = row_ptrs[y];
-        dst = rgb_data + ((size_t)y * (size_t)width * CHANNELS);
-        for (x = 0; x < width; ++x) {
-            idx = (size_t)x * 4u;
-            didx = (size_t)x * CHANNELS;
-            dst[didx + 0] = src[idx + 0];
-            dst[didx + 1] = src[idx + 1];
-            dst[didx + 2] = src[idx + 2];
-        }
-    }
-
-    out_img->width = width;
-    out_img->height = height;
-    out_img->pixels = rgb_data;
-    rgb_data = NULL;
-    success = true;
-
-bailout:
-    free(rgb_data);
-    free(row_ptrs);
-    free(row_buffer);
-
-    if (png_ptr && info_ptr) {
-        png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-    } else if (png_ptr) {
-        png_destroy_read_struct(&png_ptr, NULL, NULL);
-    }
-
-    if (fp) {
-        fclose(fp);
-    }
-
-    if (!success) {
-        free_image(out_img);
-    }
-
-    return success;
 }
 
 static inline double compute_psnr(const image_rgb_t *original, const image_rgb_t *candidate)
@@ -251,15 +136,15 @@ static inline double compute_ssim_block(const image_rgb_t *original, const image
                                         uint32_t x0, uint32_t y0, uint32_t block_w,
                                         uint32_t block_h)
 {
-    const double K1 = 0.01, K2 = 0.03, L = 255.0;
-    const double C1 = (K1 * L) * (K1 * L), C2 = (K2 * L) * (K2 * L);
+    const double K1 = 0.01, K2 = 0.03, L = 255.0, C1 = (K1 * L) * (K1 * L),
+                 C2 = (K2 * L) * (K2 * L);
+    uint32_t x, y, c, channel;
+    uint8_t *row_a, *row_b;
+    size_t idx, stride_a, stride_b;
     double sum_a[CHANNELS] = {0.0, 0.0, 0.0}, sum_b[CHANNELS] = {0.0, 0.0, 0.0},
            sum_a2[CHANNELS] = {0.0, 0.0, 0.0}, sum_b2[CHANNELS] = {0.0, 0.0, 0.0},
            sum_ab[CHANNELS] = {0.0, 0.0, 0.0}, block_pixels = (double)block_w * (double)block_h,
            acc = 0.0f, va, vb, inv, mu_x, mu_y, sigma_x, sigma_y, sigma_xy, numerator, denominator;
-    uint32_t x, y, c, channel;
-    uint8_t *row_a, *row_b;
-    size_t idx, stride_a, stride_b;
 
     if (block_w == 0 || block_h == 0 || block_pixels <= 0.0) {
         return 0.0;
@@ -416,7 +301,7 @@ static inline char winner_label(double a, double b, bool higher_is_better, doubl
     return (delta > 0.0) ? 'A' : 'B';
 }
 
-static double percent_improvement(double a, double b, bool higher_is_better)
+static inline double percent_improvement(double a, double b, bool higher_is_better)
 {
     double base;
 
@@ -544,12 +429,166 @@ static inline void print_table(const char *name_a, const char *name_b, const met
     printf("%s\n", overall);
 }
 
+static png_rows_status_t read_png_rows(png_structp png_ptr, png_infop info_ptr, FILE *fp,
+                                       png_rows_t *rows)
+{
+    png_uint_32 y;
+    int bit_depth = 0, color_type = 0;
+    size_t rowbytes;
+
+    if (setjmp(png_jmpbuf(png_ptr))) {
+        return PNG_ROWS_LIBPNG_ERROR;
+    }
+
+    png_init_io(png_ptr, fp);
+    png_read_info(png_ptr, info_ptr);
+    png_get_IHDR(png_ptr, info_ptr, &rows->width, &rows->height, &bit_depth, &color_type, NULL,
+                 NULL, NULL);
+
+    if (bit_depth == 16) {
+        png_set_strip_16(png_ptr);
+    }
+
+    if (color_type == PNG_COLOR_TYPE_PALETTE ||
+        (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8) ||
+        png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) {
+        png_set_expand(png_ptr);
+    }
+
+    if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA) {
+        png_set_gray_to_rgb(png_ptr);
+    }
+
+    png_set_filler(png_ptr, 0xff, PNG_FILLER_AFTER);
+    png_set_interlace_handling(png_ptr);
+    png_read_update_info(png_ptr, info_ptr);
+
+    rowbytes = png_get_rowbytes(png_ptr, info_ptr);
+    if (rows->height != 0 && rowbytes > SIZE_MAX / (size_t)rows->height) {
+        return PNG_ROWS_OUT_OF_MEMORY;
+    }
+
+    rows->row_buffer = (png_bytep)malloc(rowbytes * (size_t)rows->height);
+    rows->row_ptrs = (png_bytep *)malloc(sizeof(png_bytep) * (size_t)rows->height);
+    if (!rows->row_buffer || !rows->row_ptrs) {
+        return PNG_ROWS_OUT_OF_MEMORY;
+    }
+
+    for (y = 0; y < rows->height; ++y) {
+        rows->row_ptrs[y] = rows->row_buffer + (size_t)y * rowbytes;
+    }
+
+    png_read_image(png_ptr, rows->row_ptrs);
+
+    return PNG_ROWS_OK;
+}
+
+static bool load_png_rgb(const char *path, image_rgb_t *out_img)
+{
+    png_rows_t rows = {0};
+    png_rows_status_t status;
+    png_structp png_ptr = NULL;
+    png_infop info_ptr = NULL;
+    png_bytep src;
+    FILE *fp = NULL;
+    uint32_t x, y;
+    uint8_t *rgb_data = NULL, *dst;
+    size_t idx, didx;
+    bool success = false;
+
+    if (!path || !out_img) {
+        return false;
+    }
+
+    memset(out_img, 0, sizeof(*out_img));
+
+    fp = fopen(path, "rb");
+    if (!fp) {
+        fprintf(stderr, "Error: failed to open '%s': %s\n", path, strerror(errno));
+
+        goto bailout;
+    }
+
+    png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    if (!png_ptr) {
+        fprintf(stderr, "Error: png_create_read_struct failed for '%s'\n", path);
+
+        goto bailout;
+    }
+
+    info_ptr = png_create_info_struct(png_ptr);
+    if (!info_ptr) {
+        fprintf(stderr, "Error: png_create_info_struct failed for '%s'\n", path);
+
+        goto bailout;
+    }
+
+    status = read_png_rows(png_ptr, info_ptr, fp, &rows);
+    if (status == PNG_ROWS_LIBPNG_ERROR) {
+        fprintf(stderr, "Error: libpng failed while reading '%s'\n", path);
+
+        goto bailout;
+    }
+
+    if (status == PNG_ROWS_OUT_OF_MEMORY) {
+        fprintf(stderr, "Error: out of memory while reading '%s'\n", path);
+
+        goto bailout;
+    }
+
+    rgb_data = (uint8_t *)malloc((size_t)rows.width * (size_t)rows.height * CHANNELS);
+    if (!rgb_data) {
+        fprintf(stderr, "Error: out of memory while storing '%s'\n", path);
+
+        goto bailout;
+    }
+
+    for (y = 0; y < rows.height; ++y) {
+        src = rows.row_ptrs[y];
+        dst = rgb_data + ((size_t)y * (size_t)rows.width * CHANNELS);
+        for (x = 0; x < rows.width; ++x) {
+            idx = (size_t)x * 4u;
+            didx = (size_t)x * CHANNELS;
+            dst[didx + 0] = src[idx + 0];
+            dst[didx + 1] = src[idx + 1];
+            dst[didx + 2] = src[idx + 2];
+        }
+    }
+
+    out_img->width = rows.width;
+    out_img->height = rows.height;
+    out_img->pixels = rgb_data;
+    rgb_data = NULL;
+    success = true;
+
+bailout:
+    free(rgb_data);
+    free(rows.row_ptrs);
+    free(rows.row_buffer);
+
+    if (png_ptr && info_ptr) {
+        png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+    } else if (png_ptr) {
+        png_destroy_read_struct(&png_ptr, NULL, NULL);
+    }
+
+    if (fp) {
+        fclose(fp);
+    }
+
+    if (!success) {
+        free_image(out_img);
+    }
+
+    return success;
+}
+
 int main(int argc, char **argv)
 {
     const char *orig_path, *cand_a_path, *cand_b_path;
-    int exit_code = 0;
     image_rgb_t orig = {0}, cand_a = {0}, cand_b = {0};
     metrics_t metrics_a, metrics_b;
+    int exit_code = 0;
 
     if (argc != 4) {
         fprintf(stderr, "Usage: %s <original.png> <candidate_a.png> <candidate_b.png>\n",
