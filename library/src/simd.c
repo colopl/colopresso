@@ -31,6 +31,7 @@ static inline uint32_t color_distance_sq_sse(uint32_t lhs, uint32_t rhs)
     diff_sq = _mm_add_epi32(diff_sq, _mm_srli_si128(diff_sq, 4));
 
     result = _mm_cvtsi128_si32(diff_sq);
+
     return (uint32_t)result;
 }
 

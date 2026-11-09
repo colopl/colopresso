@@ -83,6 +83,7 @@ static inline capacity_value_t capacity_from_u64(uint64_t value)
     cap.value = value;
     cap.overflow = false;
     cap.overflow_bits = 0;
+
     return cap;
 }
 
@@ -93,6 +94,7 @@ static inline capacity_value_t capacity_overflow(uint8_t bits)
     cap.value = UINT64_MAX;
     cap.overflow = true;
     cap.overflow_bits = bits;
+
     return cap;
 }
 
@@ -113,6 +115,7 @@ static inline uint8_t clamp_bit_depth(uint8_t bit_depth)
     if (bit_depth == 0 || bit_depth > 16) {
         return DEFAULT_BIT_DEPTH;
     }
+
     return bit_depth;
 }
 
@@ -138,6 +141,7 @@ static bool pow2_to_decimal_string(uint8_t bits, char *buffer, size_t buffer_siz
             if (digit_count >= sizeof(digits)) {
                 return false;
             }
+
             digits[digit_count++] = carry;
         }
     }
@@ -149,6 +153,7 @@ static bool pow2_to_decimal_string(uint8_t bits, char *buffer, size_t buffer_siz
     for (i = 0; i < digit_count; i++) {
         buffer[i] = (char)('0' + digits[digit_count - 1 - i]);
     }
+
     buffer[digit_count] = '\0';
 
     return true;
@@ -159,6 +164,7 @@ static inline void free_png_image(png_image_t *image)
     if (!image) {
         return;
     }
+
     if (image->rgba) {
         free(image->rgba);
         image->rgba = NULL;
@@ -220,6 +226,7 @@ static bool decode_png_image(const char *path, png_image_t *out)
         if (num_palette > 256) {
             num_palette = 256;
         }
+
         if (num_palette > 0) {
             result.metadata.palette_entries = (uint16_t)num_palette;
         }
@@ -228,16 +235,20 @@ static bool decode_png_image(const char *path, png_image_t *out)
     if (color_type == PNG_COLOR_TYPE_PALETTE) {
         png_set_palette_to_rgb(png_ptr);
     }
+
     if ((color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA) &&
         bit_depth < 8) {
         png_set_expand_gray_1_2_4_to_8(png_ptr);
     }
+
     if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) {
         png_set_tRNS_to_alpha(png_ptr);
     }
+
     if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA) {
         png_set_gray_to_rgb(png_ptr);
     }
+
     if (!(color_type & PNG_COLOR_MASK_ALPHA) && !png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) {
         png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER);
     }
@@ -254,6 +265,7 @@ static bool decode_png_image(const char *path, png_image_t *out)
     if (result.sample_bit_depth > MAX_BIT_DEPTH) {
         result.sample_bit_depth = MAX_BIT_DEPTH;
     }
+
     if (result.sample_bit_depth <= 8) {
         result.sample_bit_depth = 8;
     }
@@ -263,6 +275,7 @@ static bool decode_png_image(const char *path, png_image_t *out)
     if (result.height != 0 && row_span > SIZE_MAX / result.height) {
         goto bailout;
     }
+
     image_size = row_span * (size_t)result.height;
 
     if (result.height != 0 && result.width > SIZE_MAX / result.height) {
@@ -273,6 +286,7 @@ static bool decode_png_image(const char *path, png_image_t *out)
     if (pixel_count == 0) {
         goto bailout;
     }
+
     if (pixel_count > SIZE_MAX / CHANNEL_COUNT) {
         goto bailout;
     }
@@ -297,6 +311,7 @@ static bool decode_png_image(const char *path, png_image_t *out)
     if (samples > SIZE_MAX / sizeof(uint16_t)) {
         goto bailout;
     }
+
     result.rgba = (uint16_t *)malloc(samples * sizeof(uint16_t));
     if (!result.rgba) {
         goto bailout;
@@ -320,22 +335,28 @@ static bool decode_png_image(const char *path, png_image_t *out)
     free(image_data);
 
     *out = result;
+
     return true;
 
 bailout:
     if (row_pointers) {
         free(row_pointers);
     }
+
     if (image_data) {
         free(image_data);
     }
+
     free_png_image(&result);
+
     if (png_ptr || info_ptr) {
         png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
     }
+
     if (fp) {
         fclose(fp);
     }
+
     return false;
 }
 
@@ -390,6 +411,7 @@ static inline void update_channel_stat(channel_stats_t *stats, uint16_t value,
         if (value < stats->min_value) {
             stats->min_value = value;
         }
+
         if (value > stats->max_value) {
             stats->max_value = value;
         }
@@ -408,11 +430,13 @@ static inline void report_channel(const char *label, const channel_stats_t *stat
 
     if (!stats->seen) {
         printf("  %s: no samples\n", label);
+
         return;
     }
 
     if (palette_mode) {
         printf("  %s: palette indexed (per-channel values defined by palette)\n", label);
+
         return;
     }
 
@@ -455,6 +479,7 @@ static inline capacity_value_t palette_capacity(const png_metadata_t *metadata)
 
     depth = (metadata->bit_depth == 0) ? DEFAULT_BIT_DEPTH : metadata->bit_depth;
     entries = 1ll << depth;
+
     return capacity_from_u64((entries == 0) ? (1ll << DEFAULT_BIT_DEPTH) : entries);
 }
 
@@ -470,6 +495,7 @@ static inline capacity_value_t grayscale_capacity(const png_metadata_t *metadata
 
     depth = (metadata->bit_depth == 0) ? DEFAULT_BIT_DEPTH : metadata->bit_depth;
     levels = 1ll << depth;
+
     if (!include_alpha) {
         return capacity_from_u64(levels);
     }
@@ -478,6 +504,7 @@ static inline capacity_value_t grayscale_capacity(const png_metadata_t *metadata
     if (depth >= 64 || levels > (UINT64_MAX / alpha_levels)) {
         return capacity_overflow((uint8_t)(depth * 2));
     }
+
     return capacity_from_u64(levels * alpha_levels);
 }
 
@@ -539,12 +566,14 @@ int main(int argc, char **argv)
 
     if (argc != 2) {
         print_usage(argv[0]);
+
         return EXIT_INVALID_ARGS;
     }
 
     input_path = argv[1];
     if (!decode_png_image(input_path, &image)) {
         fprintf(stderr, "Failed to decode %s as PNG\n", input_path);
+
         return EXIT_DECODE_FAILED;
     }
 
@@ -553,12 +582,14 @@ int main(int argc, char **argv)
     if (image.width == 0 || image.height == 0) {
         fprintf(stderr, "Invalid dimensions (%u x %u)\n", image.width, image.height);
         exit_code = EXIT_INVALID_DIMENSIONS;
+
         goto bailout;
     }
 
     if (image.height != 0 && image.width > SIZE_MAX / image.height) {
         fprintf(stderr, "Image too large to process\n");
         exit_code = EXIT_IMAGE_TOO_LARGE;
+
         goto bailout;
     }
 
@@ -566,12 +597,14 @@ int main(int argc, char **argv)
     if (pixel_count == 0) {
         fprintf(stderr, "Image has no pixels\n");
         exit_code = EXIT_INVALID_DIMENSIONS;
+
         goto bailout;
     }
 
     if (pixel_count > SIZE_MAX / sizeof(uint64_t)) {
         fprintf(stderr, "Image too large to analyze\n");
         exit_code = EXIT_ANALYSIS_TOO_LARGE;
+
         goto bailout;
     }
 
@@ -579,6 +612,7 @@ int main(int argc, char **argv)
     if (!colors) {
         fprintf(stderr, "Out of memory while allocating color buffer\n");
         exit_code = EXIT_OUT_OF_MEMORY;
+
         goto bailout;
     }
 
@@ -589,6 +623,7 @@ int main(int argc, char **argv)
     if (!value_seen) {
         fprintf(stderr, "Out of memory while tracking channel values\n");
         exit_code = EXIT_OUT_OF_MEMORY;
+
         goto bailout;
     }
 
@@ -601,6 +636,7 @@ int main(int argc, char **argv)
         for (idx = 0; idx < CHANNEL_COUNT; idx++) {
             update_channel_stat(&channels[idx], image.rgba[base + idx], value_rows[idx]);
         }
+
         colors[i] = pack_rgba64(&image.rgba[base], channel_bits);
     }
 
@@ -613,22 +649,27 @@ int main(int argc, char **argv)
     switch (color_mode) {
     case COLOR_MODE_PALETTE:
         max_colors = palette_capacity(&image.metadata);
+
         break;
     case COLOR_MODE_GRAY:
         max_colors = grayscale_capacity(&image.metadata, false);
+
         break;
     case COLOR_MODE_GRAY_ALPHA:
         max_colors = grayscale_capacity(&image.metadata, true);
+
         break;
     case COLOR_MODE_RGBA:
     case COLOR_MODE_UNKNOWN:
     default:
         max_colors = rgba_capacity(channels);
+
         break;
     }
 
     printf("File: %s\n", input_path);
     printf("Size: %u x %u (%zu pixels)\n", image.width, image.height, pixel_count);
+
     if (max_colors.overflow) {
         if (pow2_to_decimal_string(max_colors.overflow_bits, capacity_buffer,
                                    sizeof(capacity_buffer))) {
@@ -639,6 +680,7 @@ int main(int argc, char **argv)
     } else {
         printf("Unique colors: %" PRIu64 " / %" PRIu64 "\n", unique_colors, max_colors.value);
     }
+
     if (color_mode == COLOR_MODE_PALETTE) {
         printf("Palette PNG: %" PRIu64 " entries (index bit depth %u)\n", max_colors.value,
                image.metadata.bit_depth);
@@ -647,9 +689,12 @@ int main(int argc, char **argv)
                (color_mode == COLOR_MODE_GRAY_ALPHA) ? "Grayscale+Alpha" : "Grayscale",
                image.metadata.bit_depth);
     }
+
     printf("Channel usage:\n");
+
     if (color_mode == COLOR_MODE_GRAY || color_mode == COLOR_MODE_GRAY_ALPHA) {
         report_channel("Intensity", &channels[0], false);
+
         if (color_mode == COLOR_MODE_GRAY_ALPHA) {
             report_channel("Alpha", &channels[3], false);
         }
@@ -663,5 +708,6 @@ bailout:
     free(colors);
     free(value_seen);
     free_png_image(&image);
+
     return exit_code;
 }

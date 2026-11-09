@@ -188,26 +188,34 @@ static inline bool parse_pngx_type_option(const char *value, int *type_out)
     for (i = 0; i < len; ++i) {
         lowered[i] = (char)tolower((unsigned char)value[i]);
     }
+
     lowered[len] = '\0';
 
     for (i = 0; i < len && norm_len + 1 < sizeof(normalized); ++i) {
         if (lowered[i] == '_' || lowered[i] == '-') {
             continue;
         }
+
         normalized[norm_len++] = lowered[i];
     }
+
     normalized[norm_len] = '\0';
 
     if (strcmp(normalized, "palette256") == 0) {
         *type_out = CPRES_PNGX_LOSSY_TYPE_PALETTE256;
+
         return true;
     }
+
     if (strcmp(normalized, "limitedrgba16bit") == 0 || strcmp(normalized, "limited") == 0) {
         *type_out = CPRES_PNGX_LOSSY_TYPE_LIMITED_RGBA4444;
+
         return true;
     }
+
     if (strcmp(normalized, "reducedrgba32") == 0 || strcmp(normalized, "reduced") == 0) {
         *type_out = CPRES_PNGX_LOSSY_TYPE_REDUCED_RGBA32;
+
         return true;
     }
 
@@ -231,6 +239,7 @@ static inline void format_libavif_version(uint32_t version, char *buf, size_t bu
 
     if (version == 0) {
         snprintf(buf, buf_size, "unknown");
+
         return;
     }
 
@@ -272,6 +281,7 @@ static inline void format_bytes(int64_t bytes, char *buf, size_t buf_size)
 
     if (bytes == 0) {
         snprintf(buf, buf_size, "0 B");
+
         return;
     }
 
@@ -496,6 +506,7 @@ static inline int32_t parse_protected_colors(const char *color_list,
     list_copy = strdup(color_list);
     if (!list_copy) {
         free(list_copy_tmp);
+
         return -1;
     }
 
@@ -506,20 +517,25 @@ static inline int32_t parse_protected_colors(const char *color_list,
             fprintf(stderr, "Error: Too many protected colors (max 256)\n");
             free(list_copy_tmp);
             free(list_copy);
+
             return -1;
         }
+
         token = strtok_r(NULL, ",", &saveptr);
     }
+
     free(list_copy_tmp);
 
     if (count == 0) {
         free(list_copy);
+
         return 0;
     }
 
     colors = (cpres_rgba_color_t *)malloc(sizeof(cpres_rgba_color_t) * count);
     if (!colors) {
         free(list_copy);
+
         return -1;
     }
 
@@ -535,6 +551,7 @@ static inline int32_t parse_protected_colors(const char *color_list,
                     token);
             free(colors);
             free(list_copy);
+
             return -1;
         }
 
@@ -625,14 +642,17 @@ static inline output_format_t infer_format_from_extension(const char *path)
     for (i = 0; i < len; i++) {
         lower_ext[i] = (char)tolower((unsigned char)ext[i]);
     }
+
     lower_ext[len] = '\0';
 
     if (strcmp(lower_ext, ".webp") == 0) {
         return FORMAT_WEBP;
     }
+
     if (strcmp(lower_ext, ".avif") == 0) {
         return FORMAT_AVIF;
     }
+
     if (strcmp(lower_ext, ".png") == 0) {
         return FORMAT_PNGX;
     }
@@ -716,12 +736,15 @@ static inline bool should_append_extension(const char *output_base, output_forma
     if (!existing_extension) {
         return true;
     }
+
     if (path_has_extension_ci(output_base, expected_extension)) {
         return false;
     }
+
     if (!format_specified && inferred == format) {
         return false;
     }
+
     if (format_specified && inferred != FORMAT_UNKNOWN && inferred != format) {
         return false;
     }
@@ -760,16 +783,19 @@ static inline void print_verbose_summary(const cpres_config_t *config, output_fo
         printf("  Quality: %.1f\n", config->webp_quality);
         printf("  Lossless: %s\n", config->webp_lossless ? "yes" : "no");
         printf("  Method: %d\n", config->webp_method);
+
         if (config->webp_target_size > 0) {
             printf("  Target size: %d bytes\n", config->webp_target_size);
         }
     } else if (format == FORMAT_AVIF) {
         printf("Settings:\n");
+
         if (config->avif_lossless) {
             printf("  Lossless: yes\n");
         } else {
             printf("  Quality: %.1f\n", config->avif_quality);
         }
+
         printf("  Speed: %d\n", config->avif_speed);
         printf("  Threads: %d\n", config->avif_threads);
     } else if (format == FORMAT_PNGX) {
@@ -778,11 +804,13 @@ static inline void print_verbose_summary(const cpres_config_t *config, output_fo
         printf("  Strip safe chunks: %s\n", config->pngx_strip_safe ? "yes" : "no");
         printf("  Optimize alpha: %s\n", config->pngx_optimize_alpha ? "yes" : "no");
         printf("  Lossy quantization: %s\n", config->pngx_lossy_enable ? "enabled" : "disabled");
+
         if (config->pngx_lossy_enable) {
             limited_mode = (config->pngx_lossy_type == CPRES_PNGX_LOSSY_TYPE_LIMITED_RGBA4444);
             reduced_mode = (config->pngx_lossy_type == CPRES_PNGX_LOSSY_TYPE_REDUCED_RGBA32);
             palette_mode = (config->pngx_lossy_type == CPRES_PNGX_LOSSY_TYPE_PALETTE256);
             printf("    Mode: %s\n", describe_pngx_type(config->pngx_lossy_type));
+
             if (palette_mode) {
                 printf("    Max colors: %d\n", config->pngx_lossy_max_colors);
             } else if (reduced_mode) {
@@ -791,12 +819,15 @@ static inline void print_verbose_summary(const cpres_config_t *config, output_fo
                 } else {
                     printf("    Reduced colors: %d\n", config->pngx_lossy_reduced_colors);
                 }
+
                 printf("    Grid bits: RGB %d / Alpha %d\n", config->pngx_lossy_reduced_bits_rgb,
                        config->pngx_lossy_reduced_alpha_bits);
             }
+
             printf("    Quality range: %d-%d\n", config->pngx_lossy_quality_min,
                    config->pngx_lossy_quality_max);
             printf("    Speed: %d\n", config->pngx_lossy_speed);
+
             if (!reduced_mode) {
                 if (config->pngx_lossy_dither_level < 0.0f) {
                     printf("    Dither level: auto (-1)%s\n",
@@ -810,6 +841,7 @@ static inline void print_verbose_summary(const cpres_config_t *config, output_fo
             } else {
                 printf("    Dither level: n/a (not used)\n");
             }
+
             printf("    Saliency map: %s\n",
                    config->pngx_saliency_map_enable ? "enabled" : "disabled");
             printf("    Chroma anchors: %s\n",
@@ -822,6 +854,7 @@ static inline void print_verbose_summary(const cpres_config_t *config, output_fo
                    config->pngx_chroma_weight_enable ? "enabled" : "disabled");
             printf("    Palette smoothing: %s\n",
                    config->pngx_postprocess_smooth_enable ? "enabled" : "disabled");
+
             if (config->pngx_postprocess_smooth_importance_cutoff < 0.0f) {
                 printf("    Palette smoothing importance cutoff: disabled\n");
             } else {
@@ -832,12 +865,14 @@ static inline void print_verbose_summary(const cpres_config_t *config, output_fo
             if (palette_mode) {
                 printf("    Gradient profile: %s\n",
                        config->pngx_palette256_gradient_profile_enable ? "enabled" : "disabled");
+
                 if (config->pngx_palette256_gradient_dither_floor < 0.0f) {
                     printf("    Gradient dither floor: internal default\n");
                 } else {
                     printf("    Gradient dither floor: %.2f\n",
                            config->pngx_palette256_gradient_dither_floor);
                 }
+
                 printf("    Alpha bleed: %s\n",
                        config->pngx_palette256_alpha_bleed_enable ? "enabled" : "disabled");
                 printf("    Alpha bleed max distance: %d\n",
@@ -853,12 +888,14 @@ static inline void print_verbose_summary(const cpres_config_t *config, output_fo
                     printf("    Gradient profile opaque ratio threshold: %.3f\n",
                            config->pngx_palette256_profile_opaque_ratio_threshold);
                 }
+
                 if (config->pngx_palette256_profile_gradient_mean_max < 0.0f) {
                     printf("    Gradient profile gradient mean max: internal default\n");
                 } else {
                     printf("    Gradient profile gradient mean max: %.3f\n",
                            config->pngx_palette256_profile_gradient_mean_max);
                 }
+
                 if (config->pngx_palette256_profile_saturation_mean_max < 0.0f) {
                     printf("    Gradient profile saturation mean max: internal default\n");
                 } else {
@@ -872,12 +909,14 @@ static inline void print_verbose_summary(const cpres_config_t *config, output_fo
                     printf("    Tune opaque ratio threshold: %.3f\n",
                            config->pngx_palette256_tune_opaque_ratio_threshold);
                 }
+
                 if (config->pngx_palette256_tune_gradient_mean_max < 0.0f) {
                     printf("    Tune gradient mean max: internal default\n");
                 } else {
                     printf("    Tune gradient mean max: %.3f\n",
                            config->pngx_palette256_tune_gradient_mean_max);
                 }
+
                 if (config->pngx_palette256_tune_saturation_mean_max < 0.0f) {
                     printf("    Tune saturation mean max: internal default\n");
                 } else {
@@ -890,12 +929,14 @@ static inline void print_verbose_summary(const cpres_config_t *config, output_fo
                 } else {
                     printf("    Tune speed max: %d\n", config->pngx_palette256_tune_speed_max);
                 }
+
                 if (config->pngx_palette256_tune_quality_min_floor < 0) {
                     printf("    Tune quality min floor: internal default\n");
                 } else {
                     printf("    Tune quality min floor: %d\n",
                            config->pngx_palette256_tune_quality_min_floor);
                 }
+
                 if (config->pngx_palette256_tune_quality_max_target < 0) {
                     printf("    Tune quality max target: internal default\n");
                 } else {
@@ -904,12 +945,15 @@ static inline void print_verbose_summary(const cpres_config_t *config, output_fo
                 }
             }
         }
+
         if (protected_colors_count > 0) {
             printf("    Protected colors: %" PRIu16 "\n", protected_colors_count);
+
             for (i = 0; i < protected_colors_count && i < 5; i++) {
                 printf("      #%02X%02X%02X%02X\n", protected_colors[i].r, protected_colors[i].g,
                        protected_colors[i].b, protected_colors[i].a);
             }
+
             if (protected_colors_count > 5) {
                 printf("      ... and %" PRIu16 " more\n", (uint16_t)(protected_colors_count - 5));
             }
@@ -935,6 +979,7 @@ static inline void print_conversion_success(int64_t input_size, int64_t output_s
         printf("  Input:  %s\n", input_size_buf);
         printf("  Output: %s\n", output_size_buf);
         printf("  Ratio:  %.1f%% ", ratio);
+
         if (reduction > 0) {
             printf("(reduced by %.1f%%)\n", reduction);
         } else if (reduction < 0) {
@@ -961,6 +1006,7 @@ static inline uint8_t handle_size_increase_error(int64_t input_size, int64_t out
             fprintf(stderr,
                     "Error: Output size increased: %s -> %s (%.1f%%, increased by %.1f%%)\n",
                     input_size_buf, output_size_buf, ratio, -reduction);
+
             return 2;
         }
     }
@@ -983,10 +1029,13 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
         if (strcmp(name, kPngxToggleOptions[i].name) != 0) {
             continue;
         }
+
         apply_pngx_toggle(config, i, kPngxToggleOptions[i].value);
+
         if (kPngxToggleOptions[i].limited_available || !limited_unavailable_requested) {
             return true;
         }
+
         /* Track the request per config field through its enabling entry so the last --x / --no-x
          * wins. */
         for (j = 0; j < PNGX_TOGGLE_OPTION_COUNT; ++j) {
@@ -994,162 +1043,208 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
                 !kPngxToggleOptions[j].value) {
                 continue;
             }
+
             if (kPngxToggleOptions[i].value) {
                 *limited_unavailable_requested |= (uint32_t)1 << j;
             } else {
                 *limited_unavailable_requested &= ~((uint32_t)1 << j);
             }
         }
+
         return true;
     }
 
     if (strcmp(name, "sns") == 0) {
         if (!parse_long_range(optarg, 0, 100, &long_val)) {
             fprintf(stderr, "Error: Invalid sns value (must be 0-100)\n");
+
             return false;
         }
+
         config->webp_sns_strength = (int)long_val;
+
         return true;
     }
 
     if (strcmp(name, "filter") == 0) {
         if (!parse_long_range(optarg, 0, 100, &long_val)) {
             fprintf(stderr, "Error: Invalid filter strength (must be 0-100)\n");
+
             return false;
         }
+
         config->webp_filter_strength = (int)long_val;
+
         return true;
     }
 
     if (strcmp(name, "sharpness") == 0) {
         if (!parse_long_range(optarg, 0, 7, &long_val)) {
             fprintf(stderr, "Error: Invalid sharpness (must be 0-7)\n");
+
             return false;
         }
+
         config->webp_filter_sharpness = (int)long_val;
+
         return true;
     }
 
     if (strcmp(name, "strong") == 0) {
         config->webp_filter_type = 1;
+
         return true;
     }
 
     if (strcmp(name, "nostrong") == 0) {
         config->webp_filter_type = 0;
+
         return true;
     }
 
     if (strcmp(name, "autofilter") == 0) {
         config->webp_autofilter = true;
+
         return true;
     }
 
     if (strcmp(name, "alpha-q") == 0) {
         if (!parse_long_range(optarg, 0, 100, &long_val)) {
             fprintf(stderr, "Error: Invalid alpha quality (must be 0-100)\n");
+
             return false;
         }
+
         config->webp_alpha_quality = (int)long_val;
         config->avif_alpha_quality = (int)long_val;
+
         return true;
     }
 
     if (strcmp(name, "alpha-filter") == 0) {
         if (!parse_long_range(optarg, 0, 2, &long_val)) {
             fprintf(stderr, "Error: Invalid alpha filtering (must be 0-2)\n");
+
             return false;
         }
+
         config->webp_alpha_filtering = (int)long_val;
+
         return true;
     }
 
     if (strcmp(name, "pass") == 0) {
         if (!parse_long_range(optarg, 1, 10, &long_val)) {
             fprintf(stderr, "Error: Invalid pass count (must be 1-10)\n");
+
             return false;
         }
+
         config->webp_pass = (int)long_val;
+
         return true;
     }
 
     if (strcmp(name, "preprocessing") == 0) {
         if (!parse_long_range(optarg, 0, 2, &long_val)) {
             fprintf(stderr, "Error: Invalid preprocessing (must be 0-2)\n");
+
             return false;
         }
+
         config->webp_preprocessing = (int)long_val;
+
         return true;
     }
 
     if (strcmp(name, "segments") == 0) {
         if (!parse_long_range(optarg, 1, 4, &long_val)) {
             fprintf(stderr, "Error: Invalid segments (must be 1-4)\n");
+
             return false;
         }
+
         config->webp_segments = (int)long_val;
+
         return true;
     }
 
     if (strcmp(name, "partition-limit") == 0) {
         if (!parse_long_range(optarg, 0, 100, &long_val)) {
             fprintf(stderr, "Error: Invalid partition limit (must be 0-100)\n");
+
             return false;
         }
+
         config->webp_partition_limit = (int)long_val;
+
         return true;
     }
 
     if (strcmp(name, "sharp-yuv") == 0) {
         config->webp_use_sharp_yuv = true;
+
         return true;
     }
 
     if (strcmp(name, "near-lossless") == 0) {
         if (!parse_long_range(optarg, 0, 100, &long_val)) {
             fprintf(stderr, "Error: Invalid near-lossless level (must be 0-100)\n");
+
             return false;
         }
+
         config->webp_near_lossless = (int)long_val;
+
         return true;
     }
 
     if (strcmp(name, "low-memory") == 0) {
         config->webp_low_memory = true;
+
         return true;
     }
 
     if (strcmp(name, "exact") == 0) {
         config->webp_exact = true;
+
         return true;
     }
 
     if (strcmp(name, "delta-palette") == 0) {
         config->webp_use_delta_palette = true;
+
         return true;
     }
 
     if (strcmp(name, "speed") == 0) {
         if (!parse_long_range(optarg, 0, 10, &long_val)) {
             fprintf(stderr, "Error: Invalid speed (must be 0-10)\n");
+
             return false;
         }
+
         config->avif_speed = (int)long_val;
         config->pngx_lossy_speed = (int)long_val;
+
         return true;
     }
 
     if (strcmp(name, "lossy") == 0) {
         config->pngx_lossy_enable = true;
+
         return true;
     }
 
     if (strcmp(name, "max-colors") == 0) {
         if (!parse_long_range(optarg, 2, 256, &long_val)) {
             fprintf(stderr, "Error: Invalid max-colors (must be 2-256)\n");
+
             return false;
         }
+
         config->pngx_lossy_max_colors = (int)long_val;
+
         return true;
     }
 
@@ -1157,19 +1252,26 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
         if (!parse_long_value(optarg, &long_val)) {
             fprintf(stderr, "Error: Invalid reduced-colors (must be -1 or %d-%d)\n",
                     COLOPRESSO_PNGX_REDUCED_COLORS_MIN, COLOPRESSO_PNGX_REDUCED_COLORS_MAX);
+
             return false;
         }
+
         if (long_val == COLOPRESSO_PNGX_DEFAULT_REDUCED_COLORS) {
             config->pngx_lossy_reduced_colors = COLOPRESSO_PNGX_DEFAULT_REDUCED_COLORS;
+
             return true;
         }
+
         if (long_val < COLOPRESSO_PNGX_REDUCED_COLORS_MIN ||
             long_val > COLOPRESSO_PNGX_REDUCED_COLORS_MAX) {
             fprintf(stderr, "Error: Invalid reduced-colors (must be -1 or %d-%d)\n",
                     COLOPRESSO_PNGX_REDUCED_COLORS_MIN, COLOPRESSO_PNGX_REDUCED_COLORS_MAX);
+
             return false;
         }
+
         config->pngx_lossy_reduced_colors = (int)long_val;
+
         return true;
     }
 
@@ -1178,9 +1280,12 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
                               COLOPRESSO_PNGX_REDUCED_BITS_MAX, &long_val)) {
             fprintf(stderr, "Error: Invalid reduce-bits-rgb (must be %d-%d)\n",
                     COLOPRESSO_PNGX_REDUCED_BITS_MIN, COLOPRESSO_PNGX_REDUCED_BITS_MAX);
+
             return false;
         }
+
         config->pngx_lossy_reduced_bits_rgb = (int)long_val;
+
         return true;
     }
 
@@ -1189,38 +1294,52 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
                               COLOPRESSO_PNGX_REDUCED_BITS_MAX, &long_val)) {
             fprintf(stderr, "Error: Invalid reduce-alpha (must be %d-%d)\n",
                     COLOPRESSO_PNGX_REDUCED_BITS_MIN, COLOPRESSO_PNGX_REDUCED_BITS_MAX);
+
             return false;
         }
+
         config->pngx_lossy_reduced_alpha_bits = (int)long_val;
+
         return true;
     }
 
     if (strcmp(name, "dither") == 0) {
         if (!parse_double_value(optarg, &double_val)) {
             fprintf(stderr, "Error: Invalid dither level (must be -1.0 or within 0.0-1.0)\n");
+
             return false;
         }
+
         if (!(double_val == -1.0 || (double_val >= 0.0 && double_val <= 1.0))) {
             fprintf(stderr, "Error: Invalid dither level (must be -1.0 or within 0.0-1.0)\n");
+
             return false;
         }
+
         config->pngx_lossy_dither_level = (float)double_val;
+
         if (dither_specified) {
             *dither_specified = true;
         }
+
         return true;
     }
 
     if (strcmp(name, "smooth-cutoff") == 0) {
         if (!parse_double_value(optarg, &double_val)) {
             fprintf(stderr, "Error: Invalid smooth-cutoff (must be -1.0 or within 0.0-1.0)\n");
+
             return false;
         }
+
         if (double_val != -1.0 && (double_val < 0.0 || double_val > 1.0)) {
             fprintf(stderr, "Error: Invalid smooth-cutoff (must be -1.0 or within 0.0-1.0)\n");
+
             return false;
         }
+
         config->pngx_postprocess_smooth_importance_cutoff = (float)double_val;
+
         return true;
     }
 
@@ -1228,14 +1347,19 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
         if (!parse_double_value(optarg, &double_val)) {
             fprintf(stderr,
                     "Error: Invalid gradient-dither-floor (must be -1.0 or within 0.0-1.0)\n");
+
             return false;
         }
+
         if (double_val != -1.0 && (double_val < 0.0 || double_val > 1.0)) {
             fprintf(stderr,
                     "Error: Invalid gradient-dither-floor (must be -1.0 or within 0.0-1.0)\n");
+
             return false;
         }
+
         config->pngx_palette256_gradient_dither_floor = (float)double_val;
+
         return true;
     }
 
@@ -1243,27 +1367,37 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
         if (!parse_double_value(optarg, &double_val)) {
             fprintf(stderr,
                     "Error: Invalid gradient-opaque-threshold (must be -1.0 or within 0.0-1.0)\n");
+
             return false;
         }
+
         if (double_val != -1.0 && (double_val < 0.0 || double_val > 1.0)) {
             fprintf(stderr,
                     "Error: Invalid gradient-opaque-threshold (must be -1.0 or within 0.0-1.0)\n");
+
             return false;
         }
+
         config->pngx_palette256_profile_opaque_ratio_threshold = (float)double_val;
+
         return true;
     }
 
     if (strcmp(name, "gradient-mean-max") == 0) {
         if (!parse_double_value(optarg, &double_val)) {
             fprintf(stderr, "Error: Invalid gradient-mean-max (must be -1.0 or within 0.0-1.0)\n");
+
             return false;
         }
+
         if (double_val != -1.0 && (double_val < 0.0 || double_val > 1.0)) {
             fprintf(stderr, "Error: Invalid gradient-mean-max (must be -1.0 or within 0.0-1.0)\n");
+
             return false;
         }
+
         config->pngx_palette256_profile_gradient_mean_max = (float)double_val;
+
         return true;
     }
 
@@ -1271,14 +1405,19 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
         if (!parse_double_value(optarg, &double_val)) {
             fprintf(stderr,
                     "Error: Invalid gradient-sat-mean-max (must be -1.0 or within 0.0-1.0)\n");
+
             return false;
         }
+
         if (double_val != -1.0 && (double_val < 0.0 || double_val > 1.0)) {
             fprintf(stderr,
                     "Error: Invalid gradient-sat-mean-max (must be -1.0 or within 0.0-1.0)\n");
+
             return false;
         }
+
         config->pngx_palette256_profile_saturation_mean_max = (float)double_val;
+
         return true;
     }
 
@@ -1286,14 +1425,19 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
         if (!parse_double_value(optarg, &double_val)) {
             fprintf(stderr,
                     "Error: Invalid tune-opaque-threshold (must be -1.0 or within 0.0-1.0)\n");
+
             return false;
         }
+
         if (double_val != -1.0 && (double_val < 0.0 || double_val > 1.0)) {
             fprintf(stderr,
                     "Error: Invalid tune-opaque-threshold (must be -1.0 or within 0.0-1.0)\n");
+
             return false;
         }
+
         config->pngx_palette256_tune_opaque_ratio_threshold = (float)double_val;
+
         return true;
     }
 
@@ -1301,53 +1445,73 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
         if (!parse_double_value(optarg, &double_val)) {
             fprintf(stderr,
                     "Error: Invalid tune-gradient-mean-max (must be -1.0 or within 0.0-1.0)\n");
+
             return false;
         }
+
         if (double_val != -1.0 && (double_val < 0.0 || double_val > 1.0)) {
             fprintf(stderr,
                     "Error: Invalid tune-gradient-mean-max (must be -1.0 or within 0.0-1.0)\n");
+
             return false;
         }
+
         config->pngx_palette256_tune_gradient_mean_max = (float)double_val;
+
         return true;
     }
 
     if (strcmp(name, "tune-sat-mean-max") == 0) {
         if (!parse_double_value(optarg, &double_val)) {
             fprintf(stderr, "Error: Invalid tune-sat-mean-max (must be -1.0 or within 0.0-1.0)\n");
+
             return false;
         }
+
         if (double_val != -1.0 && (double_val < 0.0 || double_val > 1.0)) {
             fprintf(stderr, "Error: Invalid tune-sat-mean-max (must be -1.0 or within 0.0-1.0)\n");
+
             return false;
         }
+
         config->pngx_palette256_tune_saturation_mean_max = (float)double_val;
+
         return true;
     }
 
     if (strcmp(name, "tune-speed-max") == 0) {
         if (!parse_long_value(optarg, &long_val)) {
             fprintf(stderr, "Error: Invalid tune-speed-max (must be -1 or within 1-10)\n");
+
             return false;
         }
+
         if (!(long_val == -1 || (long_val >= 1 && long_val <= 10))) {
             fprintf(stderr, "Error: Invalid tune-speed-max (must be -1 or within 1-10)\n");
+
             return false;
         }
+
         config->pngx_palette256_tune_speed_max = (int)long_val;
+
         return true;
     }
 
     if (strcmp(name, "tune-quality-min-floor") == 0) {
         if (!parse_long_value(optarg, &long_val)) {
             fprintf(stderr, "Error: Invalid tune-quality-min-floor (must be -1 or within 0-100)\n");
+
             return false;
         }
+
         if (!(long_val == -1 || (long_val >= 0 && long_val <= 100))) {
             fprintf(stderr, "Error: Invalid tune-quality-min-floor (must be -1 or within 0-100)\n");
+
             return false;
         }
+
         config->pngx_palette256_tune_quality_min_floor = (int)long_val;
+
         return true;
     }
 
@@ -1355,41 +1519,55 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
         if (!parse_long_value(optarg, &long_val)) {
             fprintf(stderr,
                     "Error: Invalid tune-quality-max-target (must be -1 or within 0-100)\n");
+
             return false;
         }
+
         if (!(long_val == -1 || (long_val >= 0 && long_val <= 100))) {
             fprintf(stderr,
                     "Error: Invalid tune-quality-max-target (must be -1 or within 0-100)\n");
+
             return false;
         }
+
         config->pngx_palette256_tune_quality_max_target = (int)long_val;
+
         return true;
     }
 
     if (strcmp(name, "alpha-bleed-max-distance") == 0) {
         if (!parse_long_range(optarg, 0, 65535, &long_val)) {
             fprintf(stderr, "Error: Invalid alpha-bleed-max-distance (must be 0-65535)\n");
+
             return false;
         }
+
         config->pngx_palette256_alpha_bleed_max_distance = (int)long_val;
+
         return true;
     }
 
     if (strcmp(name, "alpha-bleed-opaque-threshold") == 0) {
         if (!parse_long_range(optarg, 0, 255, &long_val)) {
             fprintf(stderr, "Error: Invalid alpha-bleed-opaque-threshold (must be 0-255)\n");
+
             return false;
         }
+
         config->pngx_palette256_alpha_bleed_opaque_threshold = (int)long_val;
+
         return true;
     }
 
     if (strcmp(name, "alpha-bleed-soft-limit") == 0) {
         if (!parse_long_range(optarg, 0, 255, &long_val)) {
             fprintf(stderr, "Error: Invalid alpha-bleed-soft-limit (must be 0-255)\n");
+
             return false;
         }
+
         config->pngx_palette256_alpha_bleed_soft_limit = (int)long_val;
+
         return true;
     }
 
@@ -1399,6 +1577,7 @@ static inline bool handle_long_option(const char *name, const char *optarg, cpre
 
         if (count < 0) {
             fprintf(stderr, "Error: Failed to parse protected colors\n");
+
             return false;
         }
 
@@ -1577,6 +1756,7 @@ static inline void format_buildtime(uint32_t buildtime, char *buf, size_t buf_si
 
     if (buildtime == 0) {
         snprintf(buf, buf_size, "unknown");
+
         return;
     }
 
@@ -1600,19 +1780,23 @@ static inline void format_buildtime(uint32_t buildtime, char *buf, size_t buf_si
         case 10:
         case 12:
             days_in_month = 31;
+
             break;
         case 4:
         case 6:
         case 9:
         case 11:
             days_in_month = 30;
+
             break;
         case 2:
             days_in_month =
                 ((jst_year % 4 == 0 && jst_year % 100 != 0) || jst_year % 400 == 0) ? 29 : 28;
+
             break;
         default:
             days_in_month = 31;
+
             break;
         }
 
@@ -1681,6 +1865,7 @@ static inline void init_cli_context(cli_context_t *ctx)
     if (cpu_count == 0) {
         cpu_count = 1;
     }
+
     ctx->config.webp_thread_level = (int)cpu_count;
     ctx->config.avif_threads = (int)cpu_count;
     ctx->config.pngx_threads = (int)cpu_count;
@@ -1731,10 +1916,12 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
     if (argc < 2) {
         print_usage(argv[0]);
         *exit_code = 1;
+
         return false;
     }
 
     optind = 1;
+
     while ((opt = getopt_long(argc, argv, "q:lm:s:p:t:vhV", kLongOptions, &option_index)) != -1) {
         switch (opt) {
         case 0:
@@ -1747,16 +1934,19 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
                     fprintf(stderr, "Error: Unknown format '%s'. Use webp, avif, or pngx.\n",
                             optarg);
                     *exit_code = 1;
+
                     return false;
                 }
             } else if (strcmp(name, "type") == 0) {
                 pngx_type_specified = true;
+
                 if (!parse_pngx_type_option(optarg, &ctx->config.pngx_lossy_type)) {
                     fprintf(stderr,
                             "Error: Unknown PNGX type '%s'. Use palette256, "
                             "limitedrgba16bit/limited or reducedrgba32/reduced.\n",
                             optarg);
                     *exit_code = 1;
+
                     return false;
                 }
             } else {
@@ -1764,9 +1954,11 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
                                         &ctx->protected_colors_count, &dither_specified,
                                         &limited_unavailable_requested)) {
                     *exit_code = 1;
+
                     return false;
                 }
             }
+
             break;
         case 'q':
             if (strchr(optarg, '-') != NULL) {
@@ -1774,77 +1966,99 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
                     fprintf(stderr,
                             "Error: Invalid quality format (expect min-max, e.g., 70-95)\n");
                     *exit_code = 1;
+
                     return false;
                 }
+
                 quality_range_set = true;
                 quality_scalar_set = false;
             } else {
                 if (!parse_double_range(optarg, 0.0, 100.0, &parsed_double)) {
                     fprintf(stderr, "Error: Invalid quality (must be 0-100)\n");
                     *exit_code = 1;
+
                     return false;
                 }
+
                 quality_scalar_set = true;
                 quality_range_set = false;
                 quality_scalar_value = (float)parsed_double;
             }
+
             break;
         case 'l':
             ctx->config.webp_lossless = true;
             ctx->config.avif_lossless = true;
             ctx->config.pngx_lossy_enable = false;
+
             break;
         case 'm':
             if (!parse_long_range(optarg, 0, 6, &parsed_long)) {
                 fprintf(stderr, "Error: Invalid method (must be 0-6)\n");
                 *exit_code = 1;
+
                 return false;
             }
+
             ctx->config.webp_method = (int)parsed_long;
             ctx->config.pngx_level = (int)parsed_long;
+
             break;
         case 's':
             if (!parse_long_value(optarg, &parsed_long) || parsed_long < 0 ||
                 parsed_long > INT_MAX) {
                 fprintf(stderr, "Error: Invalid target size\n");
                 *exit_code = 1;
+
                 return false;
             }
+
             ctx->config.webp_target_size = (int)parsed_long;
+
             break;
         case 'p':
             if (!parse_double_value(optarg, &parsed_double) || parsed_double < 0.0) {
                 fprintf(stderr, "Error: Invalid target PSNR\n");
                 *exit_code = 1;
+
                 return false;
             }
+
             ctx->config.webp_target_psnr = (float)parsed_double;
+
             break;
         case 't':
             if (!parse_long_value(optarg, &parsed_long) || parsed_long < 0 ||
                 parsed_long > INT_MAX) {
                 fprintf(stderr, "Error: Invalid thread count\n");
                 *exit_code = 1;
+
                 return false;
             }
+
             ctx->config.webp_thread_level = (int)parsed_long;
             ctx->config.avif_threads = (int)parsed_long;
             ctx->config.pngx_threads = (int)parsed_long;
+
             break;
         case 'v':
             verbose = true;
+
             break;
         case 'h':
             print_usage(argv[0]);
             *exit_code = 0;
+
             return false;
         case 'V':
             print_version();
             *exit_code = 0;
+
             return false;
         default:
             print_usage(argv[0]);
             *exit_code = 1;
+
             return false;
         }
     }
@@ -1853,6 +2067,7 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
         fprintf(stderr, "Error: Missing input or output file\n");
         print_usage(argv[0]);
         *exit_code = 1;
+
         return false;
     }
 
@@ -1871,12 +2086,14 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
                 "Error: Output format not specified and could not infer from output extension\n");
         print_usage(argv[0]);
         *exit_code = 1;
+
         return false;
     }
 
     if (pngx_type_specified && format != FORMAT_PNGX) {
         fprintf(stderr, "Error: --type option is only valid when --format=pngx\n");
         *exit_code = 1;
+
         return false;
     }
 
@@ -1885,17 +2102,21 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
             fprintf(stderr,
                     "Error: Quality ranges (min-max) are only supported for PNGX outputs\n");
             *exit_code = 1;
+
             return false;
         }
+
         ctx->config.pngx_lossy_quality_min = (int)quality_min;
         ctx->config.pngx_lossy_quality_max = (int)quality_max;
     } else if (quality_scalar_set) {
         if (format == FORMAT_WEBP) {
             ctx->config.webp_quality = quality_scalar_value;
         }
+
         if (format == FORMAT_AVIF) {
             ctx->config.avif_quality = quality_scalar_value;
         }
+
         if (format == FORMAT_PNGX) {
             ctx->config.pngx_lossy_quality_min = (int)quality_scalar_value;
             ctx->config.pngx_lossy_quality_max = (int)quality_scalar_value;
@@ -1906,21 +2127,26 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
         ctx->config.pngx_lossy_type == CPRES_PNGX_LOSSY_TYPE_LIMITED_RGBA4444) {
         if (limited_unavailable_requested != 0) {
             fprintf(stderr, "Error: The following options are not available with --type limited:");
+
             for (i = 0; i < PNGX_TOGGLE_OPTION_COUNT; ++i) {
                 if (kPngxToggleOptions[i].value &&
                     (limited_unavailable_requested & ((uint32_t)1 << i))) {
                     fprintf(stderr, " --%s", kPngxToggleOptions[i].name);
                 }
             }
+
             fprintf(stderr, "\n");
             *exit_code = 1;
+
             return false;
         }
+
         for (i = 0; i < PNGX_TOGGLE_OPTION_COUNT; ++i) {
             if (!kPngxToggleOptions[i].limited_available) {
                 apply_pngx_toggle(&ctx->config, i, false);
             }
         }
+
         if (!dither_specified) {
             ctx->config.pngx_lossy_dither_level = -1.0f;
         }
@@ -1943,6 +2169,7 @@ static inline bool parse_arguments(int argc, char *argv[], cli_context_t *ctx, i
     if (!output_file) {
         fprintf(stderr, "Error: Failed to allocate memory for output path\n");
         *exit_code = 1;
+
         return false;
     }
 
@@ -1959,6 +2186,7 @@ static inline int run_conversion(cli_context_t *ctx)
     int64_t input_size, output_size, ref_input_size;
     uint8_t size_check, *png_data = NULL, *encoded_data = NULL;
     size_t encoded_size = 0, png_size = 0;
+
     void (*encoded_deallocator)(uint8_t *) = NULL;
     int ret = 1;
     bool force_rgba_output = false;
@@ -1983,6 +2211,7 @@ static inline int run_conversion(cli_context_t *ctx)
     if (read_error != CPRES_OK) {
         fprintf(stderr, "Error: Failed to read input file '%s': %s\n", ctx->input_file,
                 cpres_error_string(read_error));
+
         goto bailout;
     }
 
@@ -1991,19 +2220,23 @@ static inline int run_conversion(cli_context_t *ctx)
         encoded_deallocator = cpres_free;
         result = cpres_encode_webp_memory(png_data, png_size, &encoded_data, &encoded_size,
                                           &ctx->config);
+
         break;
     case FORMAT_AVIF:
         encoded_deallocator = cpres_free;
         result = cpres_encode_avif_memory(png_data, png_size, &encoded_data, &encoded_size,
                                           &ctx->config);
+
         break;
     case FORMAT_PNGX:
         encoded_deallocator = cpres_free;
         result = cpres_encode_pngx_memory(png_data, png_size, &encoded_data, &encoded_size,
                                           &ctx->config);
+
         break;
     default:
         result = CPRES_ERROR_INVALID_FORMAT;
+
         break;
     }
 
@@ -2013,26 +2246,31 @@ static inline int run_conversion(cli_context_t *ctx)
     if (result == CPRES_OK) {
         if (!encoded_data || encoded_size == 0) {
             fprintf(stderr, "Error: Encoding produced no output data\n");
+
             goto bailout;
         }
 
         if (!write_file_from_memory(ctx->output_file, encoded_data, encoded_size)) {
             fprintf(stderr, "Error: Failed to write output file '%s'\n", ctx->output_file);
+
             goto bailout;
         }
 
         if (encoded_deallocator) {
             encoded_deallocator(encoded_data);
         }
+
         encoded_data = NULL;
 
         ret = 0;
         output_size = get_file_size(ctx->output_file);
+
         if (force_rgba_output) {
             if (input_size >= 0 && output_size >= 0 && output_size > input_size) {
                 print_output_larger_warning(get_format_name(ctx->format), input_size,
                                             (size_t)output_size);
             }
+
             size_check = 0;
         } else {
             size_check = handle_size_increase_error(input_size, output_size);
@@ -2078,6 +2316,7 @@ int main(int argc, char *argv[])
 
     if (!parse_arguments(argc, argv, &ctx, &exit_code)) {
         free_cli_context(&ctx);
+
         return exit_code;
     }
 

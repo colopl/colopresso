@@ -66,6 +66,7 @@ static inline bool get_file_size(const char *path, size_t *out_size)
 
     if (stat(path, &st) != 0) {
         fprintf(stderr, "Error: failed to stat '%s': %s\n", path, strerror(errno));
+
         return false;
     }
 
@@ -96,23 +97,27 @@ static inline bool load_png_rgb(const char *path, image_rgb_t *out_img)
     fp = fopen(path, "rb");
     if (!fp) {
         fprintf(stderr, "Error: failed to open '%s': %s\n", path, strerror(errno));
+
         goto bailout;
     }
 
     png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if (!png_ptr) {
         fprintf(stderr, "Error: png_create_read_struct failed for '%s'\n", path);
+
         goto bailout;
     }
 
     info_ptr = png_create_info_struct(png_ptr);
     if (!info_ptr) {
         fprintf(stderr, "Error: png_create_info_struct failed for '%s'\n", path);
+
         goto bailout;
     }
 
     if (setjmp(png_jmpbuf(png_ptr))) {
         fprintf(stderr, "Error: libpng failed while reading '%s'\n", path);
+
         goto bailout;
     }
 
@@ -123,14 +128,17 @@ static inline bool load_png_rgb(const char *path, image_rgb_t *out_img)
     if (bit_depth == 16) {
         png_set_strip_16(png_ptr);
     }
+
     if (color_type == PNG_COLOR_TYPE_PALETTE ||
         (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8) ||
         png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) {
         png_set_expand(png_ptr);
     }
+
     if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA) {
         png_set_gray_to_rgb(png_ptr);
     }
+
     png_set_filler(png_ptr, 0xff, PNG_FILLER_AFTER);
     png_set_interlace_handling(png_ptr);
     png_read_update_info(png_ptr, info_ptr);
@@ -141,6 +149,7 @@ static inline bool load_png_rgb(const char *path, image_rgb_t *out_img)
     row_ptrs = (png_bytep *)malloc(sizeof(png_bytep) * (size_t)height);
     if (!row_buffer || !row_ptrs) {
         fprintf(stderr, "Error: out of memory while reading '%s'\n", path);
+
         goto bailout;
     }
 
@@ -153,6 +162,7 @@ static inline bool load_png_rgb(const char *path, image_rgb_t *out_img)
     rgb_data = (uint8_t *)malloc((size_t)width * (size_t)height * CHANNELS);
     if (!rgb_data) {
         fprintf(stderr, "Error: out of memory while storing '%s'\n", path);
+
         goto bailout;
     }
 
@@ -178,17 +188,21 @@ bailout:
     free(rgb_data);
     free(row_ptrs);
     free(row_buffer);
+
     if (png_ptr && info_ptr) {
         png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
     } else if (png_ptr) {
         png_destroy_read_struct(&png_ptr, NULL, NULL);
     }
+
     if (fp) {
         fclose(fp);
     }
+
     if (!success) {
         free_image(out_img);
     }
+
     return success;
 }
 
@@ -382,6 +396,7 @@ static inline char winner_label(double a, double b, bool higher_is_better, doubl
         if (fabs(delta) <= EPSILON) {
             return '=';
         }
+
         if (margin) {
             *margin = fabs(delta);
         }
@@ -491,11 +506,13 @@ static inline void print_table(const char *name_a, const char *name_b, const met
     } else if (win_psnr == 'B') {
         wins_b++;
     }
+
     if (win_ssim == 'A') {
         wins_a++;
     } else if (win_ssim == 'B') {
         wins_b++;
     }
+
     if (win_size == 'A') {
         wins_a++;
     } else if (win_size == 'B') {
@@ -537,6 +554,7 @@ int main(int argc, char **argv)
     if (argc != 4) {
         fprintf(stderr, "Usage: %s <original.png> <candidate_a.png> <candidate_b.png>\n",
                 argv[0] ? argv[0] : "qcheck");
+
         return 2;
     }
 
@@ -546,23 +564,31 @@ int main(int argc, char **argv)
 
     if (!load_png_rgb(orig_path, &orig)) {
         exit_code = 1;
+
         goto bailout;
     }
+
     if (!load_png_rgb(cand_a_path, &cand_a)) {
         exit_code = 1;
+
         goto bailout;
     }
+
     if (!load_png_rgb(cand_b_path, &cand_b)) {
         exit_code = 1;
+
         goto bailout;
     }
 
     if (!compute_metrics(&orig, &cand_a, cand_a_path, &metrics_a)) {
         exit_code = 1;
+
         goto bailout;
     }
+
     if (!compute_metrics(&orig, &cand_b, cand_b_path, &metrics_b)) {
         exit_code = 1;
+
         goto bailout;
     }
 
@@ -572,5 +598,6 @@ bailout:
     free_image(&orig);
     free_image(&cand_a);
     free_image(&cand_b);
+
     return exit_code;
 }

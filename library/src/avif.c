@@ -54,6 +54,7 @@ static inline void apply_avif_config(avifEncoder *encoder, const cpres_config_t 
     } else if (quality > 100) {
         quality = 100;
     }
+
     if (alpha_quality < 0) {
         alpha_quality = 0;
     } else if (alpha_quality > 100) {
@@ -73,6 +74,7 @@ static inline void apply_avif_config(avifEncoder *encoder, const cpres_config_t 
     } else if (speed > 10) {
         speed = 10;
     }
+
     encoder->speed = speed;
 
     if (config->avif_lossless) {
@@ -104,6 +106,7 @@ static avifImage *create_avif_image_from_rgba(uint8_t *rgba_data, uint32_t width
 
     if (avifImageRGBToYUV(image, &rgb) != AVIF_RESULT_OK) {
         avifImageDestroy(image);
+
         return NULL;
     }
 
@@ -124,6 +127,7 @@ static inline cpres_error_t encode_avif_common(uint8_t *rgba_data, uint32_t widt
     image = create_avif_image_from_rgba(rgba_data, width, height);
     if (!image) {
         avif_set_last_error(AVIF_RESULT_OUT_OF_MEMORY);
+
         return CPRES_ERROR_OUT_OF_MEMORY;
     }
 
@@ -131,6 +135,7 @@ static inline cpres_error_t encode_avif_common(uint8_t *rgba_data, uint32_t widt
     if (!encoder) {
         avifImageDestroy(image);
         avif_set_last_error(AVIF_RESULT_OUT_OF_MEMORY);
+
         return CPRES_ERROR_OUT_OF_MEMORY;
     }
 
@@ -141,9 +146,11 @@ static inline cpres_error_t encode_avif_common(uint8_t *rgba_data, uint32_t widt
         avif_set_last_error(result);
         avifEncoderDestroy(encoder);
         avifImageDestroy(image);
+
         if (result == AVIF_RESULT_OUT_OF_MEMORY) {
             return CPRES_ERROR_OUT_OF_MEMORY;
         }
+
         return CPRES_ERROR_ENCODE_FAILED;
     }
 
@@ -153,15 +160,18 @@ static inline cpres_error_t encode_avif_common(uint8_t *rgba_data, uint32_t widt
         avif_set_last_error(result);
         avifEncoderDestroy(encoder);
         avifImageDestroy(image);
+
         if (result == AVIF_RESULT_OUT_OF_MEMORY) {
             return CPRES_ERROR_OUT_OF_MEMORY;
         }
+
         return CPRES_ERROR_ENCODE_FAILED;
     }
 
     avif_set_last_error(AVIF_RESULT_OK);
     avifEncoderDestroy(encoder);
     avifImageDestroy(image);
+
     return CPRES_OK;
 }
 
@@ -188,6 +198,7 @@ extern cpres_error_t avif_encode_rgba_to_memory(uint8_t *rgba_data, uint32_t wid
         if (encoded.data) {
             avifRWDataFree(&encoded);
         }
+
         return err;
     }
 
@@ -195,8 +206,10 @@ extern cpres_error_t avif_encode_rgba_to_memory(uint8_t *rgba_data, uint32_t wid
     *avif_data = (uint8_t *)malloc(encoded.size);
     if (!*avif_data) {
         avifRWDataFree(&encoded);
+
         return CPRES_ERROR_OUT_OF_MEMORY;
     }
+
     memcpy(*avif_data, encoded.data, encoded.size);
     avifRWDataFree(&encoded);
 

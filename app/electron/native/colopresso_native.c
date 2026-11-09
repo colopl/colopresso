@@ -51,9 +51,11 @@ static int clamp_int(int value, int min_value, int max_value)
     if (value < min_value) {
         return min_value;
     }
+
     if (value > max_value) {
         return max_value;
     }
+
     return value;
 }
 
@@ -64,6 +66,7 @@ static bool assign_float_value(double value, float *target)
     }
 
     *target = (float)value;
+
     return true;
 }
 
@@ -72,9 +75,11 @@ static float clamp_float_value(double value, float min_value, float max_value)
     if (value < (double)min_value) {
         return min_value;
     }
+
     if (value > (double)max_value) {
         return max_value;
     }
+
     return (float)value;
 }
 
@@ -87,6 +92,7 @@ static void set_work_error(colopresso_convert_work_t *work, const char *code, co
     if (code) {
         snprintf(work->error_code, sizeof(work->error_code), "%s", code);
     }
+
     if (message) {
         snprintf(work->error_message, sizeof(work->error_message), "%s", message);
     }
@@ -95,6 +101,7 @@ static void set_work_error(colopresso_convert_work_t *work, const char *code, co
 static napi_value throw_type_error(napi_env env, const char *message)
 {
     napi_throw_type_error(env, COLOPRESSO_NATIVE_ERROR_INVALID_ARGUMENT, message);
+
     return NULL;
 }
 
@@ -112,9 +119,11 @@ static bool get_named_property(napi_env env, napi_value object, const char *name
     if (napi_has_named_property(env, object, name, &has_property) != napi_ok || !has_property) {
         return false;
     }
+
     if (napi_get_named_property(env, object, name, out_value) != napi_ok) {
         return false;
     }
+
     if (napi_typeof(env, *out_value, &value_type) != napi_ok) {
         return false;
     }
@@ -149,6 +158,7 @@ static bool parse_numeric_string(const char *text, double *out_value)
     while (isspace((unsigned char)*cursor)) {
         ++cursor;
     }
+
     if (*cursor == '\0') {
         return false;
     }
@@ -157,14 +167,17 @@ static bool parse_numeric_string(const char *text, double *out_value)
     if (end == cursor) {
         return false;
     }
+
     while (isspace((unsigned char)*end)) {
         ++end;
     }
+
     if (*end != '\0' || !isfinite(parsed)) {
         return false;
     }
 
     *out_value = parsed;
+
     return true;
 }
 
@@ -174,6 +187,7 @@ static bool equals_ignore_case(const char *text, const char *expected)
         if (tolower((unsigned char)*text) != tolower((unsigned char)*expected)) {
             return false;
         }
+
         ++text;
         ++expected;
     }
@@ -191,12 +205,15 @@ static bool read_double_property(napi_env env, napi_value object, const char *na
     if (!get_named_property(env, object, name, &value)) {
         return false;
     }
+
     if (napi_typeof(env, value, &value_type) != napi_ok) {
         return false;
     }
+
     if (value_type == napi_number) {
         return napi_get_value_double(env, value, out_value) == napi_ok && isfinite(*out_value);
     }
+
     if (value_type == napi_string) {
         return read_scalar_string(env, value, text, sizeof(text)) &&
                parse_numeric_string(text, out_value);
@@ -212,11 +229,13 @@ static bool read_int_property(napi_env env, napi_value object, const char *name,
     if (!read_double_property(env, object, name, &value)) {
         return false;
     }
+
     if (!(value >= (double)INT_MIN && value <= (double)INT_MAX)) {
         return false;
     }
 
     *out_value = (int)value;
+
     return true;
 }
 
@@ -230,36 +249,49 @@ static bool read_bool_property(napi_env env, napi_value object, const char *name
     if (!get_named_property(env, object, name, &value)) {
         return false;
     }
+
     if (napi_typeof(env, value, &value_type) != napi_ok) {
         return false;
     }
+
     if (value_type == napi_boolean) {
         return napi_get_value_bool(env, value, out_value) == napi_ok;
     }
+
     if (value_type == napi_number) {
         if (napi_get_value_double(env, value, &numeric_value) != napi_ok ||
             !isfinite(numeric_value)) {
             return false;
         }
+
         *out_value = numeric_value != 0.0;
+
         return true;
     }
+
     if (value_type == napi_string) {
         if (!read_scalar_string(env, value, text, sizeof(text))) {
             return false;
         }
+
         if (equals_ignore_case(text, "true")) {
             *out_value = true;
+
             return true;
         }
+
         if (equals_ignore_case(text, "false")) {
             *out_value = false;
+
             return true;
         }
+
         if (!parse_numeric_string(text, &numeric_value)) {
             return false;
         }
+
         *out_value = numeric_value != 0.0;
+
         return true;
     }
 
@@ -322,11 +354,14 @@ static bool read_input_bytes(napi_env env, napi_value value, uint8_t **out_data,
                                      &source_data, &array_buffer, &byte_offset) != napi_ok) {
             return false;
         }
+
         (void)array_buffer;
         (void)byte_offset;
+
         if (typed_array_type != napi_uint8_array && typed_array_type != napi_uint8_clamped_array) {
             return false;
         }
+
         source_size = typed_array_length;
     } else if (napi_is_arraybuffer(env, value, &is_array_buffer) == napi_ok && is_array_buffer) {
         if (napi_get_arraybuffer_info(env, value, &source_data, &source_size) != napi_ok) {
@@ -344,6 +379,7 @@ static bool read_input_bytes(napi_env env, napi_value value, uint8_t **out_data,
     if (!*out_data) {
         return false;
     }
+
     memcpy(*out_data, source_data, source_size);
     *out_size = source_size;
 
@@ -366,19 +402,25 @@ static bool apply_protected_colors(napi_env env, napi_value options,
     if (napi_is_array(env, colors_value, &is_array) != napi_ok || !is_array) {
         set_work_error(work, COLOPRESSO_NATIVE_ERROR_INVALID_ARGUMENT,
                        "pngx_protected_colors must be an array");
+
         return false;
     }
+
     if (napi_get_array_length(env, colors_value, &colors_length) != napi_ok) {
         set_work_error(work, COLOPRESSO_NATIVE_ERROR_INVALID_ARGUMENT,
                        "failed to read pngx_protected_colors");
+
         return false;
     }
+
     if (colors_length == 0) {
         return true;
     }
+
     if (colors_length > 256) {
         set_work_error(work, COLOPRESSO_NATIVE_ERROR_INVALID_ARGUMENT,
                        "pngx_protected_colors must contain at most 256 colors");
+
         return false;
     }
 
@@ -387,6 +429,7 @@ static bool apply_protected_colors(napi_env env, napi_value options,
     if (!work->protected_colors) {
         set_work_error(work, COLOPRESSO_NATIVE_ERROR_CONVERSION_FAILED,
                        "failed to allocate protected color buffer");
+
         return false;
     }
 
@@ -394,6 +437,7 @@ static bool apply_protected_colors(napi_env env, napi_value options,
         if (napi_get_element(env, colors_value, index, &color_value) != napi_ok) {
             set_work_error(work, COLOPRESSO_NATIVE_ERROR_INVALID_ARGUMENT,
                            "failed to read protected color");
+
             return false;
         }
 
@@ -455,14 +499,17 @@ static void apply_avif_options(napi_env env, napi_value options, cpres_config_t 
         read_double_property(env, options, "quality", &value)) {
         assign_float_value(value, &config->avif_quality);
     }
+
     if (read_int_property(env, options, "avif_alpha_quality", &config->avif_alpha_quality) ||
         read_int_property(env, options, "alpha_quality", &config->avif_alpha_quality)) {
         /* NOP */
     }
+
     if (read_bool_property(env, options, "avif_lossless", &bool_value) ||
         read_bool_property(env, options, "lossless", &bool_value)) {
         config->avif_lossless = bool_value;
     }
+
     if (read_int_property(env, options, "avif_speed", &config->avif_speed) ||
         read_int_property(env, options, "speed", &config->avif_speed)) {
         /* NOP */
@@ -480,6 +527,7 @@ static void apply_pngx_options(napi_env env, napi_value options, cpres_config_t 
         read_int_property(env, options, "level", &config->pngx_level)) {
         /* NOP */
     }
+
     apply_bool_property(env, options, "pngx_strip_safe", &config->pngx_strip_safe);
     apply_bool_property(env, options, "pngx_optimize_alpha", &config->pngx_optimize_alpha);
     apply_bool_property(env, options, "pngx_lossy_enable", &config->pngx_lossy_enable);
@@ -496,11 +544,13 @@ static void apply_pngx_options(napi_env env, napi_value options, cpres_config_t 
     if (has_lossy_type) {
         config->pngx_lossy_type = lossy_type;
     }
+
     if (has_shared_max_colors) {
         config->pngx_lossy_max_colors = shared_max_colors;
     }
 
     resolved_reduced_colors = -1;
+
     if (lossy_type == CPRES_PNGX_LOSSY_TYPE_REDUCED_RGBA32) {
         if (has_shared_max_colors && shared_max_colors > 1) {
             resolved_reduced_colors =
@@ -510,6 +560,7 @@ static void apply_pngx_options(napi_env env, napi_value options, cpres_config_t 
     } else if (has_legacy_reduced_colors) {
         resolved_reduced_colors = legacy_reduced_colors;
     }
+
     config->pngx_lossy_reduced_colors = resolved_reduced_colors;
 
     apply_int_property(env, options, "pngx_lossy_reduced_bits_rgb",
@@ -523,6 +574,7 @@ static void apply_pngx_options(napi_env env, napi_value options, cpres_config_t 
     dither_auto_selected = false;
     read_bool_property(env, options, "pngx_lossy_dither_auto", &dither_auto_selected);
     raw_dither_level = 0;
+
     if (lossy_type == CPRES_PNGX_LOSSY_TYPE_LIMITED_RGBA4444 && dither_auto_selected) {
         config->pngx_lossy_dither_level = -1.0f;
     } else if (read_double_property(env, options, "pngx_lossy_dither_level", &double_value)) {
@@ -594,6 +646,7 @@ static bool resolve_thread_count(napi_env env, napi_value options, colopresso_co
         work->config.pngx_threads = 1;
         work->requested_threads = 1;
         work->has_requested_threads = true;
+
         return true;
     }
 
@@ -601,15 +654,18 @@ static bool resolve_thread_count(napi_env env, napi_value options, colopresso_co
     if (max_threads == 0) {
         max_threads = 1;
     }
+
     default_threads = cpres_get_default_thread_count();
     if (default_threads == 0) {
         default_threads = 1;
     }
+
     if (default_threads > max_threads) {
         default_threads = max_threads;
     }
 
     requested_threads = 0;
+
     if (has_argument_threads) {
         requested_threads = argument_threads;
     } else if (read_int_property(env, options, "conversion_threads", &requested_threads) ||
@@ -621,6 +677,7 @@ static bool resolve_thread_count(napi_env env, napi_value options, colopresso_co
 
     if (requested_threads < 0) {
         set_work_error(work, COLOPRESSO_NATIVE_ERROR_INVALID_ARGUMENT, "thread count must be >= 0");
+
         return false;
     }
 
@@ -629,6 +686,7 @@ static bool resolve_thread_count(napi_env env, napi_value options, colopresso_co
     } else if ((uint32_t)requested_threads > max_threads) {
         set_work_error(work, COLOPRESSO_NATIVE_ERROR_INVALID_ARGUMENT,
                        "thread count exceeds the detected logical thread count");
+
         return false;
     }
 
@@ -653,8 +711,10 @@ static bool apply_options(napi_env env, napi_value options, colopresso_convert_w
         options_type == napi_undefined || options_type == napi_null) {
         return true;
     }
+
     if (options_type != napi_object) {
         set_work_error(work, COLOPRESSO_NATIVE_ERROR_INVALID_ARGUMENT, "options must be an object");
+
         return false;
     }
 
@@ -707,13 +767,16 @@ static void cleanup_convert_work(colopresso_convert_work_t *work)
     if (!work) {
         return;
     }
+
     if (work->async_work) {
         napi_delete_async_work(work->env, work->async_work);
     }
+
     free(work->input_data);
     if (work->output_data) {
         cpres_free(work->output_data);
     }
+
     free(work->protected_colors);
     free(work);
 }
@@ -760,6 +823,7 @@ static void reject_convert_work(colopresso_convert_work_t *work)
     if (work->output_size > 0) {
         set_double_property(work->env, error_value, "outputSize", (double)work->output_size);
     }
+
     napi_reject_deferred(work->env, work->deferred, error_value);
 }
 
@@ -778,8 +842,10 @@ static void complete_convert(napi_env env, napi_status status, void *data)
             set_work_error(work, COLOPRESSO_NATIVE_ERROR_CONVERSION_FAILED,
                            "native conversion was cancelled");
         }
+
         reject_convert_work(work);
         cleanup_convert_work(work);
+
         return;
     }
 
@@ -875,6 +941,7 @@ static napi_value convert(napi_env env, napi_callback_info info)
     if (!work) {
         napi_throw_error(env, COLOPRESSO_NATIVE_ERROR_CONVERSION_FAILED,
                          "failed to allocate conversion work");
+
         return NULL;
     }
 
@@ -887,16 +954,20 @@ static napi_value convert(napi_env env, napi_callback_info info)
                                    &format_length) != napi_ok ||
         format_length == 0 || format_length >= sizeof(work->format_id)) {
         cleanup_convert_work(work);
+
         return throw_type_error(env, "formatId must be a supported string");
     }
+
     if (strcmp(work->format_id, "webp") != 0 && strcmp(work->format_id, "avif") != 0 &&
         strcmp(work->format_id, "pngx") != 0) {
         cleanup_convert_work(work);
+
         return throw_type_error(env, "formatId must be webp, avif, or pngx");
     }
 
     if (!read_input_bytes(env, args[2], &work->input_data, &work->input_size)) {
         cleanup_convert_work(work);
+
         return throw_type_error(env, "inputBytes must be a non-empty Buffer, Uint8Array, or "
                                      "ArrayBuffer within the supported size limit");
     }
@@ -909,14 +980,17 @@ static napi_value convert(napi_env env, napi_callback_info info)
 
     argument_threads = 0;
     has_argument_threads = false;
+
     if (argc >= 4 && napi_typeof(env, args[3], &thread_arg_type) == napi_ok &&
         thread_arg_type != napi_undefined && thread_arg_type != napi_null) {
         if (thread_arg_type != napi_number ||
             napi_get_value_double(env, args[3], &numeric_threads) != napi_ok ||
             !(numeric_threads >= (double)INT_MIN && numeric_threads <= (double)INT_MAX)) {
             cleanup_convert_work(work);
+
             return throw_type_error(env, "threadCount must be a finite number when provided");
         }
+
         argument_threads = (int)numeric_threads;
         has_argument_threads = true;
     }
@@ -947,6 +1021,7 @@ static napi_value convert(napi_env env, napi_callback_info info)
 
         return NULL;
     }
+
     if (napi_queue_async_work(env, work->async_work) != napi_ok) {
         /* Settle the promise nobody will receive so that its deferred is released. */
         if (napi_get_undefined(env, &undefined) == napi_ok) {
@@ -956,6 +1031,7 @@ static napi_value convert(napi_env env, napi_callback_info info)
         cleanup_convert_work(work);
         napi_throw_error(env, COLOPRESSO_NATIVE_ERROR_CONVERSION_FAILED,
                          "failed to queue async work");
+
         return NULL;
     }
 

@@ -163,7 +163,10 @@ class Checker:
             if fnptr:
                 name = fnptr.group(1)
             else:
-                names = IDENT_RE.findall(body.rsplit("}", 1)[-1] if "}" in body else body)
+                tail = body.rsplit("}", 1)[-1] if "}" in body else body
+                # an array typedef names the type before its bounds: typedef char name_t[LEN];
+                tail = re.sub(r"(?:\s*\[[^\]]*\])+\s*;?\s*$", "", tail)
+                names = IDENT_RE.findall(tail)
                 name = names[-1] if names else ""
             if name and not name.endswith("_t"):
                 self.error(line, "typedef-suffix", f"typedef name '{name}' must end with _t")

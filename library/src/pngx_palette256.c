@@ -80,6 +80,7 @@ static inline void alpha_bleed_rgb_from_opaque(uint8_t *rgba, uint32_t width, ui
     if ((size_t)width > SIZE_MAX / (size_t)height) {
         return;
     }
+
     pixel_count = (size_t)width * (size_t)height;
 
     dist = (uint16_t *)malloc(sizeof(uint16_t) * pixel_count);
@@ -87,6 +88,7 @@ static inline void alpha_bleed_rgb_from_opaque(uint8_t *rgba, uint32_t width, ui
     if (!dist || !seed_rgb) {
         free(dist);
         free(seed_rgb);
+
         return;
     }
 
@@ -113,6 +115,7 @@ static inline void alpha_bleed_rgb_from_opaque(uint8_t *rgba, uint32_t width, ui
     if (!has_seed) {
         free(dist);
         free(seed_rgb);
+
         return;
     }
 
@@ -127,16 +130,19 @@ static inline void alpha_bleed_rgb_from_opaque(uint8_t *rgba, uint32_t width, ui
                     best = (uint16_t)(dist[idx - 1] + 1);
                     best_rgb = seed_rgb[idx - 1];
                 }
+
                 if (y > 0 && dist[idx - (size_t)width] != UINT16_MAX &&
                     (uint16_t)(dist[idx - (size_t)width] + 1) < best) {
                     best = (uint16_t)(dist[idx - (size_t)width] + 1);
                     best_rgb = seed_rgb[idx - (size_t)width];
                 }
+
                 if (x > 0 && y > 0 && dist[idx - (size_t)width - 1] != UINT16_MAX &&
                     (uint16_t)(dist[idx - (size_t)width - 1] + 1) < best) {
                     best = (uint16_t)(dist[idx - (size_t)width - 1] + 1);
                     best_rgb = seed_rgb[idx - (size_t)width - 1];
                 }
+
                 if (x + 1 < width && y > 0 && dist[idx - (size_t)width + 1] != UINT16_MAX &&
                     (uint16_t)(dist[idx - (size_t)width + 1] + 1) < best) {
                     best = (uint16_t)(dist[idx - (size_t)width + 1] + 1);
@@ -159,17 +165,20 @@ static inline void alpha_bleed_rgb_from_opaque(uint8_t *rgba, uint32_t width, ui
                     best = (uint16_t)(dist[idx + 1] + 1);
                     best_rgb = seed_rgb[idx + 1];
                 }
+
                 if (y + 1 < height && dist[idx + (size_t)width] != UINT16_MAX &&
                     (uint16_t)(dist[idx + (size_t)width] + 1) < best) {
                     best = (uint16_t)(dist[idx + (size_t)width] + 1);
                     best_rgb = seed_rgb[idx + (size_t)width];
                 }
+
                 if (x + 1 < width && y + 1 < height &&
                     dist[idx + (size_t)width + 1] != UINT16_MAX &&
                     (uint16_t)(dist[idx + (size_t)width + 1] + 1) < best) {
                     best = (uint16_t)(dist[idx + (size_t)width + 1] + 1);
                     best_rgb = seed_rgb[idx + (size_t)width + 1];
                 }
+
                 if (x > 0 && y + 1 < height && dist[idx + (size_t)width - 1] != UINT16_MAX &&
                     (uint16_t)(dist[idx + (size_t)width - 1] + 1) < best) {
                     best = (uint16_t)(dist[idx + (size_t)width - 1] + 1);
@@ -265,10 +274,12 @@ static inline void tune_quant_params_for_image(pngx_bridge_quant_params_t *param
     if (opaque_ratio_threshold < 0.0f) {
         opaque_ratio_threshold = PNGX_PALETTE256_TUNE_OPAQUE_RATIO_THRESHOLD;
     }
+
     gradient_mean_max = opts->palette256_tune_gradient_mean_max;
     if (gradient_mean_max < 0.0f) {
         gradient_mean_max = PNGX_PALETTE256_TUNE_GRADIENT_MEAN_MAX;
     }
+
     saturation_mean_max = opts->palette256_tune_saturation_mean_max;
     if (saturation_mean_max < 0.0f) {
         saturation_mean_max = PNGX_PALETTE256_TUNE_SATURATION_MEAN_MAX;
@@ -278,10 +289,12 @@ static inline void tune_quant_params_for_image(pngx_bridge_quant_params_t *param
     if (speed_max < 0) {
         speed_max = PNGX_PALETTE256_TUNE_SPEED_MAX;
     }
+
     quality_min_floor = opts->palette256_tune_quality_min_floor;
     if (quality_min_floor < 0) {
         quality_min_floor = PNGX_PALETTE256_TUNE_QUALITY_MIN_FLOOR;
     }
+
     quality_max_target = opts->palette256_tune_quality_max_target;
     if (quality_max_target < 0) {
         quality_max_target = PNGX_PALETTE256_TUNE_QUALITY_MAX_TARGET;
@@ -299,9 +312,11 @@ static inline void tune_quant_params_for_image(pngx_bridge_quant_params_t *param
         if (quality_max < (uint8_t)quality_max_target) {
             quality_max = (uint8_t)quality_max_target;
         }
+
         if (quality_min < (uint8_t)quality_min_floor) {
             quality_min = (uint8_t)quality_min_floor;
         }
+
         if (quality_min > quality_max) {
             quality_min = quality_max;
         }
@@ -346,27 +361,34 @@ static void postprocess_indices_parallel_worker(void *context, uint32_t start, u
                 if (neighbor_colors[neighbor_used] == base_color) {
                     neighbor_has_base = true;
                 }
+
                 ++neighbor_used;
             }
+
             if (x + 1 < ctx->width) {
                 neighbor_colors[neighbor_used] = ctx->reference[idx + 1];
                 if (neighbor_colors[neighbor_used] == base_color) {
                     neighbor_has_base = true;
                 }
+
                 ++neighbor_used;
             }
+
             if (y > 0) {
                 neighbor_colors[neighbor_used] = ctx->reference[idx - (size_t)ctx->width];
                 if (neighbor_colors[neighbor_used] == base_color) {
                     neighbor_has_base = true;
                 }
+
                 ++neighbor_used;
             }
+
             if (y + 1 < ctx->height) {
                 neighbor_colors[neighbor_used] = ctx->reference[idx + (size_t)ctx->width];
                 if (neighbor_colors[neighbor_used] == base_color) {
                     neighbor_has_base = true;
                 }
+
                 ++neighbor_used;
             }
 
@@ -375,6 +397,7 @@ static void postprocess_indices_parallel_worker(void *context, uint32_t start, u
             }
 
             candidate = neighbor_colors[0];
+
             if (neighbor_used == 3) {
                 if (!(neighbor_colors[1] == candidate && neighbor_colors[2] == candidate)) {
                     continue;
@@ -504,6 +527,7 @@ static inline void free_quant_output(pngx_bridge_quant_output_t *output)
         pngx_bridge_free((uint8_t *)output->palette);
         output->palette = NULL;
     }
+
     output->palette_len = 0;
 
     if (output->indices) {
@@ -531,6 +555,7 @@ static inline bool init_write_struct(png_structp *png_ptr, png_infop *info_ptr)
     tmp_info = png_create_info_struct(tmp_png);
     if (!tmp_info) {
         png_destroy_write_struct(&tmp_png, NULL);
+
         return false;
     }
 
@@ -555,6 +580,7 @@ static inline bool memory_buffer_reserve(png_memory_buffer_t *buffer, size_t add
     while (capacity < required) {
         if (capacity > SIZE_MAX / 2) {
             capacity = required;
+
             break;
         }
 
@@ -593,6 +619,7 @@ static inline void memory_write(png_structp png_ptr, png_bytep data, png_size_t 
 
     if (!buffer || !memory_buffer_reserve(buffer, length)) {
         png_error(png_ptr, "png write failure");
+
         return;
     }
 
@@ -697,6 +724,7 @@ static bool write_png_to_memory(const png_write_job_t *job, uint8_t **out_data, 
 
     if (!init_write_struct(&png_ptr, &info_ptr)) {
         free(row_pointers);
+
         return false;
     }
 
@@ -814,15 +842,19 @@ static bool palette256_prepare_context(palette256_context_t *ctx, const uint8_t 
     if (out_speed) {
         *out_speed = params.speed;
     }
+
     if (out_quality_min) {
         *out_quality_min = params.quality_min;
     }
+
     if (out_quality_max) {
         *out_quality_max = params.quality_max;
     }
+
     if (out_max_colors) {
         *out_max_colors = params.max_colors;
     }
+
     if (out_dither_level) {
         *out_dither_level = params.dithering_level;
     }
@@ -873,6 +905,7 @@ static bool palette256_finalize_context(palette256_context_t *ctx, const uint8_t
 
         return false;
     }
+
     memcpy(mutable_palette, palette, sizeof(cpres_rgba_color_t) * palette_len);
     sanitize_transparent_palette(mutable_palette, palette_len);
 

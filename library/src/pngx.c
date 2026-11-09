@@ -44,6 +44,7 @@ bool pngx_run_quantization(const uint8_t *png_data, size_t png_size, const pngx_
 
     *out_data = NULL;
     *out_size = 0;
+
     if (quant_quality) {
         *quant_quality = -1;
     }
@@ -56,6 +57,7 @@ bool pngx_run_quantization(const uint8_t *png_data, size_t png_size, const pngx_
             colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: %s target %u colors -> %u unique", label,
                            resolved_colors, applied_colors);
         }
+
         return success;
     }
 
@@ -120,9 +122,11 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config)
         if (config->pngx_level >= 0 && config->pngx_level <= 6) {
             level = (uint8_t)config->pngx_level;
         }
+
         strip_safe = config->pngx_strip_safe;
         optimize_alpha = config->pngx_optimize_alpha;
         lossy_enable = config->pngx_lossy_enable;
+
         if (config->pngx_lossy_type >= CPRES_PNGX_LOSSY_TYPE_PALETTE256 &&
             config->pngx_lossy_type <= CPRES_PNGX_LOSSY_TYPE_REDUCED_RGBA32) {
             lossy_type = (uint8_t)config->pngx_lossy_type;
@@ -131,6 +135,7 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config)
         if (config->pngx_lossy_max_colors > 0 && config->pngx_lossy_max_colors <= 256) {
             lossy_max_colors = (uint16_t)config->pngx_lossy_max_colors;
         }
+
         if (config->pngx_lossy_reduced_colors == COLOPRESSO_PNGX_DEFAULT_REDUCED_COLORS) {
             lossy_reduced_colors = COLOPRESSO_PNGX_DEFAULT_REDUCED_COLORS;
         } else if (config->pngx_lossy_reduced_colors >=
@@ -142,33 +147,41 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config)
 
             lossy_reduced_colors = clamped;
         }
+
         if (config->pngx_lossy_reduced_bits_rgb >= COLOPRESSO_PNGX_REDUCED_BITS_MIN &&
             config->pngx_lossy_reduced_bits_rgb <= COLOPRESSO_PNGX_REDUCED_BITS_MAX) {
             lossy_reduced_bits_rgb = (uint8_t)config->pngx_lossy_reduced_bits_rgb;
         }
+
         if (config->pngx_lossy_reduced_alpha_bits >= COLOPRESSO_PNGX_REDUCED_BITS_MIN &&
             config->pngx_lossy_reduced_alpha_bits <= COLOPRESSO_PNGX_REDUCED_BITS_MAX) {
             lossy_reduced_bits_alpha = (uint8_t)config->pngx_lossy_reduced_alpha_bits;
         }
+
         if (config->pngx_lossy_quality_min >= 0 && config->pngx_lossy_quality_min <= 100) {
             lossy_quality_min = (uint8_t)config->pngx_lossy_quality_min;
         }
+
         if (config->pngx_lossy_quality_max >= 0 && config->pngx_lossy_quality_max <= 100) {
             lossy_quality_max = (uint8_t)config->pngx_lossy_quality_max;
         }
+
         if (lossy_quality_max < lossy_quality_min) {
             tmp = lossy_quality_min;
             lossy_quality_min = lossy_quality_max;
             lossy_quality_max = tmp;
         }
+
         if (config->pngx_lossy_speed >= 1 && config->pngx_lossy_speed <= 10) {
             lossy_speed = (uint8_t)config->pngx_lossy_speed;
         }
+
         if (config->pngx_lossy_dither_level < 0.0f) {
             lossy_dither_auto = true;
         } else if (config->pngx_lossy_dither_level <= 1.0f) {
             lossy_dither_level = config->pngx_lossy_dither_level;
         }
+
         if (config->pngx_protected_colors && config->pngx_protected_colors_count > 0) {
             opts->protected_colors = config->pngx_protected_colors;
             opts->protected_colors_count = config->pngx_protected_colors_count;
@@ -186,11 +199,13 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config)
         postprocess_smooth_importance_cutoff = config->pngx_postprocess_smooth_importance_cutoff;
 
         palette256_gradient_profile_enable = config->pngx_palette256_gradient_profile_enable;
+
         if (config->pngx_palette256_gradient_dither_floor >= 0.0f &&
             config->pngx_palette256_gradient_dither_floor <= 1.0f) {
             palette256_gradient_profile_dither_floor =
                 config->pngx_palette256_gradient_dither_floor;
         }
+
         palette256_alpha_bleed_enable = config->pngx_palette256_alpha_bleed_enable;
 
         if (config->pngx_palette256_alpha_bleed_max_distance >= 0 &&
@@ -198,11 +213,13 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config)
             palette256_alpha_bleed_max_distance =
                 (uint16_t)config->pngx_palette256_alpha_bleed_max_distance;
         }
+
         if (config->pngx_palette256_alpha_bleed_opaque_threshold >= 0 &&
             config->pngx_palette256_alpha_bleed_opaque_threshold <= 255) {
             palette256_alpha_bleed_opaque_threshold =
                 (uint8_t)config->pngx_palette256_alpha_bleed_opaque_threshold;
         }
+
         if (config->pngx_palette256_alpha_bleed_soft_limit >= 0 &&
             config->pngx_palette256_alpha_bleed_soft_limit <= 255) {
             palette256_alpha_bleed_soft_limit =
@@ -214,11 +231,13 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config)
             palette256_profile_opaque_ratio_threshold =
                 config->pngx_palette256_profile_opaque_ratio_threshold;
         }
+
         if (config->pngx_palette256_profile_gradient_mean_max >= 0.0f &&
             config->pngx_palette256_profile_gradient_mean_max <= 1.0f) {
             palette256_profile_gradient_mean_max =
                 config->pngx_palette256_profile_gradient_mean_max;
         }
+
         if (config->pngx_palette256_profile_saturation_mean_max >= 0.0f &&
             config->pngx_palette256_profile_saturation_mean_max <= 1.0f) {
             palette256_profile_saturation_mean_max =
@@ -230,10 +249,12 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config)
             palette256_tune_opaque_ratio_threshold =
                 config->pngx_palette256_tune_opaque_ratio_threshold;
         }
+
         if (config->pngx_palette256_tune_gradient_mean_max >= 0.0f &&
             config->pngx_palette256_tune_gradient_mean_max <= 1.0f) {
             palette256_tune_gradient_mean_max = config->pngx_palette256_tune_gradient_mean_max;
         }
+
         if (config->pngx_palette256_tune_saturation_mean_max >= 0.0f &&
             config->pngx_palette256_tune_saturation_mean_max <= 1.0f) {
             palette256_tune_saturation_mean_max = config->pngx_palette256_tune_saturation_mean_max;
@@ -243,16 +264,19 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config)
             config->pngx_palette256_tune_speed_max <= 10) {
             palette256_tune_speed_max = (int16_t)config->pngx_palette256_tune_speed_max;
         }
+
         if (config->pngx_palette256_tune_quality_min_floor >= 0 &&
             config->pngx_palette256_tune_quality_min_floor <= 100) {
             palette256_tune_quality_min_floor =
                 (int16_t)config->pngx_palette256_tune_quality_min_floor;
         }
+
         if (config->pngx_palette256_tune_quality_max_target >= 0 &&
             config->pngx_palette256_tune_quality_max_target <= 100) {
             palette256_tune_quality_max_target =
                 (int16_t)config->pngx_palette256_tune_quality_max_target;
         }
+
         if (config->pngx_threads >= 0) {
             thread_count = (uint32_t)config->pngx_threads > cpres_get_max_thread_count()
                                ? (int32_t)cpres_get_max_thread_count()
@@ -291,12 +315,14 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config)
         palette256_profile_opaque_ratio_threshold =
             clamp_float(palette256_profile_opaque_ratio_threshold, 0.0f, 1.0f);
     }
+
     if (palette256_profile_gradient_mean_max < 0.0f) {
         palette256_profile_gradient_mean_max = -1.0f;
     } else {
         palette256_profile_gradient_mean_max =
             clamp_float(palette256_profile_gradient_mean_max, 0.0f, 1.0f);
     }
+
     if (palette256_profile_saturation_mean_max < 0.0f) {
         palette256_profile_saturation_mean_max = -1.0f;
     } else {
@@ -310,12 +336,14 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config)
         palette256_tune_opaque_ratio_threshold =
             clamp_float(palette256_tune_opaque_ratio_threshold, 0.0f, 1.0f);
     }
+
     if (palette256_tune_gradient_mean_max < 0.0f) {
         palette256_tune_gradient_mean_max = -1.0f;
     } else {
         palette256_tune_gradient_mean_max =
             clamp_float(palette256_tune_gradient_mean_max, 0.0f, 1.0f);
     }
+
     if (palette256_tune_saturation_mean_max < 0.0f) {
         palette256_tune_saturation_mean_max = -1.0f;
     } else {
@@ -326,9 +354,11 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config)
     if (palette256_tune_speed_max < -1) {
         palette256_tune_speed_max = -1;
     }
+
     if (palette256_tune_quality_min_floor < -1) {
         palette256_tune_quality_min_floor = -1;
     }
+
     if (palette256_tune_quality_max_target < -1) {
         palette256_tune_quality_max_target = -1;
     }

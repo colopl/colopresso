@@ -184,6 +184,7 @@ void test_avif_file_with_rgba64_png(void)
     if (!format_test_asset_path(input_path, sizeof(input_path), "16bit.png")) {
         TEST_FAIL_MESSAGE("failed to format RGBA64 AVIF input path");
     }
+
     if (snprintf(output_path, sizeof(output_path), "example_avif_rgba64.avif") < 0) {
         TEST_FAIL_MESSAGE("failed to format RGBA64 AVIF output path");
     }

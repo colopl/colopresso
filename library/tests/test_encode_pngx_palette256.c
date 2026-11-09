@@ -53,6 +53,7 @@ static void png_write_cb(png_structp png_ptr, png_bytep data, png_size_t length)
 
     if (buf->size > SIZE_MAX - (size_t)length) {
         png_error(png_ptr, "write overflow");
+
         return;
     }
 
@@ -62,14 +63,17 @@ static void png_write_cb(png_structp png_ptr, png_bytep data, png_size_t length)
         while (new_capacity < required) {
             if (new_capacity > SIZE_MAX / 2) {
                 new_capacity = required;
+
                 break;
             }
+
             new_capacity *= 2;
         }
 
         new_data = (uint8_t *)realloc(buf->data, new_capacity);
         if (!new_data) {
             png_error(png_ptr, "out of memory");
+
             return;
         }
 
@@ -113,11 +117,14 @@ static inline int32_t parse_png_palette_count(const uint8_t *png, size_t size)
         if (off + clen + 4 > size) {
             break;
         }
+
         if (memcmp(ctype, "PLTE", 4) == 0) {
             saw_plte = 1;
             palette_entries = (int)(clen / 3);
         }
+
         off += clen + 4;
+
         if (memcmp(ctype, "IDAT", 4) == 0) {
             break;
         }
@@ -160,6 +167,7 @@ static inline bool create_png_rgba_memory(const uint8_t *rgba, uint32_t width, u
     if (out_png) {
         *out_png = NULL;
     }
+
     if (out_size) {
         *out_size = 0;
     }
@@ -185,6 +193,7 @@ static inline bool create_png_rgba_memory(const uint8_t *rgba, uint32_t width, u
     info_ptr = png_create_info_struct(png_ptr);
     if (!info_ptr) {
         png_destroy_write_struct(&png_ptr, NULL);
+
         return false;
     }
 
@@ -192,12 +201,14 @@ static inline bool create_png_rgba_memory(const uint8_t *rgba, uint32_t width, u
         png_destroy_write_struct(&png_ptr, &info_ptr);
         free(buf.data);
         free(row_pointers);
+
         return false;
     }
 
     row_pointers = (png_bytep *)calloc(height, sizeof(png_bytep));
     if (!row_pointers) {
         png_destroy_write_struct(&png_ptr, &info_ptr);
+
         return false;
     }
 
@@ -220,6 +231,7 @@ static inline bool create_png_rgba_memory(const uint8_t *rgba, uint32_t width, u
 
     if (!buf.data || buf.size == 0) {
         free(buf.data);
+
         return false;
     }
 
@@ -403,6 +415,7 @@ void test_pngx_palette256_protected_colors(void)
                     if (r == protected_colors[i].r && g == protected_colors[i].g &&
                         b == protected_colors[i].b) {
                         found_this_color = true;
+
                         break;
                     }
                 }
@@ -470,6 +483,7 @@ void test_pngx_palette256_postprocess_smoothing_with_low_dither(void)
     error = cpres_encode_pngx_memory(png_data, png_size, &pngx_data, &pngx_size, &g_config);
 
     TEST_ASSERT_TRUE(error == CPRES_OK || error == CPRES_ERROR_OUTPUT_NOT_SMALLER);
+
     if (error == CPRES_OK) {
         TEST_ASSERT_NOT_NULL(pngx_data);
         TEST_ASSERT_GREATER_THAN_size_t(0, pngx_size);
@@ -506,6 +520,7 @@ void test_pngx_palette256_postprocess_indices_executes_without_internal_tests(vo
                 rgba[base + 1] = 100;
                 rgba[base + 2] = 100;
             }
+
             rgba[base + 3] = 255;
         }
     }
@@ -661,6 +676,7 @@ void test_pngx_palette256_alpha_bleed_seedless_transparent_image(void)
     error = cpres_encode_pngx_memory(png_data, png_size, &pngx_data, &pngx_size, &g_config);
 
     TEST_ASSERT_TRUE(error == CPRES_OK || error == CPRES_ERROR_OUTPUT_NOT_SMALLER);
+
     if (error == CPRES_OK) {
         cpres_free(pngx_data);
     }
@@ -702,6 +718,7 @@ void test_pngx_palette256_alpha_bleed_applies_to_soft_pixels(void)
     error = cpres_encode_pngx_memory(png_data, png_size, &pngx_data, &pngx_size, &g_config);
 
     TEST_ASSERT_TRUE(error == CPRES_OK || error == CPRES_ERROR_OUTPUT_NOT_SMALLER);
+
     if (error == CPRES_OK) {
         cpres_free(pngx_data);
     }
@@ -748,6 +765,7 @@ void test_pngx_palette256_gradient_profile_prefer_uniform_path(void)
     error = cpres_encode_pngx_memory(png_data, png_size, &pngx_data, &pngx_size, &g_config);
 
     TEST_ASSERT_TRUE(error == CPRES_OK || error == CPRES_ERROR_OUTPUT_NOT_SMALLER);
+
     if (error == CPRES_OK) {
         cpres_free(pngx_data);
     }
@@ -792,6 +810,7 @@ void test_pngx_palette256_tune_quant_params_clamps_speed_and_quality(void)
     error = cpres_encode_pngx_memory(png_data, png_size, &pngx_data, &pngx_size, &g_config);
 
     TEST_ASSERT_TRUE(error == CPRES_OK || error == CPRES_ERROR_OUTPUT_NOT_SMALLER);
+
     if (error == CPRES_OK) {
         cpres_free(pngx_data);
     }
@@ -829,6 +848,7 @@ void test_pngx_palette256_profile_defaults_are_accepted_when_negative(void)
     error = cpres_encode_pngx_memory(png_data, png_size, &pngx_data, &pngx_size, &g_config);
 
     TEST_ASSERT_TRUE(error == CPRES_OK || error == CPRES_ERROR_OUTPUT_NOT_SMALLER);
+
     if (error == CPRES_OK) {
         cpres_free(pngx_data);
     }

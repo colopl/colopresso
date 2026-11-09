@@ -37,6 +37,7 @@ static int nextchar = 0;
 static DWORD WINAPI cpres_thread_wrapper(LPVOID arg)
 {
     cpres_pthread_wrapper_ctx_t *ctx = (cpres_pthread_wrapper_ctx_t *)arg;
+
     void *(*start_routine)(void *);
     void *routine_arg;
 
@@ -78,10 +79,12 @@ int colopresso_thread_create(colopresso_thread_t *thread, const void *attr,
     handle = CreateThread(NULL, 0, cpres_thread_wrapper, ctx, 0, NULL);
     if (handle == NULL) {
         free(ctx);
+
         return EAGAIN;
     }
 
     *thread = handle;
+
     return 0;
 }
 
@@ -101,6 +104,7 @@ int colopresso_thread_join(colopresso_thread_t thread, void **retval)
     }
 
     CloseHandle(thread);
+
     return 0;
 }
 
@@ -113,6 +117,7 @@ int colopresso_mutex_init(colopresso_mutex_t *mutex, const void *attr)
     }
 
     InitializeCriticalSection(mutex);
+
     return 0;
 }
 
@@ -123,6 +128,7 @@ int colopresso_mutex_lock(colopresso_mutex_t *mutex)
     }
 
     EnterCriticalSection(mutex);
+
     return 0;
 }
 
@@ -133,6 +139,7 @@ int colopresso_mutex_unlock(colopresso_mutex_t *mutex)
     }
 
     LeaveCriticalSection(mutex);
+
     return 0;
 }
 
@@ -143,6 +150,7 @@ int colopresso_mutex_destroy(colopresso_mutex_t *mutex)
     }
 
     DeleteCriticalSection(mutex);
+
     return 0;
 }
 
@@ -160,6 +168,7 @@ static const struct option *match_long_option(const char *name, size_t name_len,
             if (index_out) {
                 *index_out = i;
             }
+
             return &longopts[i];
         }
     }
@@ -193,6 +202,7 @@ int getopt_long(int argc, char *const argv[], const char *optstring, const struc
     if (arg[0] == '-' && arg[1] == '-') {
         if (arg[2] == '\0') {
             optind++;
+
             return -1;
         }
 
@@ -205,7 +215,9 @@ int getopt_long(int argc, char *const argv[], const char *optstring, const struc
             if (opterr && argv[0]) {
                 fprintf(stderr, "%s: unrecognized option '%s'\n", argv[0], arg);
             }
+
             optind++;
+
             return '?';
         }
 
@@ -220,8 +232,10 @@ int getopt_long(int argc, char *const argv[], const char *optstring, const struc
                     fprintf(stderr, "%s: option '--%s' requires an argument\n", argv[0],
                             opt_entry->name);
                 }
+
                 optopt = opt_entry->flag ? 0 : opt_entry->val;
                 optind++;
+
                 return '?';
             }
         } else if (opt_entry->has_arg == optional_argument) {
@@ -233,7 +247,9 @@ int getopt_long(int argc, char *const argv[], const char *optstring, const struc
                 fprintf(stderr, "%s: option '--%s' doesn't allow an argument\n", argv[0],
                         opt_entry->name);
             }
+
             optind++;
+
             return '?';
         }
 
@@ -241,6 +257,7 @@ int getopt_long(int argc, char *const argv[], const char *optstring, const struc
 
         if (opt_entry->flag) {
             *(opt_entry->flag) = opt_entry->val;
+
             return 0;
         }
 
@@ -256,6 +273,7 @@ int getopt_long(int argc, char *const argv[], const char *optstring, const struc
         if (opt == '\0') {
             optind++;
             nextchar = 0;
+
             return getopt_long(argc, argv, optstring, longopts, longindex);
         }
 
@@ -264,12 +282,14 @@ int getopt_long(int argc, char *const argv[], const char *optstring, const struc
             if (opterr && argv[0]) {
                 fprintf(stderr, "%s: invalid option -- '%c'\n", argv[0], opt);
             }
+
             optopt = opt;
             nextchar++;
             if (arg[nextchar] == '\0') {
                 optind++;
                 nextchar = 0;
             }
+
             return '?';
         }
 
@@ -280,6 +300,7 @@ int getopt_long(int argc, char *const argv[], const char *optstring, const struc
                 optind++;
                 nextchar = 0;
             }
+
             return opt;
         }
 
@@ -287,6 +308,7 @@ int getopt_long(int argc, char *const argv[], const char *optstring, const struc
             optarg = &arg[nextchar];
             optind++;
             nextchar = 0;
+
             return opt;
         }
 
@@ -294,6 +316,7 @@ int getopt_long(int argc, char *const argv[], const char *optstring, const struc
             optarg = NULL;
             optind++;
             nextchar = 0;
+
             return opt;
         }
 
@@ -302,15 +325,18 @@ int getopt_long(int argc, char *const argv[], const char *optstring, const struc
             optarg = argv[optind];
             optind++;
             nextchar = 0;
+
             return opt;
         }
 
         if (opterr && argv[0]) {
             fprintf(stderr, "%s: option requires an argument -- '%c'\n", argv[0], opt);
         }
+
         optopt = opt;
         optind++;
         nextchar = 0;
+
         return '?';
     }
 
@@ -331,6 +357,7 @@ struct tm *gmtime_r(const time_t *timer, struct tm *buf)
     }
 
     *buf = *tmp;
+
     return buf;
 }
 
@@ -349,6 +376,7 @@ uint32_t colopresso_get_cpu_count(void)
     if (sysinfo.dwNumberOfProcessors == 0) {
         return 1;
     }
+
     return (int32_t)sysinfo.dwNumberOfProcessors;
 #else
     long nprocs;
@@ -357,9 +385,11 @@ uint32_t colopresso_get_cpu_count(void)
     if (nprocs <= 0) {
         return 1;
     }
+
     if (nprocs > INT32_MAX) {
         return INT32_MAX;
     }
+
     return (int32_t)nprocs;
 #endif
 }

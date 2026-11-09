@@ -55,6 +55,7 @@ void test_datetime_buildtime2str(void)
 
     if (sizeof(void *) == 4) {
         TEST_IGNORE_MESSAGE("Skipping on 32-bit architecture");
+
         return;
     }
 
@@ -105,6 +106,7 @@ void test_datetime_encode_decode_buildtime(void)
 
     if (sizeof(void *) == 4) {
         TEST_IGNORE_MESSAGE("Skipping on 32-bit architecture");
+
         return;
     }
 
@@ -141,6 +143,7 @@ void test_datetime_get_timestamp(void)
 
     if (sizeof(void *) == 4) {
         TEST_IGNORE_MESSAGE("Skipping on 32-bit architecture");
+
         return;
     }
 
@@ -159,6 +162,7 @@ void test_datetime_null_checks(void)
 {
     if (sizeof(void *) == 4) {
         TEST_IGNORE_MESSAGE("Skipping on 32-bit architecture");
+
         return;
     }
 

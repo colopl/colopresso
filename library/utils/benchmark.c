@@ -69,6 +69,7 @@ static inline bool parse_thread_count_value(const char *value, int *out_threads)
     }
 
     *out_threads = (int)parsed;
+
     return true;
 }
 
@@ -121,6 +122,7 @@ static inline void print_result(const benchmark_result_t *result, size_t input_s
     if (!result->success) {
         printf("  %-30s " COLOR_YELLOW "[FAILED: %s]" COLOR_RESET "\n", result->name,
                cpres_error_string(result->error));
+
         return;
     }
 
@@ -180,9 +182,11 @@ static benchmark_result_t benchmark_webp(const uint8_t *png_data, size_t png_siz
 
     for (i = 0; i < NUM_ITERATIONS; i++) {
         sum += times[i];
+
         if (times[i] < result.time_min_ms) {
             result.time_min_ms = times[i];
         }
+
         if (times[i] > result.time_max_ms) {
             result.time_max_ms = times[i];
         }
@@ -230,9 +234,11 @@ static benchmark_result_t benchmark_avif(const uint8_t *png_data, size_t png_siz
 
         if (err != CPRES_OK) {
             result.error = err;
+
             if (output_data) {
                 cpres_free(output_data);
             }
+
             return result;
         }
 
@@ -245,9 +251,11 @@ static benchmark_result_t benchmark_avif(const uint8_t *png_data, size_t png_siz
 
     for (int i = 0; i < NUM_ITERATIONS; i++) {
         sum += times[i];
+
         if (times[i] < result.time_min_ms) {
             result.time_min_ms = times[i];
         }
+
         if (times[i] > result.time_max_ms) {
             result.time_max_ms = times[i];
         }
@@ -293,9 +301,11 @@ static benchmark_result_t benchmark_pngx(const uint8_t *png_data, size_t png_siz
 
         if (err != CPRES_OK) {
             result.error = err;
+
             if (output_data) {
                 cpres_free(output_data);
             }
+
             return result;
         }
 
@@ -311,6 +321,7 @@ static benchmark_result_t benchmark_pngx(const uint8_t *png_data, size_t png_siz
         if (times[i] < result.time_min_ms) {
             result.time_min_ms = times[i];
         }
+
         if (times[i] > result.time_max_ms) {
             result.time_max_ms = times[i];
         }
@@ -537,41 +548,56 @@ int main(int argc, char *argv[])
             if (i + 1 >= argc) {
                 fprintf(stderr, "Error: --threads requires a value\n");
                 print_usage(argv[0]);
+
                 return 1;
             }
+
             value = argv[++i];
             if (!parse_thread_count_value(value, &thread_count)) {
                 fprintf(stderr, "Error: Invalid thread count '%s'\n", value);
                 print_usage(argv[0]);
+
                 return 1;
             }
+
             threads_specified = true;
+
             continue;
         }
+
         if (strncmp(arg, "--threads=", 10) == 0) {
             value = arg + 10;
             if (!parse_thread_count_value(value, &thread_count)) {
                 fprintf(stderr, "Error: Invalid thread count '%s'\n", value);
                 print_usage(argv[0]);
+
                 return 1;
             }
+
             threads_specified = true;
+
             continue;
         }
+
         if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
             print_usage(argv[0]);
+
             return 0;
         }
+
         if (arg[0] == '-') {
             fprintf(stderr, "Error: Unknown option '%s'\n", arg);
             print_usage(argv[0]);
+
             return 1;
         }
+
         if (!input_file) {
             input_file = arg;
         } else {
             fprintf(stderr, "Error: Multiple input files specified ('%s')\n", arg);
             print_usage(argv[0]);
+
             return 1;
         }
     }
@@ -581,6 +607,7 @@ int main(int argc, char *argv[])
         if (cpu_count == 0) {
             cpu_count = 1;
         }
+
         thread_count = (int)cpu_count;
     }
 
@@ -599,6 +626,7 @@ int main(int argc, char *argv[])
     if (read_error != CPRES_OK) {
         fprintf(stderr, COLOR_YELLOW "Error: Failed to load PNG file '%s': %s" COLOR_RESET "\n",
                 input_file, cpres_error_string(read_error));
+
         return 1;
     }
 

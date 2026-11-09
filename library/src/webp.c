@@ -108,6 +108,7 @@ cpres_error_t webp_encode_rgba_to_memory(uint8_t *rgba_data, uint32_t width, uin
 
     if (!WebPPictureImportRGBA(&picture, rgba_data, width * 4)) {
         WebPPictureFree(&picture);
+
         return CPRES_ERROR_ENCODE_FAILED;
     }
 
@@ -123,8 +124,10 @@ cpres_error_t webp_encode_rgba_to_memory(uint8_t *rgba_data, uint32_t width, uin
                        picture.error_code);
         WebPMemoryWriterClear(&writer);
         WebPPictureFree(&picture);
+
         return CPRES_ERROR_ENCODE_FAILED;
     }
+
     webp_set_last_error(0);
 
     colopresso_log(CPRES_LOG_LEVEL_DEBUG, "WebP encoding successful - size: %zu bytes",
@@ -134,6 +137,7 @@ cpres_error_t webp_encode_rgba_to_memory(uint8_t *rgba_data, uint32_t width, uin
     if (!*webp_data) {
         WebPMemoryWriterClear(&writer);
         WebPPictureFree(&picture);
+
         return CPRES_ERROR_OUT_OF_MEMORY;
     }
 

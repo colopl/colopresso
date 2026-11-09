@@ -85,12 +85,15 @@ static inline float calc_saturation(uint8_t r, uint8_t g, uint8_t b)
     if (g > max_v) {
         max_v = g;
     }
+
     if (b > max_v) {
         max_v = b;
     }
+
     if (g < min_v) {
         min_v = g;
     }
+
     if (b < min_v) {
         min_v = b;
     }
@@ -120,6 +123,7 @@ static inline bool decode_png_rgba(const uint8_t *png_data, size_t png_size, uin
     status = png_decode_from_memory(png_data, png_size, rgba, width, height);
     if (status != CPRES_OK) {
         colopresso_log(CPRES_LOG_LEVEL_WARNING, "PNGX: Failed to decode PNG (%d)", (int)status);
+
         return false;
     }
 
@@ -144,9 +148,11 @@ static inline void extract_chroma_anchors(pngx_quant_support_t *support, chroma_
         if (scaled < (size_t)PNGX_COMMON_ANCHOR_SCALE_MIN) {
             scaled = (size_t)PNGX_COMMON_ANCHOR_SCALE_MIN;
         }
+
         if (scaled > PNGX_MAX_DERIVED_COLORS) {
             scaled = PNGX_MAX_DERIVED_COLORS;
         }
+
         auto_limit = scaled;
     } else {
         auto_limit = (size_t)PNGX_COMMON_ANCHOR_AUTO_LIMIT_DEFAULT;
@@ -161,21 +167,26 @@ static inline void extract_chroma_anchors(pngx_quant_support_t *support, chroma_
             if (!bucket->count || bucket->score <= 0.0f) {
                 continue;
             }
+
             importance_boost = bucket->importance_accum * PNGX_COMMON_ANCHOR_IMPORTANCE_FACTOR;
             if (importance_boost > PNGX_COMMON_ANCHOR_IMPORTANCE_THRESHOLD) {
                 importance_boost = PNGX_COMMON_ANCHOR_IMPORTANCE_BOOST_BASE +
                                    (importance_boost - PNGX_COMMON_ANCHOR_IMPORTANCE_THRESHOLD) *
                                        PNGX_COMMON_ANCHOR_IMPORTANCE_BOOST_SCALE;
             }
+
             score = bucket->score + importance_boost;
+
             if (bucket->count < PNGX_COMMON_ANCHOR_LOW_COUNT_THRESHOLD) {
                 score *= PNGX_COMMON_ANCHOR_LOW_COUNT_PENALTY;
             }
+
             if (score > best_score) {
                 best_score = score;
                 best_index = i;
             }
         }
+
         if (best_index == SIZE_MAX || best_score < PNGX_COMMON_ANCHOR_SCORE_THRESHOLD) {
             break;
         }
@@ -199,12 +210,15 @@ static inline void extract_chroma_anchors(pngx_quant_support_t *support, chroma_
             if (color_distance_sq(&chosen[i], &chosen[check]) <
                 PNGX_COMMON_ANCHOR_DISTANCE_SQ_THRESHOLD) {
                 duplicate = true;
+
                 break;
             }
         }
+
         if (duplicate) {
             continue;
         }
+
         chosen[dst] = chosen[i];
         ++dst;
     }
@@ -217,6 +231,7 @@ static inline void extract_chroma_anchors(pngx_quant_support_t *support, chroma_
     if (!support->derived_colors) {
         return;
     }
+
     memcpy(support->derived_colors, chosen, sizeof(cpres_rgba_color_t) * dst);
     support->derived_colors_len = dst;
 }
@@ -296,16 +311,19 @@ bool load_rgba_image(const uint8_t *png_data, size_t png_size, pngx_rgba_image_t
 
     if (!decode_png_rgba(png_data, png_size, &image->rgba, &image->width, &image->height)) {
         rgba_image_reset(image);
+
         return false;
     }
 
     if (!image->rgba || image->width == 0 || image->height == 0) {
         rgba_image_reset(image);
+
         return false;
     }
 
     if ((size_t)image->width > SIZE_MAX / (size_t)image->height) {
         rgba_image_reset(image);
+
         return false;
     }
 
@@ -352,6 +370,7 @@ uint8_t quantize_channel_value(float value, uint8_t bits_per_channel)
     if (scaled < 0.0f) {
         scaled = 0.0f;
     }
+
     if (scaled > (float)(levels - 1)) {
         scaled = (float)(levels - 1);
     }
@@ -385,12 +404,15 @@ void snap_rgba_to_bits(uint8_t *r, uint8_t *g, uint8_t *b, uint8_t *a, uint8_t b
     if (r) {
         *r = quantize_bits(*r, rgb);
     }
+
     if (g) {
         *g = quantize_bits(*g, rgb);
     }
+
     if (b) {
         *b = quantize_bits(*b, rgb);
     }
+
     if (a) {
         *a = quantize_bits(*a, clamp_reduced_bits(bits_alpha));
     }
@@ -471,6 +493,7 @@ float estimate_bitdepth_dither_level(const uint8_t *rgba, png_uint_32 width, png
             if (luma < min_luma) {
                 min_luma = luma;
             }
+
             if (luma > max_luma) {
                 max_luma = luma;
             }
@@ -545,6 +568,7 @@ float estimate_bitdepth_dither_level(const uint8_t *rgba, png_uint_32 width, png
         if (target < PNGX_COMMON_DITHER_TARGET_CAP) {
             target = PNGX_COMMON_DITHER_TARGET_CAP;
         }
+
         if (bits_per_channel <= 4 && target < PNGX_COMMON_DITHER_TARGET_CAP_LOW_BIT) {
             target = PNGX_COMMON_DITHER_TARGET_CAP_LOW_BIT;
         }
@@ -552,6 +576,7 @@ float estimate_bitdepth_dither_level(const uint8_t *rgba, png_uint_32 width, png
 
     if (bits_per_channel <= 2) {
         target += PNGX_COMMON_DITHER_LOW_BIT_BOOST;
+
         if (normalized_gradient > 0.25f) {
             target += PNGX_COMMON_DITHER_LOW_BIT_GRADIENT_BOOST;
         }
@@ -594,6 +619,7 @@ float estimate_bitdepth_dither_level_limited4444(const uint8_t *rgba, png_uint_3
             if (luma < min_luma) {
                 min_luma = luma;
             }
+
             if (luma > max_luma) {
                 max_luma = luma;
             }
@@ -688,6 +714,7 @@ void build_fixed_palette(const pngx_options_t *source_opts, pngx_quant_support_t
         memcpy(support->combined_fixed_colors, source_opts->protected_colors,
                sizeof(cpres_rgba_color_t) * user_count);
     }
+
     support->combined_fixed_len = user_count;
     for (i = 0; i < derived_count; ++i) {
         duplicate = false;
@@ -695,9 +722,11 @@ void build_fixed_palette(const pngx_options_t *source_opts, pngx_quant_support_t
             if (color_distance_sq(&support->derived_colors[i], &support->combined_fixed_colors[j]) <
                 PNGX_COMMON_FIXED_PALETTE_DISTANCE_SQ) {
                 duplicate = true;
+
                 break;
             }
         }
+
         if (duplicate) {
             continue;
         }
@@ -712,6 +741,7 @@ void build_fixed_palette(const pngx_options_t *source_opts, pngx_quant_support_t
             ++support->combined_fixed_len;
         }
     }
+
     if (support->combined_fixed_len > user_count) {
         patched_opts->protected_colors = support->combined_fixed_colors;
         patched_opts->protected_colors_count = (int32_t)support->combined_fixed_len;
@@ -746,6 +776,7 @@ float resolve_quant_dither(const pngx_options_t *opts, const pngx_image_stats_t 
         resolved = PNGX_COMMON_RESOLVE_AUTO_BASE +
                    gradient_mean * PNGX_COMMON_RESOLVE_AUTO_GRADIENT_WEIGHT +
                    saturation_mean * PNGX_COMMON_RESOLVE_AUTO_SATURATION_WEIGHT;
+
         if (opaque_ratio < 0.7f) {
             resolved -= PNGX_COMMON_RESOLVE_AUTO_OPAQUE_CUT;
         }
@@ -757,9 +788,11 @@ float resolve_quant_dither(const pngx_options_t *opts, const pngx_image_stats_t 
         } else if (gradient_mean > 0.30f) {
             resolved += PNGX_COMMON_RESOLVE_ADAPTIVE_GRADIENT_BOOST;
         }
+
         if (gradient_max > 0.5f && vibrant_ratio > 0.12f) {
             resolved -= PNGX_COMMON_RESOLVE_ADAPTIVE_VIBRANT_CUT;
         }
+
         if (saturation_mean > 0.38f) {
             resolved += PNGX_COMMON_RESOLVE_ADAPTIVE_SATURATION_BOOST;
         } else if (saturation_mean < 0.12f) {
@@ -802,6 +835,7 @@ bool prepare_quant_support(const pngx_rgba_image_t *image, const pngx_options_t 
     opaque_pixels = 0;
     translucent_pixels = 0;
     vibrant_pixels = 0;
+
     if (need_map) {
         importance_work = (uint16_t *)malloc(sizeof(uint16_t) * image->pixel_count);
         if (!importance_work) {
@@ -875,6 +909,7 @@ bool prepare_quant_support(const pngx_rgba_image_t *image, const pngx_options_t 
             }
 
             gradient_sum += gradient;
+
             if (gradient > stats->gradient_max) {
                 stats->gradient_max = gradient;
             }
@@ -941,9 +976,11 @@ bool prepare_quant_support(const pngx_rgba_image_t *image, const pngx_options_t 
                                      (gradient * PNGX_COMMON_PREPARE_MIX_GRADIENT);
                     anchor_score = (saturation * PNGX_COMMON_PREPARE_ANCHOR_SATURATION) +
                                    (importance_mix * PNGX_COMMON_PREPARE_ANCHOR_MIX);
+
                     if (importance > PNGX_COMMON_PREPARE_ANCHOR_IMPORTANCE_THRESHOLD) {
                         anchor_score += PNGX_COMMON_PREPARE_ANCHOR_IMPORTANCE_BONUS;
                     }
+
                     if (anchor_score > PNGX_COMMON_PREPARE_ANCHOR_SCORE_THRESHOLD) {
                         bucket_entry = &buckets[chroma_bucket_index(r, g, b)];
                         bucket_entry->r_sum += (uint64_t)r;
@@ -973,6 +1010,7 @@ bool prepare_quant_support(const pngx_rgba_image_t *image, const pngx_options_t 
         stats->translucent_ratio = (float)translucent_pixels / (float)image->pixel_count;
         stats->vibrant_ratio = (float)vibrant_pixels / (float)image->pixel_count;
     }
+
     if (need_map && importance_work && image->pixel_count > 0) {
         range = (uint32_t)(raw_max - raw_min);
         if (range == 0) {
@@ -987,8 +1025,10 @@ bool prepare_quant_support(const pngx_rgba_image_t *image, const pngx_options_t 
                 if (value < PNGX_COMMON_PREPARE_MAP_MIN_VALUE) {
                     value = (uint8_t)PNGX_COMMON_PREPARE_MAP_MIN_VALUE;
                 }
+
                 support->importance_map[pixel_index] = value;
             }
+
             support->importance_map_len = image->pixel_count;
         }
     }

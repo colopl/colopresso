@@ -144,6 +144,7 @@ static PyObject *raise_colopresso_error(cpres_error_t err)
         PyErr_SetObject(ColopressoError, exc);
         Py_DECREF(exc);
     }
+
     return NULL;
 }
 
@@ -181,6 +182,7 @@ static int parse_protected_colors(PyObject *list, protected_colors_t *pcolors)
 
     if (!PyList_Check(list)) {
         PyErr_SetString(PyExc_TypeError, "pngx_protected_colors must be a list");
+
         return -1;
     }
 
@@ -317,6 +319,7 @@ static int parse_config(PyObject *config_dict, cpres_config_t *config, protected
 
     if (!PyDict_Check(config_dict)) {
         PyErr_SetString(PyExc_TypeError, "config must be a dictionary");
+
         return -1;
     }
 
@@ -338,6 +341,7 @@ static int parse_config(PyObject *config_dict, cpres_config_t *config, protected
             status = parse_protected_colors(value, pcolors);
             config->pngx_protected_colors = pcolors->colors;
             config->pngx_protected_colors_count = pcolors->count;
+
             continue;
         }
 
@@ -380,6 +384,7 @@ static PyObject *encode_with(encode_memory_func_t encode, PyObject *args, PyObje
 
     if (!PyBytes_Check(png_obj)) {
         PyErr_SetString(PyExc_TypeError, "png_data must be bytes");
+
         return NULL;
     }
 
@@ -407,6 +412,7 @@ static PyObject *encode_with(encode_memory_func_t encode, PyObject *args, PyObje
 
     result = PyBytes_FromStringAndSize((const char *)out_data, (Py_ssize_t)out_size);
     cpres_free(out_data);
+
     return result;
 }
 
@@ -434,76 +440,90 @@ static PyObject *py_encode_pngx(PyObject *self, PyObject *args, PyObject *kwargs
 static PyObject *py_get_version(PyObject *self, PyObject *Py_UNUSED(args))
 {
     (void)self;
+
     return PyLong_FromUnsignedLong(cpres_get_version());
 }
 
 static PyObject *py_get_libwebp_version(PyObject *self, PyObject *Py_UNUSED(args))
 {
     (void)self;
+
     return PyLong_FromUnsignedLong(cpres_get_libwebp_version());
 }
 
 static PyObject *py_get_libpng_version(PyObject *self, PyObject *Py_UNUSED(args))
 {
     (void)self;
+
     return PyLong_FromUnsignedLong(cpres_get_libpng_version());
 }
 
 static PyObject *py_get_libavif_version(PyObject *self, PyObject *Py_UNUSED(args))
 {
     (void)self;
+
     return PyLong_FromUnsignedLong(cpres_get_libavif_version());
 }
 
 static PyObject *py_get_pngx_oxipng_version(PyObject *self, PyObject *Py_UNUSED(args))
 {
     (void)self;
+
     return PyLong_FromUnsignedLong(cpres_get_pngx_oxipng_version());
 }
 
 static PyObject *py_get_pngx_libimagequant_version(PyObject *self, PyObject *Py_UNUSED(args))
 {
     (void)self;
+
     return PyLong_FromUnsignedLong(cpres_get_pngx_libimagequant_version());
 }
 
 static PyObject *py_get_buildtime(PyObject *self, PyObject *Py_UNUSED(args))
 {
     (void)self;
+
     return PyLong_FromUnsignedLong(cpres_get_buildtime());
 }
 
 static PyObject *py_get_compiler_version_string(PyObject *self, PyObject *Py_UNUSED(args))
 {
     const char *s;
+
     (void)self;
     s = cpres_get_compiler_version_string();
+
     return PyUnicode_FromString(s ? s : "");
 }
 
 static PyObject *py_get_rust_version_string(PyObject *self, PyObject *Py_UNUSED(args))
 {
     const char *s;
+
     (void)self;
     s = cpres_get_rust_version_string();
+
     return PyUnicode_FromString(s ? s : "");
 }
 
 static PyObject *py_is_threads_enabled(PyObject *self, PyObject *Py_UNUSED(args))
 {
     (void)self;
+
     return PyBool_FromLong(cpres_is_threads_enabled());
 }
 
 static PyObject *py_get_default_thread_count(PyObject *self, PyObject *Py_UNUSED(args))
 {
     (void)self;
+
     return PyLong_FromUnsignedLong(cpres_get_default_thread_count());
 }
 
 static PyObject *py_get_max_thread_count(PyObject *self, PyObject *Py_UNUSED(args))
 {
     (void)self;
+
     return PyLong_FromUnsignedLong(cpres_get_max_thread_count());
 }
 
@@ -569,6 +589,7 @@ PyMODINIT_FUNC PyInit__colopresso(void)
     ColopressoError = PyErr_NewException("_colopresso.ColopressoError", NULL, NULL);
     if (ColopressoError == NULL) {
         Py_DECREF(m);
+
         return NULL;
     }
 
@@ -577,6 +598,7 @@ PyMODINIT_FUNC PyInit__colopresso(void)
         Py_DECREF(ColopressoError);
         Py_CLEAR(ColopressoError);
         Py_DECREF(m);
+
         return NULL;
     }
 
@@ -587,6 +609,7 @@ PyMODINIT_FUNC PyInit__colopresso(void)
         PyModule_AddIntConstant(m, "PNGX_LOSSY_TYPE_REDUCED_RGBA32",
                                 COLOPRESSO_PNGX_LOSSY_TYPE_REDUCED_RGBA32) < 0) {
         Py_DECREF(m);
+
         return NULL;
     }
 

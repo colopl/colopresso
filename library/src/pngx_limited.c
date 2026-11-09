@@ -52,11 +52,14 @@ static inline void process_bitdepth_pixel(uint8_t *rgba, png_uint_32 width, png_
             if (x + 1 < width) {
                 err_curr[err_index + PNGX_RGBA_CHANNELS + channel] += error * (7.0f / 16.0f);
             }
+
             if (y + 1 < height) {
                 if (x > 0) {
                     err_next[err_index - PNGX_RGBA_CHANNELS + channel] += error * (3.0f / 16.0f);
                 }
+
                 err_next[err_index + channel] += error * (5.0f / 16.0f);
+
                 if (x + 1 < width) {
                     err_next[err_index + PNGX_RGBA_CHANNELS + channel] += error * (1.0f / 16.0f);
                 }
@@ -65,11 +68,14 @@ static inline void process_bitdepth_pixel(uint8_t *rgba, png_uint_32 width, png_
             if (x > 0) {
                 err_curr[err_index - PNGX_RGBA_CHANNELS + channel] += error * (7.0f / 16.0f);
             }
+
             if (y + 1 < height) {
                 if (x + 1 < width) {
                     err_next[err_index + PNGX_RGBA_CHANNELS + channel] += error * (3.0f / 16.0f);
                 }
+
                 err_next[err_index + channel] += error * (5.0f / 16.0f);
+
                 if (x > 0) {
                     err_next[err_index - PNGX_RGBA_CHANNELS + channel] += error * (1.0f / 16.0f);
                 }
@@ -94,6 +100,7 @@ static inline void reduce_rgba_bitdepth_dither(uint32_t thread_count, uint8_t *r
     if (dither_level <= 0.0f) {
         snap_rgba_image_to_bits(thread_count, rgba, (size_t)width * (size_t)height,
                                 bits_per_channel, bits_per_channel);
+
         return;
     }
 
@@ -105,12 +112,14 @@ static inline void reduce_rgba_bitdepth_dither(uint32_t thread_count, uint8_t *r
         free(err_next);
         snap_rgba_image_to_bits(thread_count, rgba, (size_t)width * (size_t)height,
                                 bits_per_channel, bits_per_channel);
+
         return;
     }
 
     for (y = 0; y < height; ++y) {
         left_to_right = ((y & 1) == 0);
         memset(err_next, 0, row_stride * sizeof(float));
+
         if (left_to_right) {
             for (x = 0; x < width; ++x) {
                 process_bitdepth_pixel(rgba, width, height, x, y, bits_per_channel, dither_level,
@@ -186,6 +195,7 @@ bool pngx_quantize_limited4444(const uint8_t *png_data, size_t png_size, const p
 
     if (success) {
         label = lossy_type_label(opts->lossy_type);
+
         if (opts->lossy_dither_auto) {
             colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Auto dither %.2f selected for %s",
                            resolved_dither, label);

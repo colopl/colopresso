@@ -69,12 +69,15 @@ pngx_bridge_result_t pngx_bridge_optimize_lossless(const uint8_t *input_data, si
     (void)input_data;
     (void)input_size;
     (void)options;
+
     if (output_data) {
         *output_data = NULL;
     }
+
     if (output_size) {
         *output_size = 0;
     }
+
     return PNGX_BRIDGE_RESULT_WASM_SEPARATION;
 }
 
@@ -88,6 +91,7 @@ pngx_bridge_quant_status_t pngx_bridge_quantize(const cpres_rgba_color_t *pixels
     (void)width;
     (void)height;
     (void)params;
+
     if (output) {
         output->palette = NULL;
         output->palette_len = 0;
@@ -95,6 +99,7 @@ pngx_bridge_quant_status_t pngx_bridge_quantize(const cpres_rgba_color_t *pixels
         output->indices_len = 0;
         output->quality = -1;
     }
+
     return PNGX_BRIDGE_QUANT_WASM_SEPARATION;
 }
 
@@ -121,6 +126,7 @@ const char *pngx_bridge_rust_version_string(void)
 bool pngx_bridge_init_threads(int num_threads)
 {
     (void)num_threads;
+
     return true;
 }
 

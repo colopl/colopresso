@@ -68,22 +68,26 @@ extern cpres_error_t cpres_read_file_to_memory(const char *path, uint8_t **data_
 
     if (!colopresso_fseeko(fp, 0, SEEK_END)) {
         fclose(fp);
+
         return CPRES_ERROR_IO;
     }
 
     if (!colopresso_ftello(fp, &file_size64)) {
         colopresso_log(CPRES_LOG_LEVEL_ERROR, "ftello failed for '%s': errno=%d", path, errno);
         fclose(fp);
+
         return CPRES_ERROR_INVALID_PARAMETER;
     }
 
     if (file_size64 <= 0 || file_size64 > (uint64_t)SIZE_MAX) {
         fclose(fp);
+
         return CPRES_ERROR_INVALID_PARAMETER;
     }
 
     if (!colopresso_fseeko(fp, 0, SEEK_SET)) {
         fclose(fp);
+
         return CPRES_ERROR_IO;
     }
 
@@ -92,6 +96,7 @@ extern cpres_error_t cpres_read_file_to_memory(const char *path, uint8_t **data_
     buffer = (uint8_t *)malloc(file_size);
     if (!buffer) {
         fclose(fp);
+
         return CPRES_ERROR_OUT_OF_MEMORY;
     }
 
@@ -100,6 +105,7 @@ extern cpres_error_t cpres_read_file_to_memory(const char *path, uint8_t **data_
 
     if (read_size != file_size) {
         free(buffer);
+
         return CPRES_ERROR_IO;
     }
 
@@ -128,6 +134,7 @@ extern cpres_error_t cpres_encode_webp_file(const char *input_path, const char *
     error = png_decode_from_file(input_path, &rgba_data, &width, &height);
     if (error != CPRES_OK) {
         colopresso_log(CPRES_LOG_LEVEL_ERROR, "PNG read failed: %s", cpres_error_string(error));
+
         return error;
     }
 
@@ -144,6 +151,7 @@ extern cpres_error_t cpres_encode_webp_file(const char *input_path, const char *
         colopresso_log(CPRES_LOG_LEVEL_WARNING,
                        "WebP: Encoded output larger than input (%zu > %zu)", webp_size, input_size);
         cpres_free(webp_data);
+
         return CPRES_ERROR_OUTPUT_NOT_SMALLER;
     }
 
@@ -151,6 +159,7 @@ extern cpres_error_t cpres_encode_webp_file(const char *input_path, const char *
     if (!fp) {
         colopresso_log(CPRES_LOG_LEVEL_ERROR, "Failed to open output file '%s'", output_path);
         cpres_free(webp_data);
+
         return CPRES_ERROR_IO;
     }
 
@@ -160,6 +169,7 @@ extern cpres_error_t cpres_encode_webp_file(const char *input_path, const char *
 
     if (written != webp_size) {
         colopresso_log(CPRES_LOG_LEVEL_ERROR, "Failed to write output file '%s'", output_path);
+
         return CPRES_ERROR_IO;
     }
 
@@ -186,6 +196,7 @@ extern cpres_error_t cpres_encode_avif_file(const char *input_path, const char *
     if (error != CPRES_OK) {
         colopresso_log(CPRES_LOG_LEVEL_ERROR, "PNG read (AVIF) failed: %s",
                        cpres_error_string(error));
+
         return error;
     }
 
@@ -202,6 +213,7 @@ extern cpres_error_t cpres_encode_avif_file(const char *input_path, const char *
         colopresso_log(CPRES_LOG_LEVEL_WARNING,
                        "AVIF: Encoded output larger than input (%zu > %zu)", avif_size, input_size);
         cpres_free(avif_data);
+
         return CPRES_ERROR_OUTPUT_NOT_SMALLER;
     }
 
@@ -209,6 +221,7 @@ extern cpres_error_t cpres_encode_avif_file(const char *input_path, const char *
     if (!fp) {
         colopresso_log(CPRES_LOG_LEVEL_ERROR, "Failed to open output file '%s'", output_path);
         cpres_free(avif_data);
+
         return CPRES_ERROR_IO;
     }
 
@@ -218,6 +231,7 @@ extern cpres_error_t cpres_encode_avif_file(const char *input_path, const char *
 
     if (written != avif_size) {
         colopresso_log(CPRES_LOG_LEVEL_ERROR, "Failed to write output file '%s'", output_path);
+
         return CPRES_ERROR_IO;
     }
 
@@ -246,11 +260,13 @@ extern cpres_error_t cpres_encode_pngx_file(const char *input_path, const char *
     if (err != CPRES_OK) {
         colopresso_log(CPRES_LOG_LEVEL_ERROR, "PNG read (PNGX) failed: %s",
                        cpres_error_string(err));
+
         return err;
     }
 
     err = cpres_encode_pngx_memory(input_data, png_size, &optimized_data, &optimized_size, config);
     free(input_data);
+
     if (err != CPRES_OK) {
         return err;
     }
@@ -266,6 +282,7 @@ extern cpres_error_t cpres_encode_pngx_file(const char *input_path, const char *
                            "PNGX: Optimized output larger than input (%zu > %zu)", optimized_size,
                            input_size);
             cpres_free(optimized_data);
+
             return CPRES_ERROR_OUTPUT_NOT_SMALLER;
         }
     }
@@ -274,6 +291,7 @@ extern cpres_error_t cpres_encode_pngx_file(const char *input_path, const char *
     if (!fp) {
         colopresso_log(CPRES_LOG_LEVEL_ERROR, "Failed to open output file '%s'", output_path);
         cpres_free(optimized_data);
+
         return CPRES_ERROR_IO;
     }
 
@@ -283,6 +301,7 @@ extern cpres_error_t cpres_encode_pngx_file(const char *input_path, const char *
 
     if (written != optimized_size) {
         colopresso_log(CPRES_LOG_LEVEL_ERROR, "Failed to write output file '%s'", output_path);
+
         return CPRES_ERROR_IO;
     }
 

@@ -151,6 +151,7 @@ extern cpres_error_t cpres_encode_webp_memory(const uint8_t *png_data, size_t pn
     if (error != CPRES_OK) {
         colopresso_log(CPRES_LOG_LEVEL_ERROR, "PNG decode from memory failed: %s",
                        cpres_error_string(error));
+
         return error;
     }
 
@@ -166,6 +167,7 @@ extern cpres_error_t cpres_encode_webp_memory(const uint8_t *png_data, size_t pn
             *webp_data = NULL;
             error = CPRES_ERROR_OUTPUT_NOT_SMALLER;
         }
+
         *webp_size = encoded_size;
     }
 
@@ -186,6 +188,7 @@ extern cpres_error_t cpres_encode_avif_memory(const uint8_t *png_data, size_t pn
     if (!png_data || !avif_data || !avif_size || !config) {
         return CPRES_ERROR_INVALID_PARAMETER;
     }
+
     if (png_size == 0) {
         return CPRES_ERROR_INVALID_PARAMETER;
     }
@@ -203,6 +206,7 @@ extern cpres_error_t cpres_encode_avif_memory(const uint8_t *png_data, size_t pn
     if (error != CPRES_OK) {
         colopresso_log(CPRES_LOG_LEVEL_ERROR, "PNG decode (AVIF) from memory failed: %s",
                        cpres_error_string(error));
+
         return error;
     }
 
@@ -219,8 +223,10 @@ extern cpres_error_t cpres_encode_avif_memory(const uint8_t *png_data, size_t pn
             *avif_data = NULL;
             error = CPRES_ERROR_OUTPUT_NOT_SMALLER;
         }
+
         *avif_size = encoded_size;
     }
+
     free(rgba_data);
 
     return error;
@@ -295,11 +301,14 @@ extern cpres_error_t cpres_encode_pngx_memory(const uint8_t *png_data, size_t pn
         lossless_data = (uint8_t *)malloc(png_size);
         if (!lossless_data) {
             free(quant_data);
+
             return CPRES_ERROR_OUT_OF_MEMORY;
         }
+
         memcpy(lossless_data, png_data, png_size);
         lossless_size = png_size;
     }
+
     colopresso_log(CPRES_LOG_LEVEL_DEBUG, "PNGX: Lossless optimization produced %zu bytes",
                    lossless_size);
 
@@ -358,6 +367,7 @@ extern cpres_error_t cpres_encode_pngx_memory(const uint8_t *png_data, size_t pn
             free(final_data);
             *optimized_data = NULL;
             *optimized_size = final_size;
+
             return CPRES_ERROR_OUTPUT_NOT_SMALLER;
         }
 

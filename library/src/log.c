@@ -100,6 +100,7 @@ extern void cpres_set_log_callback(colopresso_log_callback_t callback)
 {
     if (!callback) {
         colopresso_log_reset();
+
         return;
     }
 

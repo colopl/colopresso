@@ -80,6 +80,7 @@ bool colopresso_parallel_for(uint32_t use_threads, uint32_t total_items, paralle
 
     if (thread_count <= 1) {
         func(context, 0, total_items);
+
         return true;
     }
 
@@ -99,6 +100,7 @@ bool colopresso_parallel_for(uint32_t use_threads, uint32_t total_items, paralle
 
     for (i = 0; i < thread_count; ++i) {
         end = start + chunk_size;
+
         if (i < remainder) {
             ++end;
         }

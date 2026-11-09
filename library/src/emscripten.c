@@ -36,6 +36,7 @@ cpres_config_t *emscripten_config_create(void)
     if (config) {
         cpres_config_init_defaults(config);
     }
+
     return config;
 }
 
@@ -456,6 +457,7 @@ void emscripten_config_pngx_postprocess_smooth_importance_cutoff(cpres_config_t 
     if (!config) {
         return;
     }
+
     if (cutoff < 0.0f) {
         config->pngx_postprocess_smooth_importance_cutoff = -1.0f;
     } else if (cutoff <= 1.0f) {
@@ -480,6 +482,7 @@ void emscripten_config_pngx_palette256_gradient_dither_floor(cpres_config_t *con
     if (!config) {
         return;
     }
+
     if (dither_floor < 0.0f) {
         config->pngx_palette256_gradient_dither_floor = -1.0f;
     } else if (dither_floor <= 1.0f) {
@@ -504,11 +507,13 @@ void emscripten_config_pngx_palette256_alpha_bleed_max_distance(cpres_config_t *
     if (!config) {
         return;
     }
+
     if (max_distance < 0) {
         max_distance = 0;
     } else if (max_distance > 65535) {
         max_distance = 65535;
     }
+
     config->pngx_palette256_alpha_bleed_max_distance = max_distance;
 }
 
@@ -519,11 +524,13 @@ void emscripten_config_pngx_palette256_alpha_bleed_opaque_threshold(cpres_config
     if (!config) {
         return;
     }
+
     if (opaque_threshold < 0) {
         opaque_threshold = 0;
     } else if (opaque_threshold > 255) {
         opaque_threshold = 255;
     }
+
     config->pngx_palette256_alpha_bleed_opaque_threshold = opaque_threshold;
 }
 
@@ -534,11 +541,13 @@ void emscripten_config_pngx_palette256_alpha_bleed_soft_limit(cpres_config_t *co
     if (!config) {
         return;
     }
+
     if (soft_limit < 0) {
         soft_limit = 0;
     } else if (soft_limit > 255) {
         soft_limit = 255;
     }
+
     config->pngx_palette256_alpha_bleed_soft_limit = soft_limit;
 }
 
@@ -549,6 +558,7 @@ void emscripten_config_pngx_palette256_profile_opaque_ratio_threshold(cpres_conf
     if (!config) {
         return;
     }
+
     if (threshold < 0.0f) {
         config->pngx_palette256_profile_opaque_ratio_threshold = -1.0f;
     } else if (threshold <= 1.0f) {
@@ -565,6 +575,7 @@ void emscripten_config_pngx_palette256_profile_gradient_mean_max(cpres_config_t 
     if (!config) {
         return;
     }
+
     if (value < 0.0f) {
         config->pngx_palette256_profile_gradient_mean_max = -1.0f;
     } else if (value <= 1.0f) {
@@ -581,6 +592,7 @@ void emscripten_config_pngx_palette256_profile_saturation_mean_max(cpres_config_
     if (!config) {
         return;
     }
+
     if (value < 0.0f) {
         config->pngx_palette256_profile_saturation_mean_max = -1.0f;
     } else if (value <= 1.0f) {
@@ -597,6 +609,7 @@ void emscripten_config_pngx_palette256_tune_opaque_ratio_threshold(cpres_config_
     if (!config) {
         return;
     }
+
     if (threshold < 0.0f) {
         config->pngx_palette256_tune_opaque_ratio_threshold = -1.0f;
     } else if (threshold <= 1.0f) {
@@ -612,6 +625,7 @@ void emscripten_config_pngx_palette256_tune_gradient_mean_max(cpres_config_t *co
     if (!config) {
         return;
     }
+
     if (value < 0.0f) {
         config->pngx_palette256_tune_gradient_mean_max = -1.0f;
     } else if (value <= 1.0f) {
@@ -627,6 +641,7 @@ void emscripten_config_pngx_palette256_tune_saturation_mean_max(cpres_config_t *
     if (!config) {
         return;
     }
+
     if (value < 0.0f) {
         config->pngx_palette256_tune_saturation_mean_max = -1.0f;
     } else if (value <= 1.0f) {
@@ -642,15 +657,19 @@ void emscripten_config_pngx_palette256_tune_speed_max(cpres_config_t *config, in
     if (!config) {
         return;
     }
+
     if (speed_max < 0) {
         config->pngx_palette256_tune_speed_max = -1;
+
         return;
     }
+
     if (speed_max < 1) {
         speed_max = 1;
     } else if (speed_max > 10) {
         speed_max = 10;
     }
+
     config->pngx_palette256_tune_speed_max = speed_max;
 }
 
@@ -660,13 +679,17 @@ void emscripten_config_pngx_palette256_tune_quality_min_floor(cpres_config_t *co
     if (!config) {
         return;
     }
+
     if (value < 0) {
         config->pngx_palette256_tune_quality_min_floor = -1;
+
         return;
     }
+
     if (value > 100) {
         value = 100;
     }
+
     config->pngx_palette256_tune_quality_min_floor = value;
 }
 
@@ -676,13 +699,17 @@ void emscripten_config_pngx_palette256_tune_quality_max_target(cpres_config_t *c
     if (!config) {
         return;
     }
+
     if (value < 0) {
         config->pngx_palette256_tune_quality_max_target = -1;
+
         return;
     }
+
     if (value > 100) {
         value = 100;
     }
+
     config->pngx_palette256_tune_quality_max_target = value;
 }
 
@@ -728,19 +755,24 @@ int emscripten_prewarm_thread_pool(int num_threads)
 #if COLOPRESSO_ENABLE_THREADS
 #if !defined(PNGX_BRIDGE_WASM_SEPARATION)
     int target = num_threads;
+
     if (target <= 0) {
         target = 1;
     }
+
     if (!pngx_bridge_init_threads(target)) {
         return 0;
     }
+
     return target;
 #else
     (void)num_threads;
+
     return 1;
 #endif
 #else
     (void)num_threads;
+
     return 1;
 #endif
 }
@@ -779,12 +811,15 @@ uint8_t *emscripten_convert_png_to_webp(const uint8_t *png_data, size_t png_size
 
     if (!out_size) {
         g_last_error = CPRES_ERROR_INVALID_PARAMETER;
+
         return NULL;
     }
+
     *out_size = 0;
 
     if (!png_data || !out_size || !config) {
         g_last_error = CPRES_ERROR_INVALID_PARAMETER;
+
         return NULL;
     }
 
@@ -795,10 +830,12 @@ uint8_t *emscripten_convert_png_to_webp(const uint8_t *png_data, size_t png_size
         if (result == CPRES_ERROR_OUTPUT_NOT_SMALLER && webp_size > 0) {
             *out_size = (size_t)webp_size;
         }
+
         return NULL;
     }
 
     *out_size = webp_size;
+
     return webp_data;
 }
 
@@ -812,12 +849,15 @@ uint8_t *emscripten_convert_png_to_avif(const uint8_t *png_data, size_t png_size
 
     if (!out_size) {
         g_last_error = CPRES_ERROR_INVALID_PARAMETER;
+
         return NULL;
     }
+
     *out_size = 0;
 
     if (!png_data || !out_size || !config) {
         g_last_error = CPRES_ERROR_INVALID_PARAMETER;
+
         return NULL;
     }
 
@@ -828,10 +868,12 @@ uint8_t *emscripten_convert_png_to_avif(const uint8_t *png_data, size_t png_size
         if (result == CPRES_ERROR_OUTPUT_NOT_SMALLER && avif_size > 0) {
             *out_size = (size_t)avif_size;
         }
+
         return NULL;
     }
 
     *out_size = avif_size;
+
     return avif_data;
 }
 
@@ -845,12 +887,15 @@ uint8_t *emscripten_convert_png_to_pngx(const uint8_t *png_data, size_t png_size
 
     if (!out_size) {
         g_last_error = CPRES_ERROR_INVALID_PARAMETER;
+
         return NULL;
     }
+
     *out_size = 0;
 
     if (!png_data || !out_size || !config) {
         g_last_error = CPRES_ERROR_INVALID_PARAMETER;
+
         return NULL;
     }
 
@@ -861,10 +906,12 @@ uint8_t *emscripten_convert_png_to_pngx(const uint8_t *png_data, size_t png_size
         if (result == CPRES_ERROR_OUTPUT_NOT_SMALLER && pngx_size > 0) {
             *out_size = (size_t)pngx_size;
         }
+
         return NULL;
     }
 
     *out_size = pngx_size;
+
     return pngx_data;
 }
 
@@ -932,6 +979,7 @@ uint8_t *emscripten_decode_png_to_rgba(const uint8_t *png_data, size_t png_size,
 
     if (!png_data || !out_width || !out_height || png_size == 0) {
         g_last_error = CPRES_ERROR_INVALID_PARAMETER;
+
         return NULL;
     }
 
@@ -944,6 +992,7 @@ uint8_t *emscripten_decode_png_to_rgba(const uint8_t *png_data, size_t png_size,
 
     *out_width = (uint32_t)width;
     *out_height = (uint32_t)height;
+
     return rgba_data;
 }
 
@@ -960,6 +1009,7 @@ uint8_t *emscripten_encode_indexed_png(const uint8_t *indices, size_t indices_le
     if (!indices || !palette_rgba || !out_size || width == 0 || height == 0 || palette_len == 0 ||
         palette_len > 256) {
         g_last_error = CPRES_ERROR_INVALID_PARAMETER;
+
         return NULL;
     }
 
@@ -975,10 +1025,12 @@ uint8_t *emscripten_encode_indexed_png(const uint8_t *indices, size_t indices_le
 
     if (!success) {
         g_last_error = CPRES_ERROR_ENCODE_FAILED;
+
         return NULL;
     }
 
     g_last_error = CPRES_OK;
+
     return out_data;
 }
 
@@ -993,6 +1045,7 @@ uint8_t *emscripten_pngx_quantize_limited4444(const uint8_t *png_data, size_t pn
 
     if (!png_data || !out_size || png_size == 0) {
         g_last_error = CPRES_ERROR_INVALID_PARAMETER;
+
         return NULL;
     }
 
@@ -1013,10 +1066,12 @@ uint8_t *emscripten_pngx_quantize_limited4444(const uint8_t *png_data, size_t pn
 
     if (!success) {
         g_last_error = CPRES_ERROR_ENCODE_FAILED;
+
         return NULL;
     }
 
     g_last_error = CPRES_OK;
+
     return out_data;
 }
 
@@ -1032,6 +1087,7 @@ uint8_t *emscripten_pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t
 
     if (!png_data || !out_size || png_size == 0) {
         g_last_error = CPRES_ERROR_INVALID_PARAMETER;
+
         return NULL;
     }
 
@@ -1053,10 +1109,12 @@ uint8_t *emscripten_pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t
 
     if (!success) {
         g_last_error = CPRES_ERROR_ENCODE_FAILED;
+
         return NULL;
     }
 
     g_last_error = CPRES_OK;
+
     return out_data;
 }
 
@@ -1081,6 +1139,7 @@ bool emscripten_pngx_palette256_prepare(const uint8_t *png_data, size_t png_size
 
     if (!png_data || png_size == 0 || !config || !out_rgba || !out_width || !out_height) {
         g_last_error = CPRES_ERROR_INVALID_PARAMETER;
+
         return false;
     }
 
@@ -1093,10 +1152,12 @@ bool emscripten_pngx_palette256_prepare(const uint8_t *png_data, size_t png_size
 
     if (!success) {
         g_last_error = CPRES_ERROR_DECODE_FAILED;
+
         return false;
     }
 
     g_last_error = CPRES_OK;
+
     return true;
 }
 
@@ -1114,6 +1175,7 @@ uint8_t *emscripten_pngx_palette256_finalize(const uint8_t *indices, size_t indi
         !out_size) {
         g_last_error = CPRES_ERROR_INVALID_PARAMETER;
         pngx_palette256_cleanup();
+
         return NULL;
     }
 
@@ -1129,10 +1191,12 @@ uint8_t *emscripten_pngx_palette256_finalize(const uint8_t *indices, size_t indi
 
     if (!success) {
         g_last_error = CPRES_ERROR_ENCODE_FAILED;
+
         return NULL;
     }
 
     g_last_error = CPRES_OK;
+
     return out_data;
 }
 

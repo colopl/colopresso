@@ -45,6 +45,7 @@ void test_pngx_file_lossy_mode(void)
         0) {
         TEST_FAIL_MESSAGE("failed to format PNG input path");
     }
+
     if (snprintf(output_path, sizeof(output_path), "example_pngx_lossy.png") < 0) {
         TEST_FAIL_MESSAGE("failed to format PNGX output path");
     }
@@ -110,6 +111,7 @@ void test_pngx_file_with_valid_png(void)
         0) {
         TEST_FAIL_MESSAGE("failed to format PNG input path");
     }
+
     if (snprintf(output_path, sizeof(output_path), "example_pngx.png") < 0) {
         TEST_FAIL_MESSAGE("failed to format PNGX output path");
     }
@@ -140,6 +142,7 @@ void test_pngx_file_with_rgba64_png(void)
     if (!format_test_asset_path(input_path, sizeof(input_path), "16bit.png")) {
         TEST_FAIL_MESSAGE("failed to format RGBA64 PNG input path");
     }
+
     if (snprintf(output_path, sizeof(output_path), "example_pngx_rgba64.png") < 0) {
         TEST_FAIL_MESSAGE("failed to format RGBA64 PNGX output path");
     }

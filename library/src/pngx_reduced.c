@@ -282,6 +282,7 @@ static inline uint16_t histogram_importance_weight(const pngx_quant_support_t *s
     importance = map[pixel_index];
 
     weight = 1 + (uint16_t)(importance >> PNGX_REDUCED_IMPORTANCE_WEIGHT_SHIFT);
+
     if (importance > PNGX_REDUCED_IMPORTANCE_WEIGHT_THRESHOLD_STRONG) {
         weight += PNGX_REDUCED_IMPORTANCE_WEIGHT_BONUS_STRONG;
     } else if (importance > PNGX_REDUCED_IMPORTANCE_WEIGHT_THRESHOLD_HIGH) {
@@ -330,30 +331,39 @@ static inline void color_box_refresh(const color_entry_t *entries, color_box_t *
         g = (uint8_t)((c >> 8) & 0xff);
         b = (uint8_t)((c >> 16) & 0xff);
         a = (uint8_t)((c >> 24) & 0xff);
+
         if (r < box->min_r) {
             box->min_r = r;
         }
+
         if (r > box->max_r) {
             box->max_r = r;
         }
+
         if (g < box->min_g) {
             box->min_g = g;
         }
+
         if (g > box->max_g) {
             box->max_g = g;
         }
+
         if (b < box->min_b) {
             box->min_b = b;
         }
+
         if (b > box->max_b) {
             box->max_b = b;
         }
+
         if (a < box->min_a) {
             box->min_a = a;
         }
+
         if (a > box->max_a) {
             box->max_a = a;
         }
+
         box->total_weight += (uint64_t)entries[i].count;
     }
 }
@@ -412,6 +422,7 @@ static inline float color_box_detail_bias(const color_entry_t *entries, const co
         if (score_x2 > 0) {
             accum_x2 += (uint64_t)score_x2 * w;
         }
+
         weight += w;
     }
 
@@ -489,18 +500,23 @@ static inline void sort_entries_by_axis(color_entry_t *entries, size_t count, in
     switch (axis) {
     case 0:
         qsort(entries, count, sizeof(color_entry_t), compare_entries_r);
+
         break;
     case 1:
         qsort(entries, count, sizeof(color_entry_t), compare_entries_g);
+
         break;
     case 2:
         qsort(entries, count, sizeof(color_entry_t), compare_entries_b);
+
         break;
     case 3:
         qsort(entries, count, sizeof(color_entry_t), compare_entries_a);
+
         break;
     default:
         qsort(entries, count, sizeof(color_entry_t), compare_entries_r);
+
         break;
     }
 }
@@ -515,13 +531,16 @@ static inline bool split_color_box(color_entry_t *entries, color_box_t *box, col
     }
 
     axis = 0;
+
     if ((box->max_g - box->min_g) > (box->max_r - box->min_r)) {
         axis = 1;
     }
+
     if ((box->max_b - box->min_b) > (box->max_g - box->min_g) &&
         (box->max_b - box->min_b) >= (box->max_r - box->min_r)) {
         axis = 2;
     }
+
     if ((box->max_a - box->min_a) > (box->max_b - box->min_b) &&
         (box->max_a - box->min_a) >= (box->max_g - box->min_g) &&
         (box->max_a - box->min_a) >= (box->max_r - box->min_r)) {
@@ -534,6 +553,7 @@ static inline bool split_color_box(color_entry_t *entries, color_box_t *box, col
     if (split_index <= box->start) {
         split_index = box->start + 1;
     }
+
     if (split_index >= box->end) {
         split_index = box->end - 1;
     }
@@ -586,6 +606,7 @@ static inline const color_map_entry_t *find_color_mapping(const color_map_entry_
             if (mid == 0) {
                 break;
             }
+
             right = mid - 1;
         }
     }
@@ -611,6 +632,7 @@ static void color_remap_parallel_worker(void *context, uint32_t start, uint32_t 
         if (px[3] <= PNGX_REDUCED_ALPHA_NEAR_TRANSPARENT) {
             continue;
         }
+
         original = pack_rgba_u32(px[0], px[1], px[2], px[3]);
         mapping = find_color_mapping(ctx->map, ctx->map_count, original);
 
@@ -701,6 +723,7 @@ static inline void refine_reduced_palette(color_entry_t *entries, size_t unlocke
             if (w == 0) {
                 continue;
             }
+
             r = (uint8_t)((sum_r[p] + (w / 2)) / w);
             g = (uint8_t)((sum_g[p] + (w / 2)) / w);
             b = (uint8_t)((sum_b[p] + (w / 2)) / w);
@@ -786,14 +809,17 @@ static inline bool build_color_histogram(const pngx_rgba_image_t *image, const p
         g = protected_colors[i].g;
         b = protected_colors[i].b;
         a = protected_colors[i].a;
+
         if (quantize_rgb) {
             r = quantize_bits(r, bits_rgb);
             g = quantize_bits(g, bits_rgb);
             b = quantize_bits(b, bits_rgb);
         }
+
         if (quantize_alpha) {
             a = quantize_bits(a, bits_alpha);
         }
+
         protected_table[i] = pack_rgba_u32(r, g, b, a);
     }
 
@@ -862,8 +888,10 @@ static inline bool build_color_histogram(const pngx_rgba_image_t *image, const p
     hist->entries = (color_entry_t *)malloc(unique_count * sizeof(color_entry_t));
     if (!hist->entries) {
         free(samples);
+
         return false;
     }
+
     hist->count = unique_count;
     hist->unlocked_count = 0;
 
@@ -915,9 +943,11 @@ static inline bool build_color_histogram(const pngx_rgba_image_t *image, const p
                 hist->entries[write] = hist->entries[i];
                 hist->entries[i] = tmp;
             }
+
             ++write;
         }
     }
+
     hist->unlocked_count = write;
 
     return true;
@@ -1048,6 +1078,7 @@ static inline bool apply_reduced_rgba32_quantization(uint32_t thread_count, colo
         free(palette_bits_rgb);
         free(palette_bits_alpha);
         free(boxes);
+
         return false;
     }
 
@@ -1071,6 +1102,7 @@ static inline bool apply_reduced_rgba32_quantization(uint32_t thread_count, colo
 #endif
 
     qsort(map, map_count, sizeof(*map), compare_color_map_by_mapped);
+
     for (i = 0; i < map_count; ++i) {
         if (i == 0 || map[i].mapped_color != map[i - 1].mapped_color) {
             ++actual_colors;
@@ -1182,6 +1214,7 @@ static inline bool build_color_frequency(const uint8_t *rgba, size_t pixel_count
     freq = (color_freq_t *)malloc(sizeof(color_freq_t) * pixel_count);
     if (!freq) {
         free(packed);
+
         return false;
     }
 
@@ -1202,14 +1235,17 @@ static inline bool build_color_frequency(const uint8_t *rgba, size_t pixel_count
         free(freq);
         *out_freq = NULL;
         *out_count = 0;
+
         return true;
     }
 
     shrunk = (color_freq_t *)realloc(freq, sizeof(color_freq_t) * unique);
     if (!shrunk) {
         free(freq);
+
         return false;
     }
+
     freq = shrunk;
 
     *out_freq = freq;
@@ -1375,10 +1411,12 @@ static inline bool enforce_manual_reduced_limit(uint32_t thread_count, pngx_rgba
     snap_rgba_image_to_bits(thread_count, image->rgba, image->pixel_count, bits_rgb, bits_alpha);
 
     unique_after = count_unique_rgba(image->rgba, image->pixel_count);
+
     if (applied_colors) {
         if (unique_after > UINT32_MAX) {
             unique_after = UINT32_MAX;
         }
+
         *applied_colors = (uint32_t)unique_after;
     }
 
@@ -1420,6 +1458,7 @@ static inline uint8_t resolve_pixel_bits(uint8_t importance, uint8_t base_bits, 
     if (resolved > boost_bits) {
         resolved = boost_bits;
     }
+
     if (resolved < base_bits) {
         resolved = base_bits;
     }
@@ -1455,6 +1494,7 @@ static void reduce_bitdepth_parallel_worker(void *context, uint32_t start, uint3
                 ctx->rgba[base + 2] = quantize_bits(ctx->rgba[base + 2], pixel_bits_rgb);
             }
         }
+
         if (pixel_bits_alpha < PNGX_FULL_CHANNEL_BITS) {
             ctx->rgba[base + 3] = quantize_bits(ctx->rgba[base + 3], pixel_bits_alpha);
         }
@@ -1510,10 +1550,12 @@ static inline void process_custom_bitdepth_pixel(uint8_t *rgba, png_uint_32 widt
         importance = importance_map[pixel_index];
         dither *= importance_dither_scale(importance);
     }
+
     alpha_factor = (float)rgba[rgba_index + 3] / 255.0f;
 
     pixel_bits_rgb = resolve_pixel_bits(importance, base_bits_rgb, boost_bits_rgb);
     pixel_bits_alpha = resolve_pixel_bits(importance, base_bits_alpha, boost_bits_alpha);
+
     if (bit_hint_map && pixel_index < bit_hint_len) {
         bit_hint_map[pixel_index] = (uint8_t)((pixel_bits_rgb << 4) | (pixel_bits_alpha & 0x0fu));
     }
@@ -1527,6 +1569,7 @@ static inline void process_custom_bitdepth_pixel(uint8_t *rgba, png_uint_32 widt
 
         if (bits >= PNGX_FULL_CHANNEL_BITS) {
             err_curr[err_index + channel] = 0.0f;
+
             continue;
         }
 
@@ -1538,6 +1581,7 @@ static inline void process_custom_bitdepth_pixel(uint8_t *rgba, png_uint_32 widt
             dither_ch = 0.0f;
         } else {
             dither_ch = dither * alpha_factor;
+
             if (alpha_factor < PNGX_REDUCED_ALPHA_MIN_DITHER_FACTOR) {
                 dither_ch = 0.0f;
             }
@@ -1556,11 +1600,14 @@ static inline void process_custom_bitdepth_pixel(uint8_t *rgba, png_uint_32 widt
             if (x + 1 < width) {
                 err_curr[err_index + PNGX_RGBA_CHANNELS + channel] += error * (7.0f / 16.0f);
             }
+
             if (y + 1 < height) {
                 if (x > 0) {
                     err_next[err_index - PNGX_RGBA_CHANNELS + channel] += error * (3.0f / 16.0f);
                 }
+
                 err_next[err_index + channel] += error * (5.0f / 16.0f);
+
                 if (x + 1 < width) {
                     err_next[err_index + PNGX_RGBA_CHANNELS + channel] += error * (1.0f / 16.0f);
                 }
@@ -1569,11 +1616,14 @@ static inline void process_custom_bitdepth_pixel(uint8_t *rgba, png_uint_32 widt
             if (x > 0) {
                 err_curr[err_index - PNGX_RGBA_CHANNELS + channel] += error * (7.0f / 16.0f);
             }
+
             if (y + 1 < height) {
                 if (x + 1 < width) {
                     err_next[err_index + PNGX_RGBA_CHANNELS + channel] += error * (3.0f / 16.0f);
                 }
+
                 err_next[err_index + channel] += error * (5.0f / 16.0f);
+
                 if (x > 0) {
                     err_next[err_index - PNGX_RGBA_CHANNELS + channel] += error * (1.0f / 16.0f);
                 }
@@ -1596,6 +1646,7 @@ static inline bool reduce_rgba_custom_bitdepth_dither(
     bits_alpha = clamp_reduced_bits(bits_alpha);
     boost_bits_rgb = clamp_reduced_bits(boost_bits_rgb);
     boost_bits_alpha = clamp_reduced_bits(boost_bits_alpha);
+
     if ((!rgba) || width == 0 || height == 0 ||
         (bits_rgb >= PNGX_FULL_CHANNEL_BITS && bits_alpha >= PNGX_FULL_CHANNEL_BITS)) {
         return true;
@@ -1615,6 +1666,7 @@ static inline bool reduce_rgba_custom_bitdepth_dither(
     for (y = 0; y < height; ++y) {
         left_to_right = ((y & 1) == 0);
         memset(err_next, 0, row_stride * sizeof(float));
+
         if (left_to_right) {
             for (x = 0; x < width; ++x) {
                 process_custom_bitdepth_pixel(rgba, width, height, x, y, bits_rgb, bits_alpha,
@@ -1682,6 +1734,7 @@ static inline bool reduce_rgba_custom_bitdepth(uint32_t thread_count, uint8_t *r
         free(support->bit_hint_map);
         support->bit_hint_map = NULL;
         support->bit_hint_len = 0;
+
         if (pixel_count > 0) {
             support->bit_hint_map = (uint8_t *)malloc(pixel_count);
             if (support->bit_hint_map) {
@@ -1788,6 +1841,7 @@ static inline void tune_reduced_bitdepth(const pngx_rgba_image_t *image,
             saturation < PNGX_REDUCED_TUNE_VERY_FLAT_SATURATION && tuned_rgb > 3) {
             --tuned_rgb;
         }
+
         if (tuned_rgb < 3) {
             tuned_rgb = 3;
         }
@@ -1816,6 +1870,7 @@ static inline void tune_reduced_bitdepth(const pngx_rgba_image_t *image,
             if (next_alpha < level_bits) {
                 next_alpha = level_bits;
             }
+
             tuned_alpha = next_alpha;
         }
     }
@@ -1846,11 +1901,13 @@ static inline bool apply_reduced_rgba32_prepass(pngx_rgba_image_t *image,
     if (opts) {
         bits_rgb = clamp_reduced_bits(opts->lossy_reduced_bits_rgb);
         bits_alpha = clamp_reduced_bits(opts->lossy_reduced_alpha_bits);
+
         if (opts->lossy_dither_auto) {
             dither = resolve_quant_dither(opts, stats);
         } else {
             dither = clamp_float(opts->lossy_dither_level, 0.0f, 1.0f);
         }
+
         if (support && support->importance_map &&
             support->importance_map_len >= image->pixel_count) {
             importance = support->importance_map;
@@ -1969,6 +2026,7 @@ static inline float histogram_low_weight_ratio(const color_histogram_t *hist,
         entry = &hist->entries[i];
         weight = entry->count ? entry->count : 1;
         total_weight += weight;
+
         if (entry->count <= weight_threshold) {
             low_weight += weight;
         }
@@ -1996,6 +2054,7 @@ static inline float histogram_detail_pressure(const color_histogram_t *hist, uin
         entry = &hist->entries[i];
         weight = entry->count ? entry->count : 1;
         total_weight += weight;
+
         if (entry->detail_bits_rgb > base_bits_rgb || entry->detail_bits_alpha > base_bits_alpha) {
             detail_weight += weight;
         }
@@ -2066,6 +2125,7 @@ static inline uint32_t resolve_reduced_passthrough_threshold(uint32_t grid_cap,
     if (threshold < PNGX_REDUCED_RGBA32_PASSTHROUGH_MIN_COLORS) {
         threshold = PNGX_REDUCED_RGBA32_PASSTHROUGH_MIN_COLORS;
     }
+
     if (threshold > grid_cap) {
         threshold = grid_cap;
     }
@@ -2179,24 +2239,31 @@ static inline uint32_t resolve_reduced_rgba32_target(const color_histogram_t *hi
 
     bits_rgb = clamp_reduced_bits(bits_rgb);
     bits_alpha = clamp_reduced_bits(bits_alpha);
+
     if (bits_rgb < 8) {
         rgb_cap = (uint64_t)1 << (bits_rgb * 3);
     }
+
     if (bits_alpha < 8) {
         alpha_cap = (uint64_t)1 << bits_alpha;
     }
+
     if (rgb_cap == 0) {
         rgb_cap = COLOPRESSO_PNGX_REDUCED_COLORS_MAX;
     }
+
     if (alpha_cap == 0) {
         alpha_cap = 1;
     }
+
     if (rgb_cap > (uint64_t)COLOPRESSO_PNGX_REDUCED_COLORS_MAX) {
         rgb_cap = COLOPRESSO_PNGX_REDUCED_COLORS_MAX;
     }
+
     if (alpha_cap > (uint64_t)COLOPRESSO_PNGX_REDUCED_COLORS_MAX) {
         alpha_cap = COLOPRESSO_PNGX_REDUCED_COLORS_MAX;
     }
+
     if (rgb_cap * alpha_cap < (uint64_t)COLOPRESSO_PNGX_REDUCED_COLORS_MAX) {
         grid_cap = (uint32_t)(rgb_cap * alpha_cap);
     }
@@ -2206,13 +2273,16 @@ static inline uint32_t resolve_reduced_rgba32_target(const color_histogram_t *hi
         if (target < COLOPRESSO_PNGX_REDUCED_COLORS_MIN) {
             target = COLOPRESSO_PNGX_REDUCED_COLORS_MIN;
         }
+
         if (target > COLOPRESSO_PNGX_REDUCED_COLORS_MAX) {
             target = COLOPRESSO_PNGX_REDUCED_COLORS_MAX;
         }
     } else {
         target = (uint32_t)unique_colors;
+
         if (unique_colors > PNGX_REDUCED_TARGET_UNIQUE_COLOR_THRESHOLD) {
             base = sqrt((double)unique_colors) * PNGX_REDUCED_TARGET_UNIQUE_BASE_SCALE;
+
             if (density < PNGX_REDUCED_TARGET_DENSITY_LOW_THRESHOLD) {
                 base *= PNGX_REDUCED_TARGET_DENSITY_LOW_SCALE;
             } else if (density > PNGX_REDUCED_TARGET_DENSITY_HIGH_THRESHOLD) {
@@ -2428,6 +2498,7 @@ bool pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t png_size,
 
     if (!prepare_quant_support(&image, &tuned_opts, &support, &stats)) {
         rgba_image_reset(&image);
+
         return false;
     }
 
@@ -2447,6 +2518,7 @@ bool pngx_quantize_reduced_rgba32(const uint8_t *png_data, size_t png_size,
     if (grid_cap == 0) {
         grid_cap = COLOPRESSO_PNGX_REDUCED_COLORS_MAX;
     }
+
     if (opts->lossy_reduced_colors >= (int32_t)COLOPRESSO_PNGX_REDUCED_COLORS_MIN) {
         manual_target = true;
         manual_limit = (uint32_t)opts->lossy_reduced_colors;

@@ -57,7 +57,9 @@ static void common_log_capture_callback(colopresso_log_level_t level, const char
     if (!g_test_log_capture_target) {
         return;
     }
+
     g_test_log_capture_target->last_level = level;
+
     if (message) {
         strncpy(g_test_log_capture_target->message, message,
                 sizeof(g_test_log_capture_target->message) - 1);
@@ -65,6 +67,7 @@ static void common_log_capture_callback(colopresso_log_level_t level, const char
     } else {
         g_test_log_capture_target->message[0] = '\0';
     }
+
     g_test_log_capture_target->called = true;
 }
 
@@ -110,9 +113,11 @@ static inline int color_compare(const void *a, const void *b)
     if (va < vb) {
         return -1;
     }
+
     if (va > vb) {
         return 1;
     }
+
     return 0;
 }
 
@@ -178,29 +183,34 @@ static inline uint8_t *load_test_asset_png(const char *name, size_t *out_size)
 
     if (fseek(fp, 0, SEEK_END) != 0) {
         fclose(fp);
+
         return NULL;
     }
 
     file_size = ftell(fp);
     if (file_size <= 0) {
         fclose(fp);
+
         return NULL;
     }
 
     if (fseek(fp, 0, SEEK_SET) != 0) {
         fclose(fp);
+
         return NULL;
     }
 
     buffer = (uint8_t *)malloc((size_t)file_size);
     if (!buffer) {
         fclose(fp);
+
         return NULL;
     }
 
     if (fread(buffer, 1, (size_t)file_size, fp) != (size_t)file_size) {
         fclose(fp);
         free(buffer);
+
         return NULL;
     }
 
@@ -276,23 +286,27 @@ static inline const uint8_t *get_cached_tiny_example_png(size_t *out_size)
 
         if (fseek(fp, 0, SEEK_END) != 0) {
             fclose(fp);
+
             return NULL;
         }
 
         fsz = ftell(fp);
         if (fsz < 0) {
             fclose(fp);
+
             return NULL;
         }
 
         if (fseek(fp, 0, SEEK_SET) != 0) {
             fclose(fp);
+
             return NULL;
         }
 
         g_test_cached_tiny_example_png_data = (uint8_t *)malloc((size_t)fsz);
         if (!g_test_cached_tiny_example_png_data) {
             fclose(fp);
+
             return NULL;
         }
 
@@ -300,6 +314,7 @@ static inline const uint8_t *get_cached_tiny_example_png(size_t *out_size)
             fclose(fp);
             free(g_test_cached_tiny_example_png_data);
             g_test_cached_tiny_example_png_data = NULL;
+
             return NULL;
         }
 
@@ -336,23 +351,27 @@ static inline const uint8_t *get_cached_example_png(size_t *out_size)
 
         if (fseek(fp, 0, SEEK_END) != 0) {
             fclose(fp);
+
             return NULL;
         }
 
         fsz = ftell(fp);
         if (fsz < 0) {
             fclose(fp);
+
             return NULL;
         }
 
         if (fseek(fp, 0, SEEK_SET) != 0) {
             fclose(fp);
+
             return NULL;
         }
 
         g_test_cached_example_png_data = (uint8_t *)malloc((size_t)fsz);
         if (!g_test_cached_example_png_data) {
             fclose(fp);
+
             return NULL;
         }
 
@@ -360,6 +379,7 @@ static inline const uint8_t *get_cached_example_png(size_t *out_size)
             fclose(fp);
             free(g_test_cached_example_png_data);
             g_test_cached_example_png_data = NULL;
+
             return NULL;
         }
 
