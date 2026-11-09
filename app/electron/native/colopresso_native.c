@@ -718,24 +718,47 @@ static void cleanup_convert_work(colopresso_convert_work_t *work)
     free(work);
 }
 
+static bool set_double_property(napi_env env, napi_value object, const char *name, double value)
+{
+    napi_value number;
+
+    return napi_create_double(env, value, &number) == napi_ok &&
+           napi_set_named_property(env, object, name, number) == napi_ok;
+}
+
 static void reject_convert_work(colopresso_convert_work_t *work)
 {
-    napi_value message_value, error_value, code_value, input_size_value, output_size_value;
+    napi_value message_value = NULL, error_value = NULL, code_value = NULL, exception = NULL;
+    bool pending = false;
 
-    napi_create_string_utf8(work->env,
-                            work->error_message[0] ? work->error_message : "conversion failed",
-                            NAPI_AUTO_LENGTH, &message_value);
-    napi_create_error(work->env, NULL, message_value, &error_value);
-    napi_create_string_utf8(work->env,
-                            work->error_code[0] ? work->error_code
-                                                : COLOPRESSO_NATIVE_ERROR_CONVERSION_FAILED,
-                            NAPI_AUTO_LENGTH, &code_value);
-    napi_set_named_property(work->env, error_value, "code", code_value);
-    napi_create_double(work->env, (double)work->input_size, &input_size_value);
-    napi_set_named_property(work->env, error_value, "inputSize", input_size_value);
+    if (napi_is_exception_pending(work->env, &pending) == napi_ok && pending &&
+        napi_get_and_clear_last_exception(work->env, &exception) == napi_ok) {
+        napi_reject_deferred(work->env, work->deferred, exception);
+
+        return;
+    }
+
+    if (napi_create_string_utf8(work->env,
+                                work->error_message[0] ? work->error_message : "conversion failed",
+                                NAPI_AUTO_LENGTH, &message_value) != napi_ok ||
+        napi_create_error(work->env, NULL, message_value, &error_value) != napi_ok) {
+        napi_get_undefined(work->env, &error_value);
+        napi_reject_deferred(work->env, work->deferred, error_value);
+
+        return;
+    }
+
+    if (napi_create_string_utf8(work->env,
+                                work->error_code[0] ? work->error_code
+                                                    : COLOPRESSO_NATIVE_ERROR_CONVERSION_FAILED,
+                                NAPI_AUTO_LENGTH, &code_value) == napi_ok) {
+        napi_set_named_property(work->env, error_value, "code", code_value);
+    }
+
+    set_double_property(work->env, error_value, "inputSize", (double)work->input_size);
+
     if (work->output_size > 0) {
-        napi_create_double(work->env, (double)work->output_size, &output_size_value);
-        napi_set_named_property(work->env, error_value, "outputSize", output_size_value);
+        set_double_property(work->env, error_value, "outputSize", (double)work->output_size);
     }
     napi_reject_deferred(work->env, work->deferred, error_value);
 }
@@ -743,7 +766,7 @@ static void reject_convert_work(colopresso_convert_work_t *work)
 static void complete_convert(napi_env env, napi_status status, void *data)
 {
     colopresso_convert_work_t *work;
-    napi_value result, output_buffer, input_size_value, output_size_value, thread_count_value;
+    napi_value result = NULL, output_buffer = NULL, thread_count_value = NULL;
 
     work = (colopresso_convert_work_t *)data;
     if (!work) {
@@ -760,15 +783,21 @@ static void complete_convert(napi_env env, napi_status status, void *data)
         return;
     }
 
-    napi_create_object(env, &result);
-    napi_create_buffer_copy(env, work->output_size, work->output_data, NULL, &output_buffer);
-    napi_set_named_property(env, result, "outputBytes", output_buffer);
-    napi_create_double(env, (double)work->input_size, &input_size_value);
-    napi_set_named_property(env, result, "inputSize", input_size_value);
-    napi_create_double(env, (double)work->output_size, &output_size_value);
-    napi_set_named_property(env, result, "outputSize", output_size_value);
-    napi_create_int32(env, work->requested_threads, &thread_count_value);
-    napi_set_named_property(env, result, "threadCount", thread_count_value);
+    if (napi_create_object(env, &result) != napi_ok ||
+        napi_create_buffer_copy(env, work->output_size, work->output_data, NULL, &output_buffer) !=
+            napi_ok ||
+        napi_set_named_property(env, result, "outputBytes", output_buffer) != napi_ok ||
+        !set_double_property(env, result, "inputSize", (double)work->input_size) ||
+        !set_double_property(env, result, "outputSize", (double)work->output_size) ||
+        napi_create_int32(env, work->requested_threads, &thread_count_value) != napi_ok ||
+        napi_set_named_property(env, result, "threadCount", thread_count_value) != napi_ok) {
+        set_work_error(work, COLOPRESSO_NATIVE_ERROR_CONVERSION_FAILED,
+                       "failed to create the conversion result");
+        reject_convert_work(work);
+        cleanup_convert_work(work);
+
+        return;
+    }
 
     napi_resolve_deferred(env, work->deferred, result);
     cleanup_convert_work(work);
@@ -827,11 +856,10 @@ static napi_value get_thread_info(napi_env env, napi_callback_info info)
 
 static napi_value convert(napi_env env, napi_callback_info info)
 {
-    napi_value args[4], promise, resource_name, error_message;
+    napi_value args[4], promise, resource_name, undefined;
     size_t argc, format_length;
     napi_valuetype thread_arg_type;
     colopresso_convert_work_t *work;
-    const char *thread_error_message;
     double numeric_threads;
     int argument_threads;
     bool has_argument_threads;
@@ -874,12 +902,9 @@ static napi_value convert(napi_env env, napi_callback_info info)
     }
 
     if (!apply_options(env, args[1], work)) {
-        snprintf(work->error_message, sizeof(work->error_message), "%s",
-                 work->error_message[0] ? work->error_message : "invalid options");
-        napi_create_string_utf8(env, work->error_message, NAPI_AUTO_LENGTH, &error_message);
         cleanup_convert_work(work);
-        napi_throw_type_error(env, COLOPRESSO_NATIVE_ERROR_INVALID_ARGUMENT, "invalid options");
-        return NULL;
+
+        return throw_type_error(env, "invalid options");
     }
 
     argument_threads = 0;
@@ -897,27 +922,37 @@ static napi_value convert(napi_env env, napi_callback_info info)
     }
 
     if (!resolve_thread_count(env, args[1], work, argument_threads, has_argument_threads)) {
-        thread_error_message =
-            work->error_message[0] ? work->error_message : "invalid thread count";
+        throw_type_error(env,
+                         work->error_message[0] ? work->error_message : "invalid thread count");
         cleanup_convert_work(work);
-        return throw_type_error(env, thread_error_message);
+
+        return NULL;
+    }
+
+    if (napi_create_string_utf8(env, "colopresso.convert", NAPI_AUTO_LENGTH, &resource_name) !=
+            napi_ok ||
+        napi_create_async_work(env, NULL, resource_name, execute_convert, complete_convert, work,
+                               &work->async_work) != napi_ok) {
+        cleanup_convert_work(work);
+        napi_throw_error(env, COLOPRESSO_NATIVE_ERROR_CONVERSION_FAILED,
+                         "failed to create async work");
+
+        return NULL;
     }
 
     if (napi_create_promise(env, &work->deferred, &promise) != napi_ok) {
         cleanup_convert_work(work);
         napi_throw_error(env, COLOPRESSO_NATIVE_ERROR_CONVERSION_FAILED,
                          "failed to create promise");
-        return NULL;
-    }
-    napi_create_string_utf8(env, "colopresso.convert", NAPI_AUTO_LENGTH, &resource_name);
-    if (napi_create_async_work(env, NULL, resource_name, execute_convert, complete_convert, work,
-                               &work->async_work) != napi_ok) {
-        cleanup_convert_work(work);
-        napi_throw_error(env, COLOPRESSO_NATIVE_ERROR_CONVERSION_FAILED,
-                         "failed to create async work");
+
         return NULL;
     }
     if (napi_queue_async_work(env, work->async_work) != napi_ok) {
+        /* Settle the promise nobody will receive so that its deferred is released. */
+        if (napi_get_undefined(env, &undefined) == napi_ok) {
+            napi_resolve_deferred(env, work->deferred, undefined);
+        }
+
         cleanup_convert_work(work);
         napi_throw_error(env, COLOPRESSO_NATIVE_ERROR_CONVERSION_FAILED,
                          "failed to queue async work");
