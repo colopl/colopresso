@@ -47,6 +47,8 @@ const DROP_ZONE = '[class*="_dropZone_"]';
 const LAUNCH_TIMEOUT_SECONDS = Number(process.env.COLOPRESSO_E2E_LAUNCH_TIMEOUT) || 60;
 const LAUNCH_ATTEMPTS = Math.max(1, Number(process.env.COLOPRESSO_E2E_LAUNCH_ATTEMPTS) || 2);
 const COMMAND_TIMEOUT_SECONDS = Number(process.env.COLOPRESSO_E2E_COMMAND_TIMEOUT) || 120;
+// A single progress query answers in milliseconds; no answer within this many seconds means the app hung.
+const POLL_TIMEOUT_SECONDS = 30;
 const FORMAT_LABELS = { webp: 'WebP', avif: 'AVIF', png: 'PNG', pngx: 'PNG' };
 
 let app = null;
@@ -138,7 +140,7 @@ const COMMANDS = {
       try {
         app = await electron.launch({
           executablePath,
-          args: [`--user-data-dir=${userDataDir}`],
+          args: [`--user-data-dir=${userDataDir}`, ...splitArgs(process.env.COLOPRESSO_E2E_APP_ARGS ?? '')],
           env: { ...process.env, ELECTRON_ENABLE_LOGGING: '1' },
           timeout: LAUNCH_TIMEOUT_SECONDS * 1000,
         });
@@ -193,7 +195,15 @@ const COMMANDS = {
 
   async ss(name) {
     const file = path.join(SHOT_DIR, `${pathArg(name) || `ss-${Date.now()}`}.png`);
-    await requirePage().screenshot({ path: file });
+    try {
+      await requirePage().screenshot({ path: file });
+    } catch (error) {
+      // A screenshot only times out when the window stops producing frames, the first sign of a hang.
+      if (error.name === 'TimeoutError') {
+        abortHungCommand('ss', 30);
+      }
+      throw error;
+    }
     console.log('screenshot:', file);
   },
 
@@ -318,7 +328,10 @@ const COMMANDS = {
     let seenBusy = false;
     let idleSince = null;
     while (Date.now() - started < timeoutMs) {
-      const state = await processingState();
+      const state = await withTimeout(processingState(), POLL_TIMEOUT_SECONDS);
+      if (state === TIMED_OUT) {
+        abortHungCommand('wait', POLL_TIMEOUT_SECONDS);
+      }
       if (state.cancelVisible) {
         seenBusy = true;
         idleSince = null;

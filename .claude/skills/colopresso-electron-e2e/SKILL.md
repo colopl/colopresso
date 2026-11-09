@@ -77,6 +77,7 @@ Windows x64 なら `dist_build/win-unpacked/colopresso.exe` ができる。Linux
 | `COLOPRESSO_E2E_COMMAND_TIMEOUT` | 1 つのコマンドを待つ秒数 (`wait` / `sleep` は指定の秒数 + 60 秒) | 120 |
 | `COLOPRESSO_E2E_RUN_ATTEMPTS` | `smoke.sh` が、コマンドの時間切れで止まった実行を最初からやり直す回数の上限 (初回を含む) | 3 |
 | `DEBUG` | Playwright のデバッグログ (例: `pw:browser,pw:protocol`)。標準エラーに出る | なし |
+| `COLOPRESSO_E2E_APP_ARGS` | アプリに渡す追加の起動引数 (例: GPU を使わない描画を試す `--disable-gpu`) | なし |
 
 ## 一通り確かめる (smoke)
 
@@ -93,7 +94,8 @@ WebP と AVIF はコンテナのヘッダから読んだ寸法を元画像と比
 あれば失敗にする。終了コードは 0 (すべて OK) か 1。Windows では Git Bash から実行する。
 
 アプリが応答しなくなりコマンドが時間切れになると、ドライバはそこまでのログを出してアプリを終了し、
-終了コード 2 で止まる。`smoke.sh` はこの場合だけ、入力とユーザーデータを作り直して最初からやり直す
+終了コード 2 で止まる。`wait` 中の進捗の問い合わせが 30 秒返らないときと、スクリーンショットが
+時間切れになったとき (画面の描画が止まった兆候) も同じ扱いにする。`smoke.sh` はこの場合だけ、入力とユーザーデータを作り直して最初からやり直す
 (既定で 3 回まで)。やり直した回のログは `driver.attempt-N.log` / `driver.stderr.attempt-N.log` に
 残る。変換結果の誤りや要素が見つからないといった通常の失敗はやり直さない。
 

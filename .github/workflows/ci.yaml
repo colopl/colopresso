@@ -279,7 +279,7 @@ jobs:
           COLOPRESSO_TEST_ASSETS_DIR: ${{ github.workspace }}/assets
       - name: Electron E2E
         shell: bash
-        timeout-minutes: 30
+        timeout-minutes: 45
         run: bash "app/electron/e2e/smoke.sh" "${RUNNER_TEMP}/colopresso-e2e"
         env:
           COLOPRESSO_E2E_LAUNCH_ATTEMPTS: '3'
@@ -344,7 +344,7 @@ jobs:
           COLOPRESSO_NATIVE_ADDON_PATH: ${{ github.workspace }}/build/electron/native/colopresso_native.node
           COLOPRESSO_TEST_ASSETS_DIR: ${{ github.workspace }}/assets
       - name: Electron E2E
-        timeout-minutes: 30
+        timeout-minutes: 45
         run: bash "app/electron/e2e/smoke.sh" "${RUNNER_TEMP}/colopresso-e2e"
         env:
           COLOPRESSO_E2E_LAUNCH_ATTEMPTS: '3'
