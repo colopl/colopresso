@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <limits.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -308,9 +309,13 @@ static inline bool write_file_from_memory(const char *path, const uint8_t *data,
     }
 
     written = fwrite(data, 1, size, fp);
-    fclose(fp);
+    if (fclose(fp) != 0 || written != size) {
+        remove(path);
 
-    return written == size;
+        return false;
+    }
+
+    return true;
 }
 
 static inline void print_output_larger_warning(const char *format_name, int64_t input_size,
@@ -392,7 +397,7 @@ static inline bool parse_double_value(const char *str, double *value)
 
     errno = 0;
     parsed = strtod(str, &endptr);
-    if (errno != 0 || endptr == str || *endptr != '\0') {
+    if (errno != 0 || endptr == str || *endptr != '\0' || !isfinite(parsed)) {
         return false;
     }
 
@@ -421,36 +426,53 @@ static inline bool parse_double_range(const char *str, double min_value, double 
     return true;
 }
 
+static inline int8_t hex_digit_value(char c)
+{
+    if (c >= '0' && c <= '9') {
+        return (int8_t)(c - '0');
+    }
+
+    if (c >= 'a' && c <= 'f') {
+        return (int8_t)(c - 'a' + 10);
+    }
+
+    if (c >= 'A' && c <= 'F') {
+        return (int8_t)(c - 'A' + 10);
+    }
+
+    return -1;
+}
+
 static inline bool parse_hex_color(const char *hex_str, cpres_rgba_color_t *color)
 {
     const char *str = hex_str;
-    size_t len;
-    uint32_t r, g, b, a = 255;
+    uint8_t channels[4] = {0, 0, 0, 255};
+    int8_t high, low;
+    size_t len, i;
 
     if (str[0] == '#') {
         str++;
     }
 
     len = strlen(str);
-
     if (len != 6 && len != 8) {
         return false;
     }
 
-    if (sscanf(str, "%2x%2x%2x", &r, &g, &b) != 3) {
-        return false;
-    }
-
-    if (len == 8) {
-        if (sscanf(str + 6, "%2x", &a) != 1) {
+    for (i = 0; i < len; i += 2) {
+        high = hex_digit_value(str[i]);
+        low = hex_digit_value(str[i + 1]);
+        if (high < 0 || low < 0) {
             return false;
         }
+
+        channels[i / 2] = (uint8_t)((high << 4) | low);
     }
 
-    color->r = (uint8_t)r;
-    color->g = (uint8_t)g;
-    color->b = (uint8_t)b;
-    color->a = (uint8_t)a;
+    color->r = channels[0];
+    color->g = channels[1];
+    color->b = channels[2];
+    color->a = channels[3];
 
     return true;
 }
@@ -529,19 +551,36 @@ static inline int32_t parse_protected_colors(const char *color_list,
 static inline bool parse_quality_range(const char *input, int32_t *min_quality,
                                        int32_t *max_quality)
 {
-    int32_t qmin = -1, qmax = -1, tmp;
+    const char *separator;
+    int32_t qmin, qmax, tmp;
+    long parsed_min, parsed_max;
+    size_t min_len;
+    char min_text[16];
 
     if (!input || !min_quality || !max_quality) {
         return false;
     }
 
-    if (sscanf(input, "%" SCNd32 "-%" SCNd32, &qmin, &qmax) != 2) {
+    separator = strchr(input, '-');
+    if (!separator || separator == input) {
         return false;
     }
 
-    if (qmin < 0 || qmin > 100 || qmax < 0 || qmax > 100) {
+    min_len = (size_t)(separator - input);
+    if (min_len >= sizeof(min_text)) {
         return false;
     }
+
+    memcpy(min_text, input, min_len);
+    min_text[min_len] = '\0';
+
+    if (!parse_long_range(min_text, 0, 100, &parsed_min) ||
+        !parse_long_range(separator + 1, 0, 100, &parsed_max)) {
+        return false;
+    }
+
+    qmin = (int32_t)parsed_min;
+    qmax = (int32_t)parsed_max;
 
     if (qmax < qmin) {
         tmp = qmin;
@@ -603,12 +642,14 @@ static inline output_format_t infer_format_from_extension(const char *path)
 
 static inline bool path_has_extension_ci(const char *path, const char *extension)
 {
+    const char *path_ext;
     size_t path_len = strlen(path), ext_len = strlen(extension), i;
-    const char *path_ext = path + path_len - ext_len;
 
     if (ext_len == 0 || path_len < ext_len) {
         return false;
     }
+
+    path_ext = path + path_len - ext_len;
 
     for (i = 0; i < ext_len; i++) {
         if (tolower((unsigned char)path_ext[i]) != tolower((unsigned char)extension[i])) {
