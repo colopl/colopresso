@@ -1,0 +1,61 @@
+name: Electron download
+description: >-
+  Put the Electron zip and its SHASUMS256.txt into the per-user cache of @electron/get, fetching them
+  through the GitHub API with the job token. Without this, electron-builder downloads SHASUMS256.txt
+  from github.com anonymously on every build (and the zip on a cache miss), which fails while GitHub
+  limits anonymous requests. electron-builder reads SHASUMS256.txt-<version> at the cache root, and the
+  electron package's install script finds the zip in the same cache.
+inputs:
+  version:
+    description: Electron version, without the leading v
+    required: true
+  arch:
+    description: Electron architecture (x64, arm64)
+    required: true
+  token:
+    description: Token for the GitHub API
+    default: ${{ github.token }}
+runs:
+  using: composite
+  steps:
+    - name: Fetch Electron through the GitHub API
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        ELECTRON_VERSION: ${{ inputs.version }}
+        ELECTRON_ARCH: ${{ inputs.arch }}
+      run: |
+        set -euo pipefail
+        case "${RUNNER_OS}" in
+          Windows)
+            PLATFORM="win32"
+            CACHE_ROOT="$(cygpath -m "${LOCALAPPDATA}")/electron/Cache"
+            ;;
+          macOS)
+            PLATFORM="darwin"
+            CACHE_ROOT="${HOME}/Library/Caches/electron"
+            ;;
+          *)
+            PLATFORM="linux"
+            CACHE_ROOT="${XDG_CACHE_HOME:-${HOME}/.cache}/electron"
+            ;;
+        esac
+        TAG="v${ELECTRON_VERSION}"
+        ZIP="electron-${TAG}-${PLATFORM}-${ELECTRON_ARCH}.zip"
+        # @electron/get keeps an artifact in a directory named after the SHA-256 of its download URL
+        # without the file name.
+        URL_HASH="$(node -e 'process.stdout.write(require("crypto").createHash("sha256").update(process.argv[1]).digest("hex"))' "https://github.com/electron/electron/releases/download/${TAG}")"
+        ZIP_DIR="${CACHE_ROOT}/${URL_HASH}"
+        SHASUMS="${CACHE_ROOT}/SHASUMS256.txt-${ELECTRON_VERSION}"
+        mkdir -p "${ZIP_DIR}"
+        if test -f "${ZIP_DIR}/${ZIP}"; then
+          echo "${ZIP} is already cached."
+        else
+          gh release download "${TAG}" --repo "electron/electron" --pattern "${ZIP}" --dir "${ZIP_DIR}"
+        fi
+        if test -f "${SHASUMS}"; then
+          echo "SHASUMS256.txt of ${TAG} is already cached."
+        else
+          gh release download "${TAG}" --repo "electron/electron" --pattern "SHASUMS256.txt" --output "${SHASUMS}"
+        fi
+        grep -q " \*${ZIP}\$" "${SHASUMS}"

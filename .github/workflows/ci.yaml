@@ -269,10 +269,10 @@ jobs:
             runs-on: windows-11-arm
     runs-on: ${{ matrix.arch.runs-on }}
     env:
-      # Electron and electron-builder (tools such as NSIS and the DMG builder) download into these
-      # directories, which are cached so the builds do not depend on GitHub serving them every time.
+      # electron-builder downloads its tools (such as NSIS) into ELECTRON_BUILDER_CACHE and the
+      # Electron zip into the per-user cache of @electron/get (%LOCALAPPDATA%\electron\Cache). Both
+      # are cached so the builds do not depend on GitHub serving them every time.
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
-      electron_config_cache: ${{ github.workspace }}/.cache/electron
     steps:
       - name: Download dummy versioned code
         uses: actions/download-artifact@v8
@@ -304,9 +304,16 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: |
-            .cache/electron
+            ~/AppData/Local/electron/Cache
             .cache/electron-builder
           key: electron-downloads-${{ runner.os }}-${{ matrix.arch.electron }}-${{ steps.electron_versions.outputs.electron }}-${{ steps.electron_versions.outputs.builder }}
+      # If the API fails as well, electron-builder still tries its own (anonymous) download.
+      - name: Fetch Electron through the GitHub API
+        continue-on-error: true
+        uses: ./.github/actions/electron-download
+        with:
+          version: ${{ steps.electron_versions.outputs.electron }}
+          arch: ${{ matrix.arch.electron }}
       - name: Cache Cargo registry
         uses: actions/cache@v6
         with:
@@ -337,7 +344,7 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: |
-            .cache/electron
+            ~/AppData/Local/electron/Cache
             .cache/electron-builder
           key: ${{ steps.electron_cache.outputs.cache-primary-key }}
       - name: Test native addon
@@ -381,10 +388,10 @@ jobs:
             runs-on: macos-26-intel
     runs-on: ${{ matrix.arch.runs-on }}
     env:
-      # Electron and electron-builder (tools such as NSIS and the DMG builder) download into these
-      # directories, which are cached so the builds do not depend on GitHub serving them every time.
+      # electron-builder downloads its tools (such as the DMG builder) into ELECTRON_BUILDER_CACHE and
+      # the Electron zip into the per-user cache of @electron/get (~/Library/Caches/electron). Both
+      # are cached so the builds do not depend on GitHub serving them every time.
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
-      electron_config_cache: ${{ github.workspace }}/.cache/electron
     steps:
       - name: Download dummy versioned code
         uses: actions/download-artifact@v8
@@ -417,9 +424,16 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: |
-            .cache/electron
+            ~/Library/Caches/electron
             .cache/electron-builder
           key: electron-downloads-${{ runner.os }}-${{ matrix.arch.electron }}-${{ steps.electron_versions.outputs.electron }}-${{ steps.electron_versions.outputs.builder }}
+      # If the API fails as well, electron-builder still tries its own (anonymous) download.
+      - name: Fetch Electron through the GitHub API
+        continue-on-error: true
+        uses: ./.github/actions/electron-download
+        with:
+          version: ${{ steps.electron_versions.outputs.electron }}
+          arch: ${{ matrix.arch.electron }}
       - name: Cache Cargo registry
         uses: actions/cache@v6
         with:
@@ -447,7 +461,7 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: |
-            .cache/electron
+            ~/Library/Caches/electron
             .cache/electron-builder
           key: ${{ steps.electron_cache.outputs.cache-primary-key }}
       - name: Test native addon
@@ -714,6 +728,11 @@ jobs:
             cargo-registry-${{ runner.os }}-
       - name: Restore libaom source
         uses: ./.github/actions/libaom-source
+      # If the API fails as well, cibuildwheel still tries its own (anonymous) download.
+      - name: Fetch virtualenv for cibuildwheel through the GitHub API
+        if: matrix.os != 'linux'
+        continue-on-error: true
+        uses: ./.github/actions/cibuildwheel-virtualenv
       - name: Build wheels
         env:
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux }}

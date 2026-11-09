@@ -77,6 +77,13 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
   clone it only on a cache miss. CMake builds from such a checkout when it is present. The libaom
   version logic moved to `cmake/libaom.cmake`, which `cmake -P cmake/libaom.cmake` runs to print the
   tag (#352).
+- **Changed:** CI and release jobs fetch the Electron zip, its `SHASUMS256.txt` and the
+  `virtualenv.pyz` that cibuildwheel uses on Windows and macOS through the GitHub API with the job
+  token, and put them where electron-builder and cibuildwheel look first. electron-builder downloaded
+  `SHASUMS256.txt` from github.com anonymously on every build, even with the zip cached, and
+  cibuildwheel downloaded `virtualenv.pyz` on every run, so both failed while GitHub answered anonymous
+  requests with 504 Gateway Time-out. The tools electron-builder downloads (such as NSIS and the DMG
+  builder) are still fetched anonymously, but only on a cache miss (#352).
 
 ### Documentation
 - **Added:** `.claude/skills/rollup-dependencies`, a Claude Code skill (`/rollup-dependencies`) for

@@ -74,6 +74,12 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
   しました。使う版の libaom を Actions のキャッシュから `.cache/libaom/<tag>` に復元し、キャッシュがないときだけ
   clone します。CMake は、そこに同じ版があればそれを使ってビルドします。libaom の版を決める処理は
   `cmake/libaom.cmake` に移し、`cmake -P cmake/libaom.cmake` でタグを表示できます (#352)。
+- **変更:** CI とリリースのジョブで、Electron の zip とその `SHASUMS256.txt`、および Windows と macOS で
+  cibuildwheel が使う `virtualenv.pyz` を、ジョブのトークンを使って GitHub の API から取得し、electron-builder と
+  cibuildwheel が最初に探す場所に置くようにしました。これまで electron-builder は zip がキャッシュにあっても
+  `SHASUMS256.txt` をビルドのたびに github.com から匿名で取得し、cibuildwheel は `virtualenv.pyz` を毎回取得して
+  いたため、GitHub が匿名のリクエストに 504 Gateway Time-out を返す間は失敗していました。electron-builder が
+  取得するツール (NSIS や DMG 作成用のツールなど) は今も匿名で取得しますが、キャッシュがないときだけです (#352)。
 
 ### Documentation
 - **追加:** 依存関係のロールアップ更新 (棚卸し, セキュリティ確認, 更新, 各プラットフォームでのビルド,
