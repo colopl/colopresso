@@ -320,7 +320,7 @@ static inline bool write_file_from_memory(const char *path, const uint8_t *data,
 
     written = fwrite(data, 1, size, fp);
     if (fclose(fp) != 0 || written != size) {
-        remove(path);
+        colopresso_remove_regular_file(path);
 
         return false;
     }
@@ -366,6 +366,11 @@ static inline bool parse_long_value(const char *str, long *value)
         return false;
     }
 
+    /* strto* skip leading spaces and accept a plus sign; options take neither */
+    if (str[0] == '\0' || isspace((unsigned char)str[0]) || str[0] == '+') {
+        return false;
+    }
+
     errno = 0;
     parsed = strtol(str, &endptr, 10);
     if (errno != 0 || endptr == str || *endptr != '\0') {
@@ -402,6 +407,11 @@ static inline bool parse_double_value(const char *str, double *value)
     double parsed;
 
     if (!str || !value) {
+        return false;
+    }
+
+    /* strto* skip leading spaces and accept a plus sign; options take neither */
+    if (str[0] == '\0' || isspace((unsigned char)str[0]) || str[0] == '+') {
         return false;
     }
 
