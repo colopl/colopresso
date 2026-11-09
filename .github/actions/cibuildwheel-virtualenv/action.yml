@@ -18,7 +18,7 @@ runs:
       run: |
         set -euo pipefail
         # The version, URL and checksum come from the installed cibuildwheel, so they always match
-        # what it would download itself.
+        # what it would download itself. Python on Windows ends the line with CR, which is dropped.
         read -r VERSION URL SHA256 CACHE_DIR < <(python -I -c '
         import tomllib
         from cibuildwheel.util import resources
@@ -26,7 +26,7 @@ runs:
         with resources.VIRTUALENV.open("rb") as f:
             config = tomllib.load(f)["default"]
         print(config["version"], config["url"], config["sha256"], CIBW_CACHE_PATH.as_posix())
-        ')
+        ' | tr -d '\r')
         if ! [[ "${URL}" =~ ^https://github\.com/([^/]+/[^/]+)/releases/download/([^/]+)/([^/]+)$ ]]; then
           echo "virtualenv is not downloaded from a GitHub release (${URL}); nothing to do."
           exit 0
