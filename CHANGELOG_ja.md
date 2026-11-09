@@ -51,11 +51,17 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
   しました。Windows の CI ランナーでは electron-builder がビルドディレクトリで起動され、
   「Cannot find package.json」で失敗していました (#350)。
 - **削除:** 不要になった、pnpm の `minimumReleaseAge` に対する `electron@44.7.2` の除外を削除しました (#350)。
+- **追加:** CI の Windows x64 と macOS arm64 で、パッケージした Electron アプリを GUI から操作する E2E の
+  スモークテストを実行するようにしました。WebP, AVIF, PNGX のフォルダ変換、1 ファイルのドロップ、複数ファイルの
+  ZIP 保存を行います。スクリーンショットとログはアーティファクトに残ります。`pnpm run e2e:electron` で手元からも
+  実行でき、devDependency に `playwright-core` を追加しています (#352)。
 
 ### Documentation
 - **追加:** 依存関係のロールアップ更新 (棚卸し, セキュリティ確認, 更新, 各プラットフォームでのビルド,
   CHANGELOG と PR の準備) を行う Claude Code 用スキル `.claude/skills/rollup-dependencies`
   (`/rollup-dependencies`) を追加しました (#350)。
+- **追加:** パッケージした Electron アプリの操作と GUI の不具合の調査を行う Claude Code 用スキル
+  `.claude/skills/colopresso-electron-e2e` (`/colopresso-electron-e2e`) を追加しました (#352)。
 
 ### Dependencies
 - Electron 45.2.3, electron-updater 6.8.12, electron-builder 26.18.1, Vite 8.3.6, pnpm 12.18.0,

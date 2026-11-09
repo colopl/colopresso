@@ -54,11 +54,17 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
   package.json" (#350).
 - **Removed:** The `electron@44.7.2` exemption from pnpm's `minimumReleaseAge`, which is no longer
   needed (#350).
+- **Added:** CI runs a GUI end-to-end smoke test of the packaged Electron app on Windows x64 and
+  macOS arm64: WebP, AVIF and PNGX conversions through the folder flow, a dropped file and a dropped
+  batch saved as a ZIP. Screenshots and logs are uploaded as artifacts. `pnpm run e2e:electron` runs
+  it locally, and `playwright-core` is a new devDependency (#352).
 
 ### Documentation
 - **Added:** `.claude/skills/rollup-dependencies`, a Claude Code skill (`/rollup-dependencies`) for
   dependency rollups: inventory, security review, updates, builds on each platform, CHANGELOG and
   PR preparation (#350).
+- **Added:** `.claude/skills/colopresso-electron-e2e`, a Claude Code skill (`/colopresso-electron-e2e`)
+  for driving the packaged Electron app and debugging GUI issues (#352).
 
 ### Dependencies
 - Electron 45.2.3, electron-updater 6.8.12, electron-builder 26.18.1, Vite 8.3.6, pnpm 12.18.0,
