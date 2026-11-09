@@ -70,6 +70,10 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
   electron-builder の版です。GitHub が 504 Gateway Time-out を返すたびにビルドが失敗することがなくなります。
   キャッシュはビルドの直後、テストより前に保存します。Rust のブリッジをビルドするジョブでは Cargo の
   レジストリもキャッシュします。Electron のあるアーキテクチャが失敗しても、もう一方は取り消されません (#352)。
+- **変更:** CI とリリースのジョブで、ビルドのたびに aomedia.googlesource.com から libaom を clone しないように
+  しました。使う版の libaom を Actions のキャッシュから `.cache/libaom/<tag>` に復元し、キャッシュがないときだけ
+  clone します。CMake は、そこに同じ版があればそれを使ってビルドします。libaom の版を決める処理は
+  `cmake/libaom.cmake` に移し、`cmake -P cmake/libaom.cmake` でタグを表示できます (#352)。
 
 ### Documentation
 - **追加:** 依存関係のロールアップ更新 (棚卸し, セキュリティ確認, 更新, 各プラットフォームでのビルド,

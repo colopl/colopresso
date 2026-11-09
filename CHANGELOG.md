@@ -72,6 +72,11 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
   Electron and electron-builder versions, so builds no longer fail whenever GitHub answers with 504
   Gateway Time-out. The cache is saved right after the build, before tests run. Jobs that build the Rust
   bridge also cache the Cargo registry. A failed Electron architecture no longer cancels the other (#352).
+- **Changed:** CI and release jobs no longer clone libaom from aomedia.googlesource.com on every build:
+  they restore the checkout of the tag in use into `.cache/libaom/<tag>` from the Actions cache and
+  clone it only on a cache miss. CMake builds from such a checkout when it is present. The libaom
+  version logic moved to `cmake/libaom.cmake`, which `cmake -P cmake/libaom.cmake` runs to print the
+  tag (#352).
 
 ### Documentation
 - **Added:** `.claude/skills/rollup-dependencies`, a Claude Code skill (`/rollup-dependencies`) for

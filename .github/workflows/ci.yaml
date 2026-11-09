@@ -110,6 +110,8 @@ jobs:
         run: |
           tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
           rm -rf "dummy-versioned-code.tar.gz"
+      - name: Restore libaom source
+        uses: ./.github/actions/libaom-source
       - name: Build container
         run: |
           docker build \
@@ -220,6 +222,8 @@ jobs:
               -o "${VALGRIND_TARBALL}" \
               "https://sourceware.org/pub/valgrind/valgrind-${VALGRIND_VERSION}.tar.bz2"
           fi
+      - name: Restore libaom source
+        uses: ./.github/actions/libaom-source
       - name: Build container
         run: |
           docker build \
@@ -313,6 +317,8 @@ jobs:
           key: cargo-registry-${{ runner.os }}-${{ hashFiles('library/pngx_bridge/Cargo.lock') }}
           restore-keys: |
             cargo-registry-${{ runner.os }}-
+      - name: Restore libaom source
+        uses: ./.github/actions/libaom-source
       - name: Install dependencies
         shell: pwsh
         run: pnpm install --frozen-lockfile
@@ -424,6 +430,8 @@ jobs:
           key: cargo-registry-${{ runner.os }}-${{ hashFiles('library/pngx_bridge/Cargo.lock') }}
           restore-keys: |
             cargo-registry-${{ runner.os }}-
+      - name: Restore libaom source
+        uses: ./.github/actions/libaom-source
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build Electron app (native addon)
@@ -487,6 +495,8 @@ jobs:
           key: cargo-registry-${{ runner.os }}-${{ hashFiles('library/pngx_bridge/Cargo.lock') }}
           restore-keys: |
             cargo-registry-${{ runner.os }}-
+      - name: Restore libaom source
+        uses: ./.github/actions/libaom-source
       - name: Configure CMake
         run: cmake -B build -DCMAKE_BUILD_TYPE="Release" -DCOLOPRESSO_USE_CLI=ON -DCOLOPRESSO_USE_TESTS=ON
       - name: Build
@@ -529,6 +539,8 @@ jobs:
           key: cargo-registry-${{ runner.os }}-${{ hashFiles('library/pngx_bridge/Cargo.lock') }}
           restore-keys: |
             cargo-registry-${{ runner.os }}-
+      - name: Restore libaom source
+        uses: ./.github/actions/libaom-source
       - name: Configure CMake
         run: |
           cmake -B build \
@@ -564,6 +576,8 @@ jobs:
         run: |
           tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
           rm -rf "dummy-versioned-code.tar.gz"
+      - name: Restore libaom source
+        uses: ./.github/actions/libaom-source
       - name: Build container
         run: |
           docker build \
@@ -698,6 +712,8 @@ jobs:
           key: cargo-registry-${{ runner.os }}-${{ hashFiles('library/pngx_bridge/Cargo.lock') }}
           restore-keys: |
             cargo-registry-${{ runner.os }}-
+      - name: Restore libaom source
+        uses: ./.github/actions/libaom-source
       - name: Build wheels
         env:
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux }}

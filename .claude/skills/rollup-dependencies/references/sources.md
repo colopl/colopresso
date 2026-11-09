@@ -79,10 +79,14 @@ git config -f .gitmodules submodule.third_party/<name>.branch <tag>
 - 変更点: `curl -s "https://aomedia.googlesource.com/aom/+/refs/tags/<tag>/CHANGELOG?format=TEXT" | base64 -d`
 - libavif の main が上げているか: `gh api "repos/AOMediaCodec/libavif/commits?path=cmake/Modules/LocalAom.cmake&per_page=5"`
 
-libavif のリリースより新しい libaom にセキュリティ修正があるときは、`cmake/thirdparty.cmake` の
+libavif のリリースより新しい libaom にセキュリティ修正があるときは、`cmake/libaom.cmake` の
 `COLOPRESSO_AOM_VERSION` を上げる。libavif の submodule がその版以上を固定すれば上書きは自動的に
-無効になるので、そのときは上書きのコードごと削除する。ビルドログに
-`libaom: overriding libavif's ...` が出ているか、`_deps/libaom-src` のタグで確かめる。
+無効になるので、そのときは上書きのコードごと削除する。実際に使われる版は `cmake -P cmake/libaom.cmake`
+で表示でき、ビルドログに `libaom: overriding libavif's pin with ...` が出る。
+
+CI は `.github/actions/libaom-source` で、その版の libaom を `.cache/libaom/<tag>` にキャッシュから
+復元する (キャッシュがないときだけ clone する)。CMake はそこに同じ版があれば clone せずに使い、
+ビルドログに `libaom: using the checkout in ...` と出る。版を上げると最初の CI でだけ clone が走る。
 
 ## Docker と CI のツール
 
