@@ -37,12 +37,29 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
 - **[SECURITY]** **修正:** Build / CI: 固定している `dtolnay/rust-toolchain` アクションを、入力値をシェルの
   コマンドへ直接展開しない版に更新しました (#350)。
 
+### Library
+- **変更:** 論理 CPU 数を超える `pngx_threads` は論理 CPU 数までに抑えるようにしました (#XXX)。
+- **修正:** 有限でない `webp_quality`, `webp_target_psnr`, `avif_quality` は、エンコーダに渡さず
+  `CPRES_ERROR_INVALID_PARAMETER` を返すようにしました (#XXX)。
+- **修正:** 保護色をちょうど 256 色指定し、高彩度アンカーが有効なときに PNGX palette256 の減色が失敗して
+  いたのを直しました (#XXX)。
+- **修正:** Reduced RGBA32 モードの色の順位付けで、整列に一貫した比較を使うようにしました (#XXX)。
+
+### CLI
+- **修正:** 浮動小数点のオプションで `nan` と `inf` を受け付けないようにし、 `--quality <min>-<max>` と
+  `--protect-color` を厳密に解析するようにしました (末尾の余分な文字や符号、空白を受け付けていました)。
+  書き込みに失敗したときは、書きかけの出力ファイルを削除します (#XXX)。
+
 ### GUI
 - **変更:** GUI を Electron 44 から Electron 45 (Chromium 156, Node.js 24.22) に移行しました (#350)。
 
 ### JS/WASM
 - **変更:** Emscripten を使うビルド (Node.js / WebAssembly) の Emscripten を 6.0.12 から 7.0.0 に
   更新しました。libc++, libunwind, compiler-rt は LLVM 23.1.3 のものになります (#350)。
+
+### Python
+- **修正:** 有限でない浮動小数点数と C の `int` の範囲を超える整数は、そのまま渡したり切り詰めたりせず
+  `ValueError` / `OverflowError` にしました。設定は辞書と保護色のリストの複製から読み取ります (#XXX)。
 
 ### Build / CI
 - **変更:** zlib 1.4 で MSVC 向け静的ライブラリの名前が `zs.lib` から `libzs.lib` に変わったため、Windows の
@@ -99,6 +116,11 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
   `SHASUMS256.txt` をビルドのたびに github.com から匿名で取得し、cibuildwheel は `virtualenv.pyz` を毎回取得して
   いたため、GitHub が匿名のリクエストに 504 Gateway Time-out を返す間は失敗していました。electron-builder が
   取得するツール (NSIS や DMG 作成用のツールなど) は今も匿名で取得しますが、キャッシュがないときだけです (#352)。
+- **変更:** C のソースを C99 ではなく C11 (GNU 拡張なし) でコンパイルするようにしました。 MSVC では
+  `/std:c11` を使うため、 Visual Studio 2019 16.8 以降が必要です (#XXX)。
+- **変更:** C のソースを新しいコーディング規約 (4 スペースインデント, 100 桁, 関数先頭で決まった順序の宣言,
+  ファイル上部のマクロ。 AGENTS.md を参照) に揃えました。新しい Style ジョブが `utils/check_style.py` と
+  clang-format 23 で検査します (#XXX)。
 
 ### Documentation
 - **追加:** 依存関係のロールアップ更新 (棚卸し, セキュリティ確認, 更新, 各プラットフォームでのビルド,
