@@ -16,6 +16,9 @@
 
 Only public crate names and versions are sent, to crates.io and api.osv.dev.
 Standard library only; run it with `python3 -I`.
+
+Exit status: 0 when nothing was found, 1 when a crate is younger than the window
+or has an advisory, 2 when a lookup failed and the report is incomplete.
 """
 
 import argparse
@@ -51,7 +54,7 @@ def changed_crates(lock_path, base, now, min_age_hours):
     result = subprocess.run(["git", "show", f"{base}:{lock_path}"], capture_output=True, text=True)
     if result.returncode != 0:
         print(f"Cannot read {lock_path} at {base}: {result.stderr.strip()}", file=sys.stderr)
-        return current, 1
+        return current, 0, 1
     previous = registry_packages(result.stdout)
 
     print(f"## Changed crates ({base} -> working tree)\n")
@@ -59,12 +62,13 @@ def changed_crates(lock_path, base, now, min_age_hours):
     added = sorted(current - previous)
     if not added and not removed:
         print("No changes.\n")
-    young = 0
+    young = errors = 0
     for name, version in added:
         try:
             info = http_json(f"https://crates.io/api/v1/crates/{name}/{version}")["version"]
         except (urllib.error.URLError, KeyError, json.JSONDecodeError) as error:
             print(f"- {name} {version}: publish time unavailable ({error})")
+            errors += 1
             continue
         created = datetime.datetime.fromisoformat(info["created_at"].replace("Z", "+00:00"))
         age = (now - created).total_seconds() / 3600
@@ -80,7 +84,7 @@ def changed_crates(lock_path, base, now, min_age_hours):
         if not any(n == name for n, _ in added):
             print(f"- {name} {version}: removed")
     print()
-    return current, young
+    return current, young, errors
 
 
 def advisories(packages):
@@ -91,8 +95,8 @@ def advisories(packages):
         results = http_json("https://api.osv.dev/v1/querybatch", query)["results"]
     except (urllib.error.URLError, KeyError, json.JSONDecodeError) as error:
         print(f"OSV query failed: {error}\n")
-        return 1
-    found = 0
+        return 0, 1
+    found = errors = 0
     for (name, version), result in zip(ordered, results):
         for vuln in result.get("vulns", []):
             found += 1
@@ -100,6 +104,7 @@ def advisories(packages):
                 detail = http_json(f"https://api.osv.dev/v1/vulns/{vuln['id']}")
             except (urllib.error.URLError, json.JSONDecodeError):
                 detail = {}
+                errors += 1
             fixed = sorted(
                 event["fixed"]
                 for affected in detail.get("affected", [])
@@ -111,7 +116,7 @@ def advisories(packages):
     if not found:
         print(f"No known advisories for {len(ordered)} registry crates.")
     print()
-    return found
+    return found, errors
 
 
 def main():
@@ -123,10 +128,15 @@ def main():
 
     now = datetime.datetime.now(datetime.timezone.utc)
     print(f"Checked at {now.isoformat(timespec='minutes')}\n")
-    packages, young = changed_crates(args.lock, args.base, now, args.min_age_hours)
-    found = advisories(packages)
-    print(f"Summary: {young} crate(s) younger than {args.min_age_hours:g}h, {found} advisory match(es).")
+    packages, young, lookup_errors = changed_crates(args.lock, args.base, now, args.min_age_hours)
+    found, advisory_errors = advisories(packages)
+    errors = lookup_errors + advisory_errors
+    print(f"Summary: {young} crate(s) younger than {args.min_age_hours:g}h, {found} advisory match(es), {errors} failed lookup(s).")
+    if errors:
+        print("The report is incomplete; rerun it before relying on the result.", file=sys.stderr)
+        return 2
+    return 1 if young or found else 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

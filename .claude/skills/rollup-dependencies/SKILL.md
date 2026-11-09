@@ -109,6 +109,8 @@ push や PR 作成の前には、取り込む内容・見送る内容・確認�
   推移的依存は `pnpm update --no-save --depth Infinity <pkg>...` で範囲内で直す。範囲内で直らないもの
   (修正がメジャー更新にしかない、など) は残し、理由を記録する。
 - Rust は `library/pngx_bridge` で `cargo update` を実行し、補助スクリプトで若すぎる版と勧告を確認する。
+  終了コードは 0 (問題なし)、1 (若すぎる版か勧告がある)、2 (照会に失敗して結果が不完全)。2 のときは
+  結果を当てにせず、時間をおいて再実行する。
   ツールチェーンの版は `rust-toolchain.toml` と `library/pngx_bridge/rust-toolchain.toml` の両方にある。
 
 ### 5. ビルドとテストで確かめる
