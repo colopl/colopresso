@@ -203,7 +203,9 @@ add_custom_target(colopresso_electron
   DEPENDS ${COLOPRESSO_ELECTRON_NATIVE_STAGE_STAMP}
 )
 
-set(ELECTRON_BUILDER_BASE_ARGS exec electron-builder --publish never)
+# electron-builder takes the project from its working directory unless told otherwise, so pass it
+# explicitly instead of relying on how the generator launches custom commands.
+set(ELECTRON_BUILDER_BASE_ARGS exec electron-builder --publish never --projectDir "${CMAKE_SOURCE_DIR}")
 list(APPEND ELECTRON_BUILDER_BASE_ARGS
   "-c.extraMetadata.main=${COLOPRESSO_ELECTRON_OUT_DIR_REL}/main.js"
   "-c.files=${COLOPRESSO_ELECTRON_OUT_DIR_REL}/**/*"

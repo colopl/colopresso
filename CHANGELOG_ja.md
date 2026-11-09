@@ -47,6 +47,9 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
 ### Build / CI
 - **変更:** zlib 1.4 で MSVC 向け静的ライブラリの名前が `zs.lib` から `libzs.lib` に変わったため、Windows の
   ビルドで新しい名前をリンクするようにしました (#350)。
+- **修正:** Electron のパッケージングで、electron-builder にプロジェクトのディレクトリを明示して渡すように
+  しました。Windows の CI ランナーでは electron-builder がビルドディレクトリで起動され、
+  「Cannot find package.json」で失敗していました (#350)。
 - **削除:** 不要になった、pnpm の `minimumReleaseAge` に対する `electron@44.7.2` の除外を削除しました (#350)。
 
 ### Documentation

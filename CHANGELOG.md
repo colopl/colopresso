@@ -49,6 +49,9 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
 ### Build / CI
 - **Changed:** Windows builds link zlib 1.4's static library under its new MSVC name, `libzs.lib`
   (was `zs.lib`) (#350).
+- **Fixed:** Electron packaging passes the project directory to electron-builder explicitly. On the
+  Windows CI runner, electron-builder was started in the build directory and failed with "Cannot find
+  package.json" (#350).
 - **Removed:** The `electron@44.7.2` exemption from pnpm's `minimumReleaseAge`, which is no longer
   needed (#350).
 
