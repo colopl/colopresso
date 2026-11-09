@@ -40,7 +40,20 @@ typedef struct {
     float cutoff;
 } postprocess_indices_parallel_ctx_t;
 
-/* Global context for multi-step processing. Not thread-safe; must be called sequentially. */
+typedef struct {
+    const uint8_t *pixels;
+    size_t row_stride;
+    uint32_t width;
+    uint32_t height;
+    int color_type;
+    const png_color *palette;
+    const png_byte *alpha;
+    int palette_len;
+    int num_trans;
+} png_write_job_t;
+
+/* Context of the multi-step API (pngx_palette256_prepare / _finalize) used by the WASM separation
+ * mode, whose steps are called one after another from JS. */
 static palette256_context_t g_palette256_ctx = {0};
 
 static inline void alpha_bleed_rgb_from_opaque(uint8_t *rgba, uint32_t width, uint32_t height,
@@ -236,7 +249,7 @@ static inline bool is_smooth_gradient_profile(const pngx_image_stats_t *stats,
     return false;
 }
 
-static inline void tune_quant_params_for_image(PngxBridgeQuantParams *params,
+static inline void tune_quant_params_for_image(pngx_bridge_quant_params_t *params,
                                                const pngx_options_t *opts,
                                                const pngx_image_stats_t *stats)
 {
@@ -456,7 +469,7 @@ static inline void postprocess_indices(uint32_t thread_count, uint8_t *indices, 
     free(reference);
 }
 
-static inline void fill_quant_params(PngxBridgeQuantParams *params, const pngx_options_t *opts,
+static inline void fill_quant_params(pngx_bridge_quant_params_t *params, const pngx_options_t *opts,
                                      const uint8_t *importance_map, size_t importance_map_len)
 {
     uint8_t quality_min, quality_max;
@@ -481,7 +494,7 @@ static inline void fill_quant_params(PngxBridgeQuantParams *params, const pngx_o
     params->remap = true;
 }
 
-static inline void free_quant_output(PngxBridgeQuantOutput *output)
+static inline void free_quant_output(pngx_bridge_quant_output_t *output)
 {
     if (!output) {
         return;
@@ -605,12 +618,16 @@ static inline bool finalize_memory_png(png_memory_buffer_t *buffer, uint8_t **ou
         }
     }
 
-    *out_data = buffer->data;
-    *out_size = buffer->size;
     if (!buffer->data || buffer->size == 0) {
         memory_buffer_reset(buffer);
+        *out_data = NULL;
+        *out_size = 0;
+
         return false;
     }
+
+    *out_data = buffer->data;
+    *out_size = buffer->size;
 
     return true;
 }
@@ -620,11 +637,11 @@ static inline png_bytep *build_row_pointers(const uint8_t *data, size_t row_stri
     png_bytep *row_pointers;
     uint32_t y;
 
-    if (!data || row_stride == 0 || height == 0) {
+    if (!data || row_stride == 0 || height == 0 || (size_t)height > SIZE_MAX / sizeof(png_bytep)) {
         return NULL;
     }
 
-    row_pointers = (png_bytep *)malloc(sizeof(png_bytep) * height);
+    row_pointers = (png_bytep *)malloc(sizeof(png_bytep) * (size_t)height);
     if (!row_pointers) {
         return NULL;
     }
@@ -636,149 +653,326 @@ static inline png_bytep *build_row_pointers(const uint8_t *data, size_t row_stri
     return row_pointers;
 }
 
+static bool write_png_guarded(png_structp png_ptr, png_infop info_ptr, const png_write_job_t *job,
+                              png_bytep *row_pointers, png_memory_buffer_t *buffer)
+{
+    if (setjmp(png_jmpbuf(png_ptr)) != 0) {
+        return false;
+    }
+
+    png_set_write_fn(png_ptr, buffer, memory_write, NULL);
+    png_set_compression_level(png_ptr, Z_BEST_COMPRESSION);
+    png_set_compression_strategy(png_ptr, Z_FILTERED);
+    png_set_filter(png_ptr, PNG_FILTER_TYPE_BASE, PNG_ALL_FILTERS);
+    png_set_IHDR(png_ptr, info_ptr, job->width, job->height, 8, job->color_type, PNG_INTERLACE_NONE,
+                 PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+
+    if (job->palette) {
+        png_set_PLTE(png_ptr, info_ptr, job->palette, job->palette_len);
+
+        if (job->num_trans > 0) {
+            png_set_tRNS(png_ptr, info_ptr, job->alpha, job->num_trans, NULL);
+        }
+    }
+
+    png_write_info(png_ptr, info_ptr);
+    png_write_image(png_ptr, row_pointers);
+    png_write_end(png_ptr, NULL);
+
+    return true;
+}
+
+static bool write_png_to_memory(const png_write_job_t *job, uint8_t **out_data, size_t *out_size)
+{
+    png_memory_buffer_t buffer = {0};
+    png_structp png_ptr;
+    png_infop info_ptr;
+    png_bytep *row_pointers;
+    bool written;
+
+    row_pointers = build_row_pointers(job->pixels, job->row_stride, job->height);
+    if (!row_pointers) {
+        return false;
+    }
+
+    if (!init_write_struct(&png_ptr, &info_ptr)) {
+        free(row_pointers);
+        return false;
+    }
+
+    written = write_png_guarded(png_ptr, info_ptr, job, row_pointers, &buffer);
+    png_destroy_write_struct(&png_ptr, &info_ptr);
+    free(row_pointers);
+
+    if (!written) {
+        memory_buffer_reset(&buffer);
+
+        return false;
+    }
+
+    return finalize_memory_png(&buffer, out_data, out_size);
+}
+
+static void palette256_context_reset(palette256_context_t *ctx)
+{
+    rgba_image_reset(&ctx->image);
+    quant_support_reset(&ctx->support);
+    memset(ctx, 0, sizeof(*ctx));
+}
+
+static bool palette256_prepare_context(palette256_context_t *ctx, const uint8_t *png_data,
+                                       size_t png_size, const pngx_options_t *opts,
+                                       uint8_t **out_rgba, uint32_t *out_width,
+                                       uint32_t *out_height, uint8_t **out_importance_map,
+                                       size_t *out_importance_map_len, int32_t *out_speed,
+                                       uint8_t *out_quality_min, uint8_t *out_quality_max,
+                                       uint32_t *out_max_colors, float *out_dither_level,
+                                       uint8_t **out_fixed_colors, size_t *out_fixed_colors_len)
+{
+    float estimated_dither, gradient_dither_floor;
+    bool use_importance_map;
+    pngx_bridge_quant_params_t params = {0};
+
+    if (!png_data || png_size == 0 || !opts || !out_rgba || !out_width || !out_height) {
+        return false;
+    }
+
+    if (ctx->initialized) {
+        palette256_context_reset(ctx);
+    }
+
+    if (!load_rgba_image(png_data, png_size, &ctx->image)) {
+        return false;
+    }
+
+    alpha_bleed_rgb_from_opaque(ctx->image.rgba, ctx->image.width, ctx->image.height, opts);
+
+    image_stats_reset(&ctx->stats);
+    if (!prepare_quant_support(&ctx->image, opts, &ctx->support, &ctx->stats)) {
+        rgba_image_reset(&ctx->image);
+        quant_support_reset(&ctx->support);
+
+        return false;
+    }
+
+    ctx->tuned_opts = *opts;
+    ctx->prefer_uniform = opts->palette256_gradient_profile_enable
+                              ? is_smooth_gradient_profile(&ctx->stats, &ctx->tuned_opts)
+                              : false;
+
+    if (ctx->prefer_uniform) {
+        ctx->tuned_opts.saliency_map_enable = false;
+        ctx->tuned_opts.chroma_anchor_enable = false;
+        ctx->tuned_opts.postprocess_smooth_enable = false;
+    } else {
+        build_fixed_palette(opts, &ctx->support, &ctx->tuned_opts);
+    }
+
+    ctx->resolved_dither = resolve_quant_dither(opts, &ctx->stats);
+
+    if (opts->lossy_dither_auto) {
+        estimated_dither =
+            estimate_bitdepth_dither_level(ctx->image.rgba, ctx->image.width, ctx->image.height, 8);
+        if (estimated_dither > ctx->resolved_dither) {
+            ctx->resolved_dither = estimated_dither;
+        }
+    }
+
+    gradient_dither_floor = ctx->tuned_opts.palette256_gradient_profile_dither_floor;
+    if (gradient_dither_floor < 0.0f) {
+        gradient_dither_floor = PNGX_PALETTE256_GRADIENT_PROFILE_DITHER_FLOOR;
+    }
+
+    if (ctx->prefer_uniform && ctx->resolved_dither < gradient_dither_floor) {
+        ctx->resolved_dither = gradient_dither_floor;
+    }
+
+    ctx->tuned_opts.lossy_dither_level = ctx->resolved_dither;
+
+    use_importance_map = !ctx->prefer_uniform && ctx->tuned_opts.saliency_map_enable &&
+                         ctx->support.importance_map != NULL;
+    fill_quant_params(&params, &ctx->tuned_opts,
+                      use_importance_map ? ctx->support.importance_map : NULL,
+                      use_importance_map ? ctx->support.importance_map_len : 0);
+    params.dithering_level = ctx->resolved_dither;
+    tune_quant_params_for_image(&params, &ctx->tuned_opts, &ctx->stats);
+
+    *out_rgba = ctx->image.rgba;
+    *out_width = ctx->image.width;
+    *out_height = ctx->image.height;
+
+    if (out_importance_map && out_importance_map_len) {
+        if (use_importance_map) {
+            *out_importance_map = ctx->support.importance_map;
+            *out_importance_map_len = ctx->support.importance_map_len;
+        } else {
+            *out_importance_map = NULL;
+            *out_importance_map_len = 0;
+        }
+    }
+
+    if (out_speed) {
+        *out_speed = params.speed;
+    }
+    if (out_quality_min) {
+        *out_quality_min = params.quality_min;
+    }
+    if (out_quality_max) {
+        *out_quality_max = params.quality_max;
+    }
+    if (out_max_colors) {
+        *out_max_colors = params.max_colors;
+    }
+    if (out_dither_level) {
+        *out_dither_level = params.dithering_level;
+    }
+
+    if (out_fixed_colors && out_fixed_colors_len) {
+        if (params.fixed_colors && params.fixed_colors_len > 0) {
+            *out_fixed_colors = (uint8_t *)params.fixed_colors;
+            *out_fixed_colors_len = params.fixed_colors_len;
+        } else {
+            *out_fixed_colors = NULL;
+            *out_fixed_colors_len = 0;
+        }
+    }
+
+    ctx->initialized = true;
+
+    return true;
+}
+
+static bool palette256_finalize_context(palette256_context_t *ctx, const uint8_t *indices,
+                                        size_t indices_len, const cpres_rgba_color_t *palette,
+                                        size_t palette_len, uint8_t **out_data, size_t *out_size)
+{
+    uint8_t *mutable_indices;
+    cpres_rgba_color_t *mutable_palette;
+    bool success;
+
+    if (!ctx->initialized) {
+        return false;
+    }
+
+    if (!indices || indices_len == 0 || !palette || palette_len == 0 || palette_len > 256 ||
+        !out_data || !out_size) {
+        palette256_context_reset(ctx);
+
+        return false;
+    }
+
+    if (indices_len != ctx->image.pixel_count) {
+        palette256_context_reset(ctx);
+
+        return false;
+    }
+
+    mutable_palette = (cpres_rgba_color_t *)malloc(sizeof(cpres_rgba_color_t) * palette_len);
+    if (!mutable_palette) {
+        palette256_context_reset(ctx);
+
+        return false;
+    }
+    memcpy(mutable_palette, palette, sizeof(cpres_rgba_color_t) * palette_len);
+    sanitize_transparent_palette(mutable_palette, palette_len);
+
+    mutable_indices = (uint8_t *)malloc(indices_len);
+    if (!mutable_indices) {
+        free(mutable_palette);
+        palette256_context_reset(ctx);
+
+        return false;
+    }
+
+    memcpy(mutable_indices, indices, indices_len);
+
+    postprocess_indices(ctx->tuned_opts.thread_count, mutable_indices, ctx->image.width,
+                        ctx->image.height, mutable_palette, palette_len, &ctx->support,
+                        &ctx->tuned_opts);
+
+    success = pngx_create_palette_png(mutable_indices, indices_len, mutable_palette, palette_len,
+                                      ctx->image.width, ctx->image.height, out_data, out_size);
+
+    free(mutable_indices);
+    free(mutable_palette);
+
+    palette256_context_reset(ctx);
+
+    return success;
+}
+
 extern bool pngx_create_palette_png(const uint8_t *indices, size_t indices_len,
                                     const cpres_rgba_color_t *palette, size_t palette_len,
                                     uint32_t width, uint32_t height, uint8_t **out_data,
                                     size_t *out_size)
 {
+    png_write_job_t job = {0};
     png_color palette_data[256];
     png_byte alpha_data[256];
-    png_structp png_ptr;
-    png_infop info_ptr;
-    png_bytep *row_pointers;
-    png_memory_buffer_t buffer;
-    size_t expected_len, i;
-    int num_trans;
+    size_t i;
 
     if (!indices || !palette || !out_data || !out_size || width == 0 || height == 0) {
         return false;
     }
 
-    expected_len = (size_t)width * (size_t)height;
-    if (indices_len != expected_len || palette_len == 0 || palette_len > 256) {
+    if ((size_t)width > SIZE_MAX / (size_t)height ||
+        indices_len != (size_t)width * (size_t)height || palette_len == 0 || palette_len > 256) {
         return false;
     }
 
-    if (!init_write_struct(&png_ptr, &info_ptr)) {
-        return false;
-    }
-
-    buffer.data = NULL;
-    buffer.size = 0;
-    buffer.capacity = 0;
-    row_pointers = NULL;
-
-    if (setjmp(png_jmpbuf(png_ptr)) != 0) {
-        memory_buffer_reset(&buffer);
-        png_destroy_write_struct(&png_ptr, &info_ptr);
-        free(row_pointers);
-        return false;
-    }
-
-    png_set_write_fn(png_ptr, &buffer, memory_write, NULL);
-    png_set_compression_level(png_ptr, Z_BEST_COMPRESSION);
-    png_set_compression_strategy(png_ptr, Z_FILTERED);
-    png_set_filter(png_ptr, PNG_FILTER_TYPE_BASE, PNG_ALL_FILTERS);
-    png_set_IHDR(png_ptr, info_ptr, width, height, 8, PNG_COLOR_TYPE_PALETTE, PNG_INTERLACE_NONE,
-                 PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
-
-    num_trans = 0;
     for (i = 0; i < palette_len; ++i) {
         palette_data[i].red = palette[i].r;
         palette_data[i].green = palette[i].g;
         palette_data[i].blue = palette[i].b;
         alpha_data[i] = palette[i].a;
         if (palette[i].a != 255) {
-            num_trans = (int)(i + 1);
+            job.num_trans = (int)(i + 1);
         }
     }
 
-    png_set_PLTE(png_ptr, info_ptr, palette_data, (int)palette_len);
-    if (num_trans > 0) {
-        png_set_tRNS(png_ptr, info_ptr, alpha_data, num_trans, NULL);
-    }
+    job.pixels = indices;
+    job.row_stride = (size_t)width;
+    job.width = width;
+    job.height = height;
+    job.color_type = PNG_COLOR_TYPE_PALETTE;
+    job.palette = palette_data;
+    job.alpha = alpha_data;
+    job.palette_len = (int)palette_len;
 
-    png_write_info(png_ptr, info_ptr);
-
-    row_pointers = build_row_pointers(indices, (size_t)width, height);
-    if (!row_pointers) {
-        png_error(png_ptr, "png row allocation failed");
-        return false;
-    }
-
-    png_write_image(png_ptr, row_pointers);
-    png_write_end(png_ptr, NULL);
-
-    free(row_pointers);
-    png_destroy_write_struct(&png_ptr, &info_ptr);
-
-    return finalize_memory_png(&buffer, out_data, out_size);
+    return write_png_to_memory(&job, out_data, out_size);
 }
 
 extern bool create_rgba_png(const uint8_t *rgba, size_t pixel_count, uint32_t width,
                             uint32_t height, uint8_t **out_data, size_t *out_size)
 {
-    png_structp png_ptr;
-    png_infop info_ptr;
-    png_bytep *row_pointers;
-    png_memory_buffer_t buffer;
-    size_t expected_pixels;
+    png_write_job_t job = {0};
 
     if (!rgba || !out_data || !out_size || width == 0 || height == 0) {
         return false;
     }
 
-    expected_pixels = (size_t)width * (size_t)height;
-    if (pixel_count != expected_pixels) {
+    if ((size_t)width > SIZE_MAX / (size_t)height / PNGX_RGBA_CHANNELS ||
+        pixel_count != (size_t)width * (size_t)height) {
         return false;
     }
 
-    if (!init_write_struct(&png_ptr, &info_ptr)) {
-        return false;
-    }
+    job.pixels = rgba;
+    job.row_stride = (size_t)width * PNGX_RGBA_CHANNELS;
+    job.width = width;
+    job.height = height;
+    job.color_type = PNG_COLOR_TYPE_RGB_ALPHA;
 
-    buffer.data = NULL;
-    buffer.size = 0;
-    buffer.capacity = 0;
-    row_pointers = NULL;
-
-    if (setjmp(png_jmpbuf(png_ptr)) != 0) {
-        memory_buffer_reset(&buffer);
-        png_destroy_write_struct(&png_ptr, &info_ptr);
-        free(row_pointers);
-        return false;
-    }
-
-    png_set_write_fn(png_ptr, &buffer, memory_write, NULL);
-    png_set_compression_level(png_ptr, Z_BEST_COMPRESSION);
-    png_set_compression_strategy(png_ptr, Z_FILTERED);
-    png_set_filter(png_ptr, PNG_FILTER_TYPE_BASE, PNG_ALL_FILTERS);
-    png_set_IHDR(png_ptr, info_ptr, width, height, 8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE,
-                 PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
-    png_write_info(png_ptr, info_ptr);
-
-    row_pointers = build_row_pointers(rgba, (size_t)width * PNGX_RGBA_CHANNELS, height);
-    if (!row_pointers) {
-        png_error(png_ptr, "png row allocation failed");
-
-        return false;
-    }
-
-    png_write_image(png_ptr, row_pointers);
-    png_write_end(png_ptr, NULL);
-
-    free(row_pointers);
-    png_destroy_write_struct(&png_ptr, &info_ptr);
-
-    return finalize_memory_png(&buffer, out_data, out_size);
+    return write_png_to_memory(&job, out_data, out_size);
 }
 
-bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts,
-                              uint8_t **out_data, size_t *out_size, int *quant_quality)
+extern bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size,
+                                     const pngx_options_t *opts, uint8_t **out_data,
+                                     size_t *out_size, int *quant_quality)
 {
-    PngxBridgeQuantParams params = {0}, fallback_params = {0};
-    PngxBridgeQuantOutput output = {0};
-    PngxBridgeQuantStatus status;
+    palette256_context_t ctx = {0};
+    pngx_bridge_quant_params_t params = {0}, fallback_params = {0};
+    pngx_bridge_quant_output_t output = {0};
+    pngx_bridge_quant_status_t status;
     uint8_t *rgba, *importance_map, *fixed_colors, quality_min, quality_max;
     uint32_t width, height, max_colors;
     int32_t speed;
@@ -794,9 +988,10 @@ bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pn
         *quant_quality = -1;
     }
 
-    if (!pngx_palette256_prepare(png_data, png_size, opts, &rgba, &width, &height, &importance_map,
-                                 &importance_map_len, &speed, &quality_min, &quality_max,
-                                 &max_colors, &dither_level, &fixed_colors, &fixed_colors_len)) {
+    if (!palette256_prepare_context(&ctx, png_data, png_size, opts, &rgba, &width, &height,
+                                    &importance_map, &importance_map_len, &speed, &quality_min,
+                                    &quality_max, &max_colors, &dither_level, &fixed_colors,
+                                    &fixed_colors_len)) {
         return false;
     }
 
@@ -845,7 +1040,8 @@ bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pn
 
     if (status != PNGX_BRIDGE_QUANT_STATUS_OK) {
         free_quant_output(&output);
-        pngx_palette256_cleanup();
+        palette256_context_reset(&ctx);
+
         if (status == PNGX_BRIDGE_QUANT_STATUS_QUALITY_TOO_LOW) {
             colopresso_log(CPRES_LOG_LEVEL_WARNING, "PNGX: Quantization quality too low");
         }
@@ -862,12 +1058,14 @@ bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pn
     }
 
     success = false;
+
     if (output.indices && output.indices_len == pixel_count && output.palette &&
         output.palette_len > 0 && output.palette_len <= 256) {
-        success = pngx_palette256_finalize(output.indices, output.indices_len, output.palette,
-                                           output.palette_len, out_data, out_size);
+        success =
+            palette256_finalize_context(&ctx, output.indices, output.indices_len, output.palette,
+                                        output.palette_len, out_data, out_size);
     } else {
-        pngx_palette256_cleanup();
+        palette256_context_reset(&ctx);
     }
 
     free_quant_output(&output);
@@ -875,207 +1073,32 @@ bool pngx_quantize_palette256(const uint8_t *png_data, size_t png_size, const pn
     return success;
 }
 
-bool pngx_palette256_prepare(const uint8_t *png_data, size_t png_size, const pngx_options_t *opts,
-                             uint8_t **out_rgba, uint32_t *out_width, uint32_t *out_height,
-                             uint8_t **out_importance_map, size_t *out_importance_map_len,
-                             int32_t *out_speed, uint8_t *out_quality_min, uint8_t *out_quality_max,
-                             uint32_t *out_max_colors, float *out_dither_level,
-                             uint8_t **out_fixed_colors, size_t *out_fixed_colors_len)
+extern bool pngx_palette256_prepare(const uint8_t *png_data, size_t png_size,
+                                    const pngx_options_t *opts, uint8_t **out_rgba,
+                                    uint32_t *out_width, uint32_t *out_height,
+                                    uint8_t **out_importance_map, size_t *out_importance_map_len,
+                                    int32_t *out_speed, uint8_t *out_quality_min,
+                                    uint8_t *out_quality_max, uint32_t *out_max_colors,
+                                    float *out_dither_level, uint8_t **out_fixed_colors,
+                                    size_t *out_fixed_colors_len)
 {
-    float estimated_dither, gradient_dither_floor;
-    bool use_importance_map;
-    PngxBridgeQuantParams params = {0};
-
-    if (!png_data || png_size == 0 || !opts || !out_rgba || !out_width || !out_height) {
-        return false;
-    }
-
-    if (g_palette256_ctx.initialized) {
-        rgba_image_reset(&g_palette256_ctx.image);
-        quant_support_reset(&g_palette256_ctx.support);
-        memset(&g_palette256_ctx, 0, sizeof(g_palette256_ctx));
-    }
-
-    if (!load_rgba_image(png_data, png_size, &g_palette256_ctx.image)) {
-        return false;
-    }
-
-    alpha_bleed_rgb_from_opaque(g_palette256_ctx.image.rgba, g_palette256_ctx.image.width,
-                                g_palette256_ctx.image.height, opts);
-
-    image_stats_reset(&g_palette256_ctx.stats);
-    if (!prepare_quant_support(&g_palette256_ctx.image, opts, &g_palette256_ctx.support,
-                               &g_palette256_ctx.stats)) {
-        rgba_image_reset(&g_palette256_ctx.image);
-        quant_support_reset(&g_palette256_ctx.support);
-        return false;
-    }
-
-    g_palette256_ctx.tuned_opts = *opts;
-    g_palette256_ctx.prefer_uniform =
-        opts->palette256_gradient_profile_enable
-            ? is_smooth_gradient_profile(&g_palette256_ctx.stats, &g_palette256_ctx.tuned_opts)
-            : false;
-
-    if (g_palette256_ctx.prefer_uniform) {
-        g_palette256_ctx.tuned_opts.saliency_map_enable = false;
-        g_palette256_ctx.tuned_opts.chroma_anchor_enable = false;
-        g_palette256_ctx.tuned_opts.postprocess_smooth_enable = false;
-    } else {
-        build_fixed_palette(opts, &g_palette256_ctx.support, &g_palette256_ctx.tuned_opts);
-    }
-
-    g_palette256_ctx.resolved_dither = resolve_quant_dither(opts, &g_palette256_ctx.stats);
-
-    if (opts->lossy_dither_auto) {
-        estimated_dither = estimate_bitdepth_dither_level(g_palette256_ctx.image.rgba,
-                                                          g_palette256_ctx.image.width,
-                                                          g_palette256_ctx.image.height, 8);
-        if (estimated_dither > g_palette256_ctx.resolved_dither) {
-            g_palette256_ctx.resolved_dither = estimated_dither;
-        }
-    }
-
-    gradient_dither_floor = g_palette256_ctx.tuned_opts.palette256_gradient_profile_dither_floor;
-    if (gradient_dither_floor < 0.0f) {
-        gradient_dither_floor = PNGX_PALETTE256_GRADIENT_PROFILE_DITHER_FLOOR;
-    }
-
-    if (g_palette256_ctx.prefer_uniform &&
-        g_palette256_ctx.resolved_dither < gradient_dither_floor) {
-        g_palette256_ctx.resolved_dither = gradient_dither_floor;
-    }
-
-    g_palette256_ctx.tuned_opts.lossy_dither_level = g_palette256_ctx.resolved_dither;
-
-    use_importance_map = !g_palette256_ctx.prefer_uniform &&
-                         g_palette256_ctx.tuned_opts.saliency_map_enable &&
-                         g_palette256_ctx.support.importance_map != NULL;
-    fill_quant_params(&params, &g_palette256_ctx.tuned_opts,
-                      use_importance_map ? g_palette256_ctx.support.importance_map : NULL,
-                      use_importance_map ? g_palette256_ctx.support.importance_map_len : 0);
-    params.dithering_level = g_palette256_ctx.resolved_dither;
-    tune_quant_params_for_image(&params, &g_palette256_ctx.tuned_opts, &g_palette256_ctx.stats);
-
-    *out_rgba = g_palette256_ctx.image.rgba;
-    *out_width = g_palette256_ctx.image.width;
-    *out_height = g_palette256_ctx.image.height;
-
-    if (out_importance_map && out_importance_map_len) {
-        if (use_importance_map) {
-            *out_importance_map = g_palette256_ctx.support.importance_map;
-            *out_importance_map_len = g_palette256_ctx.support.importance_map_len;
-        } else {
-            *out_importance_map = NULL;
-            *out_importance_map_len = 0;
-        }
-    }
-
-    if (out_speed) {
-        *out_speed = params.speed;
-    }
-    if (out_quality_min) {
-        *out_quality_min = params.quality_min;
-    }
-    if (out_quality_max) {
-        *out_quality_max = params.quality_max;
-    }
-    if (out_max_colors) {
-        *out_max_colors = params.max_colors;
-    }
-    if (out_dither_level) {
-        *out_dither_level = params.dithering_level;
-    }
-
-    if (out_fixed_colors && out_fixed_colors_len) {
-        if (params.fixed_colors && params.fixed_colors_len > 0) {
-            *out_fixed_colors = (uint8_t *)params.fixed_colors;
-            *out_fixed_colors_len = params.fixed_colors_len;
-        } else {
-            *out_fixed_colors = NULL;
-            *out_fixed_colors_len = 0;
-        }
-    }
-
-    g_palette256_ctx.initialized = true;
-    return true;
+    return palette256_prepare_context(
+        &g_palette256_ctx, png_data, png_size, opts, out_rgba, out_width, out_height,
+        out_importance_map, out_importance_map_len, out_speed, out_quality_min, out_quality_max,
+        out_max_colors, out_dither_level, out_fixed_colors, out_fixed_colors_len);
 }
 
-bool pngx_palette256_finalize(const uint8_t *indices, size_t indices_len,
-                              const cpres_rgba_color_t *palette, size_t palette_len,
-                              uint8_t **out_data, size_t *out_size)
+extern bool pngx_palette256_finalize(const uint8_t *indices, size_t indices_len,
+                                     const cpres_rgba_color_t *palette, size_t palette_len,
+                                     uint8_t **out_data, size_t *out_size)
 {
-    uint8_t *mutable_indices;
-    cpres_rgba_color_t *mutable_palette;
-    bool success;
-
-    if (!g_palette256_ctx.initialized) {
-        return false;
-    }
-
-    if (!indices || indices_len == 0 || !palette || palette_len == 0 || palette_len > 256 ||
-        !out_data || !out_size) {
-        rgba_image_reset(&g_palette256_ctx.image);
-        quant_support_reset(&g_palette256_ctx.support);
-        memset(&g_palette256_ctx, 0, sizeof(g_palette256_ctx));
-
-        return false;
-    }
-
-    if (indices_len != g_palette256_ctx.image.pixel_count) {
-        rgba_image_reset(&g_palette256_ctx.image);
-        quant_support_reset(&g_palette256_ctx.support);
-        memset(&g_palette256_ctx, 0, sizeof(g_palette256_ctx));
-
-        return false;
-    }
-
-    mutable_palette = (cpres_rgba_color_t *)malloc(sizeof(cpres_rgba_color_t) * palette_len);
-    if (!mutable_palette) {
-        rgba_image_reset(&g_palette256_ctx.image);
-        quant_support_reset(&g_palette256_ctx.support);
-        memset(&g_palette256_ctx, 0, sizeof(g_palette256_ctx));
-
-        return false;
-    }
-    memcpy(mutable_palette, palette, sizeof(cpres_rgba_color_t) * palette_len);
-    sanitize_transparent_palette(mutable_palette, palette_len);
-
-    mutable_indices = (uint8_t *)malloc(indices_len);
-    if (!mutable_indices) {
-        free(mutable_palette);
-        rgba_image_reset(&g_palette256_ctx.image);
-        quant_support_reset(&g_palette256_ctx.support);
-        memset(&g_palette256_ctx, 0, sizeof(g_palette256_ctx));
-        return false;
-    }
-
-    memcpy(mutable_indices, indices, indices_len);
-
-    postprocess_indices(g_palette256_ctx.tuned_opts.thread_count, mutable_indices,
-                        g_palette256_ctx.image.width, g_palette256_ctx.image.height,
-                        mutable_palette, palette_len, &g_palette256_ctx.support,
-                        &g_palette256_ctx.tuned_opts);
-
-    success = pngx_create_palette_png(mutable_indices, indices_len, mutable_palette, palette_len,
-                                      g_palette256_ctx.image.width, g_palette256_ctx.image.height,
-                                      out_data, out_size);
-
-    free(mutable_indices);
-    free(mutable_palette);
-
-    rgba_image_reset(&g_palette256_ctx.image);
-    quant_support_reset(&g_palette256_ctx.support);
-    memset(&g_palette256_ctx, 0, sizeof(g_palette256_ctx));
-
-    return success;
+    return palette256_finalize_context(&g_palette256_ctx, indices, indices_len, palette,
+                                       palette_len, out_data, out_size);
 }
 
-void pngx_palette256_cleanup(void)
+extern void pngx_palette256_cleanup(void)
 {
     if (g_palette256_ctx.initialized) {
-        rgba_image_reset(&g_palette256_ctx.image);
-        quant_support_reset(&g_palette256_ctx.support);
-        memset(&g_palette256_ctx, 0, sizeof(g_palette256_ctx));
+        palette256_context_reset(&g_palette256_ctx);
     }
 }

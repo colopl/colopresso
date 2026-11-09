@@ -701,13 +701,15 @@ void build_fixed_palette(const pngx_options_t *source_opts, pngx_quant_support_t
         if (duplicate) {
             continue;
         }
+
+        if (support->combined_fixed_len >= PNGX_COMMON_FIXED_PALETTE_MAX) {
+            break;
+        }
+
         if (support->combined_fixed_len < total_cap) {
             support->combined_fixed_colors[support->combined_fixed_len] =
                 support->derived_colors[i];
             ++support->combined_fixed_len;
-        }
-        if (support->combined_fixed_len >= PNGX_COMMON_FIXED_PALETTE_MAX) {
-            break;
         }
     }
     if (support->combined_fixed_len > user_count) {

@@ -269,10 +269,10 @@ extern cpres_error_t cpres_encode_pngx_memory(const uint8_t *png_data, size_t pn
 
     pngx_fill_pngx_options(&opts, config);
 
-    threads = config ? config->pngx_threads : 0;
+    threads = config->pngx_threads;
 #if !defined(PNGX_BRIDGE_WASM_SEPARATION)
     if (threads >= 0) {
-        pngx_bridge_init_threads(threads);
+        pngx_bridge_init_threads((int)opts.thread_count);
     }
 #else
     (void)threads;

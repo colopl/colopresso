@@ -406,32 +406,37 @@ void colopresso_tm_set_gmt_offset(struct tm *tm)
 #if COLOPRESSO_WITH_FILE_OPS
 bool colopresso_fseeko(FILE *fp, uint64_t offset, int whence)
 {
-    if (!fp) {
+    if (!fp || offset > (uint64_t)INT64_MAX) {
         return false;
     }
 
 #ifdef _WIN32
-    return (uint64_t)_fseeki64(fp, offset, whence) == 0;
+    return _fseeki64(fp, (int64_t)offset, whence) == 0;
 #else
-    return (uint64_t)fseeko(fp, (off_t)offset, whence) == 0;
+    return fseeko(fp, (off_t)offset, whence) == 0;
 #endif
 }
 
 bool colopresso_ftello(FILE *fp, uint64_t *position_out)
 {
-    uint64_t pos;
+    int64_t pos;
 
     if (!fp || !position_out) {
         return false;
     }
 
 #ifdef _WIN32
-    pos = (uint64_t)_ftelli64(fp);
+    pos = (int64_t)_ftelli64(fp);
 #else
-    pos = (uint64_t)ftello(fp);
+    pos = (int64_t)ftello(fp);
 #endif
 
-    *position_out = pos;
+    if (pos < 0) {
+        return false;
+    }
+
+    *position_out = (uint64_t)pos;
+
     return true;
 }
 

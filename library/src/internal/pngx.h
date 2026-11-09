@@ -291,13 +291,13 @@ typedef enum {
     PNGX_BRIDGE_RESULT_INVALID_INPUT = 1,
     PNGX_BRIDGE_RESULT_OPTIMIZATION_FAILED = 2,
     PNGX_BRIDGE_RESULT_IO_ERROR = 3,
-} PngxBridgeResult;
+} pngx_bridge_result_t;
 
 typedef enum {
     PNGX_BRIDGE_QUANT_STATUS_OK = 0,
     PNGX_BRIDGE_QUANT_STATUS_QUALITY_TOO_LOW = 1,
     PNGX_BRIDGE_QUANT_STATUS_ERROR = 2,
-} PngxBridgeQuantStatus;
+} pngx_bridge_quant_status_t;
 
 typedef enum {
     PNGX_LOSSY_TYPE_PALETTE256 = COLOPRESSO_PNGX_LOSSY_TYPE_PALETTE256,
@@ -309,13 +309,13 @@ typedef struct {
     uint8_t optimization_level;
     bool strip_safe;
     bool optimize_alpha;
-} PngxBridgeOptions;
+} pngx_bridge_options_t;
 
 typedef struct {
     uint8_t optimization_level;
     bool strip_safe;
     bool optimize_alpha;
-} PngxBridgeLosslessOptions;
+} pngx_bridge_lossless_options_t;
 
 typedef struct {
     int32_t speed;
@@ -329,7 +329,7 @@ typedef struct {
     const cpres_rgba_color_t *fixed_colors;
     size_t fixed_colors_len;
     bool remap;
-} PngxBridgeQuantParams;
+} pngx_bridge_quant_params_t;
 
 typedef struct {
     cpres_rgba_color_t *palette;
@@ -337,10 +337,10 @@ typedef struct {
     uint8_t *indices;
     size_t indices_len;
     int32_t quality;
-} PngxBridgeQuantOutput;
+} pngx_bridge_quant_output_t;
 
 typedef struct {
-    PngxBridgeOptions bridge;
+    pngx_bridge_options_t bridge;
     bool lossy_enable;
     uint8_t lossy_type;
     uint16_t lossy_max_colors;
@@ -413,13 +413,13 @@ typedef struct {
 } pngx_quant_support_t;
 
 /* from pngx_bridge rust library */
-PngxBridgeResult pngx_bridge_optimize_lossless(const uint8_t *input_data, size_t input_size,
-                                               uint8_t **output_data, size_t *output_size,
-                                               const PngxBridgeLosslessOptions *options);
-PngxBridgeQuantStatus pngx_bridge_quantize(const cpres_rgba_color_t *pixels, size_t pixel_count,
-                                           uint32_t width, uint32_t height,
-                                           const PngxBridgeQuantParams *params,
-                                           PngxBridgeQuantOutput *output);
+pngx_bridge_result_t pngx_bridge_optimize_lossless(const uint8_t *input_data, size_t input_size,
+                                                   uint8_t **output_data, size_t *output_size,
+                                                   const pngx_bridge_lossless_options_t *options);
+pngx_bridge_quant_status_t pngx_bridge_quantize(const cpres_rgba_color_t *pixels,
+                                                size_t pixel_count, uint32_t width, uint32_t height,
+                                                const pngx_bridge_quant_params_t *params,
+                                                pngx_bridge_quant_output_t *output);
 void pngx_bridge_free(uint8_t *ptr);
 uint32_t pngx_bridge_oxipng_version(void);
 uint32_t pngx_bridge_libimagequant_version(void);

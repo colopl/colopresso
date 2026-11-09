@@ -10,6 +10,7 @@
  */
 
 #include <errno.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -67,12 +68,10 @@ static inline void apply_avif_config(avifEncoder *encoder, const cpres_config_t 
     }
 
     speed = config->avif_speed;
-    if (speed < 0 || speed > 10) {
-        if (speed < 0) {
-            speed = 0;
-        } else if (speed > 10) {
-            speed = 10;
-        }
+    if (speed < 0) {
+        speed = 0;
+    } else if (speed > 10) {
+        speed = 10;
     }
     encoder->speed = speed;
 
@@ -179,6 +178,10 @@ extern cpres_error_t avif_encode_rgba_to_memory(uint8_t *rgba_data, uint32_t wid
 
     *avif_data = NULL;
     *avif_size = 0;
+
+    if (!isfinite(config->avif_quality)) {
+        return CPRES_ERROR_INVALID_PARAMETER;
+    }
 
     err = encode_avif_common(rgba_data, width, height, &encoded, config);
     if (err != CPRES_OK) {

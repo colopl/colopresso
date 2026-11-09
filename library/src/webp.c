@@ -10,6 +10,7 @@
  */
 
 #include <errno.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -73,6 +74,10 @@ cpres_error_t webp_encode_rgba_to_memory(uint8_t *rgba_data, uint32_t width, uin
     WebPMemoryWriter writer;
 
     if (!rgba_data || !webp_data || !webp_size || !config) {
+        return CPRES_ERROR_INVALID_PARAMETER;
+    }
+
+    if (!isfinite(config->webp_quality) || !isfinite(config->webp_target_psnr)) {
         return CPRES_ERROR_INVALID_PARAMETER;
     }
 

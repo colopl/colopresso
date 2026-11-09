@@ -930,8 +930,9 @@ static inline bool apply_reduced_rgba32_quantization(uint32_t thread_count, colo
 {
     color_box_t *boxes = NULL, new_box;
     color_map_entry_t *map = NULL;
-    uint32_t *palette_seed = NULL, actual_colors = 0, mapped, split_index;
+    uint32_t *palette_seed = NULL, actual_colors = 0, mapped;
     uint8_t *palette_bits_rgb = NULL, *palette_bits_alpha = NULL, r, g, b, a;
+    int32_t split_index;
     size_t box_count = 0, map_count, i, idx;
     color_remap_parallel_ctx_t remap_ctx;
 
@@ -1250,8 +1251,11 @@ static inline int compare_freq_rank_desc(const void *lhs, const void *rhs)
 {
     const freq_rank_t *a = (const freq_rank_t *)lhs, *b = (const freq_rank_t *)rhs;
 
-    return a->count != b->count ? (b->count - a->count)
-                                : (a->color != b->color ? (a->color - b->color) : 0);
+    if (a->count != b->count) {
+        return a->count > b->count ? -1 : 1;
+    }
+
+    return a->color < b->color ? -1 : (a->color > b->color ? 1 : 0);
 }
 
 static inline bool enforce_manual_reduced_limit(uint32_t thread_count, pngx_rgba_image_t *image,

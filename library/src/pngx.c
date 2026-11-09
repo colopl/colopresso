@@ -254,7 +254,9 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config)
                 (int16_t)config->pngx_palette256_tune_quality_max_target;
         }
         if (config->pngx_threads >= 0) {
-            thread_count = (uint32_t)config->pngx_threads;
+            thread_count = (uint32_t)config->pngx_threads > cpres_get_max_thread_count()
+                               ? (int32_t)cpres_get_max_thread_count()
+                               : (int32_t)config->pngx_threads;
         }
     } else {
         opts->protected_colors = NULL;
@@ -268,7 +270,8 @@ void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *config)
     lossy_dither_level = clamp_float(lossy_dither_level, 0.0f, 1.0f);
     lossy_reduced_bits_rgb = clamp_reduced_bits(lossy_reduced_bits_rgb);
     lossy_reduced_bits_alpha = clamp_reduced_bits(lossy_reduced_bits_alpha);
-    if (postprocess_smooth_importance_cutoff < 0.0f) {
+
+    if (!(postprocess_smooth_importance_cutoff >= 0.0f)) {
         postprocess_smooth_importance_cutoff = -1.0f;
     } else {
         postprocess_smooth_importance_cutoff =
@@ -373,8 +376,8 @@ bool pngx_run_lossless_optimization(const uint8_t *png_data, size_t png_size,
                                     const pngx_options_t *opts, uint8_t **out_data,
                                     size_t *out_size)
 {
-    PngxBridgeLosslessOptions lossless;
-    PngxBridgeResult result;
+    pngx_bridge_lossless_options_t lossless;
+    pngx_bridge_result_t result;
 
     if (!png_data || png_size == 0 || !opts || !out_data || !out_size) {
         return false;

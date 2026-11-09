@@ -24,6 +24,7 @@ typedef struct {
     void *context;
     uint32_t start_index;
     uint32_t end_index;
+    bool created;
 } thread_work_t;
 
 static void *thread_worker(void *arg)
@@ -60,15 +61,19 @@ bool colopresso_parallel_for(uint32_t use_threads, uint32_t total_items, paralle
 {
     colopresso_thread_t *threads;
     thread_work_t *works;
-    uint32_t thread_count, chunk_size, remainder, start, end, i;
+    uint32_t thread_count, max_threads, chunk_size, remainder, start, end, i;
     int rc;
-    bool success = true;
 
     if (!func || total_items == 0) {
         return false;
     }
 
     thread_count = use_threads > 0 ? use_threads : cpres_get_default_thread_count();
+    max_threads = cpres_get_max_thread_count();
+    if (thread_count > max_threads) {
+        thread_count = max_threads;
+    }
+
     if (thread_count > total_items) {
         thread_count = total_items;
     }
@@ -104,20 +109,20 @@ bool colopresso_parallel_for(uint32_t use_threads, uint32_t total_items, paralle
         works[i].end_index = end;
 
         rc = colopresso_thread_create(&threads[i], NULL, thread_worker, &works[i]);
-        if (rc != 0) {
+        works[i].created = rc == 0;
+        if (!works[i].created) {
             colopresso_log(CPRES_LOG_LEVEL_WARNING,
                            "Threads: colopresso_thread_create failed (rc=%d) - falling back to "
                            "inline execution",
                            rc);
             works[i].func(works[i].context, works[i].start_index, works[i].end_index);
-            threads[i] = (colopresso_thread_t)NULL;
         }
 
         start = end;
     }
 
     for (i = 0; i < thread_count; ++i) {
-        if (threads[i] != (colopresso_thread_t)NULL) {
+        if (works[i].created) {
             colopresso_thread_join(threads[i], NULL);
         }
     }
@@ -125,7 +130,7 @@ bool colopresso_parallel_for(uint32_t use_threads, uint32_t total_items, paralle
     free(threads);
     free(works);
 
-    return success;
+    return true;
 }
 
 #else
