@@ -62,6 +62,9 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
   Linux を amd64 / arm64 と表記します (#352)。
 - **変更:** Renovate が、ワークフローの matrix で指定した Runner のラベルも更新するようにしました。リリース
   ビルドの macOS Runner は対象外です (#352)。
+- **変更:** Pull Request の変更が Electron アプリと共通 UI (`app/`)、JS の依存、ドキュメントだけのときは、
+  ライブラリ・CLI・WebAssembly・Python wheel のジョブを省くようにしました。Electron のジョブと E2E は実行します。
+  push と手動実行では、これまでどおりすべてのジョブを実行します (#352)。
 
 ### Documentation
 - **追加:** 依存関係のロールアップ更新 (棚卸し, セキュリティ確認, 更新, 各プラットフォームでのビルド,

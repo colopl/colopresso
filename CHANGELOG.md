@@ -64,6 +64,9 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
   names label macOS as Intel / Apple Silicon, Windows as x64 / arm64 and Linux as amd64 / arm64 (#352).
 - **Changed:** Renovate also updates runner labels set in workflow matrices, except the macOS runners
   of release builds (#352).
+- **Changed:** Pull requests that only change the Electron app or shared UI (`app/`), JS dependencies or
+  documents skip the library, CLI, WebAssembly and Python wheel jobs; the Electron jobs and their E2E
+  still run. Pushes and manual runs always run every job (#352).
 
 ### Documentation
 - **Added:** `.claude/skills/rollup-dependencies`, a Claude Code skill (`/rollup-dependencies`) for

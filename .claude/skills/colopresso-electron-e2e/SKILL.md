@@ -145,6 +145,10 @@ Apple Silicon) のすべてが、アプリをビルドしてネイティブア�
 アーティファクトに残る。macOS は `macos-26` / `macos-26-intel` で動くが、リリースのビルドは最低対応
 バージョンを上げないよう macOS 15 のままである。
 
+Pull Request の変更が Electron と共通 UI (`app/`)、JS の依存、ドキュメントだけのときは、ライブラリ・
+CLI・WebAssembly・Python wheel のジョブは省かれ、Electron のジョブとこの E2E だけが走る。そうした
+変更で GUI が壊れていないかは、この E2E が頼りになる。
+
 失敗したときは、ログとスクリーンショットを取得して見る。
 
 ```bash
