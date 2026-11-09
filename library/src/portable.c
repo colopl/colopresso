@@ -470,6 +470,30 @@ extern bool colopresso_ftello(FILE *fp, uint64_t *position_out)
     return true;
 }
 
+/* Removes path only when it is a regular file itself (not a device, a FIFO or a symbolic link), so
+ * that cleaning up after a failed write never deletes anything else. */
+extern bool colopresso_remove_regular_file(const char *path)
+{
+    struct stat st;
+    bool regular;
+
+    if (!path) {
+        return false;
+    }
+
+#ifdef _WIN32
+    regular = stat(path, &st) == 0 && S_ISREG(st.st_mode);
+#else
+    regular = lstat(path, &st) == 0 && S_ISREG(st.st_mode);
+#endif
+
+    if (!regular) {
+        return false;
+    }
+
+    return remove(path) == 0;
+}
+
 #endif
 
 /* LCOV_EXCL_STOP */

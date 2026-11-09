@@ -46,6 +46,30 @@ static inline bool cpres_get_file_size_bytes(const char *path, size_t *size_out)
     return true;
 }
 
+static inline cpres_error_t write_output_file(const char *path, const uint8_t *data, size_t size)
+{
+    FILE *fp;
+    size_t written;
+
+    fp = fopen(path, "wb");
+    if (!fp) {
+        colopresso_log(CPRES_LOG_LEVEL_ERROR, "Failed to open output file '%s'", path);
+
+        return CPRES_ERROR_IO;
+    }
+
+    written = fwrite(data, 1, size, fp);
+    if (fclose(fp) != 0 || written != size) {
+        colopresso_remove_regular_file(path);
+
+        colopresso_log(CPRES_LOG_LEVEL_ERROR, "Failed to write output file '%s'", path);
+
+        return CPRES_ERROR_IO;
+    }
+
+    return CPRES_OK;
+}
+
 extern cpres_error_t cpres_read_file_to_memory(const char *path, uint8_t **data_out,
                                                size_t *size_out)
 {
@@ -118,11 +142,10 @@ extern cpres_error_t cpres_read_file_to_memory(const char *path, uint8_t **data_
 extern cpres_error_t cpres_encode_webp_file(const char *input_path, const char *output_path,
                                             const cpres_config_t *config)
 {
-    FILE *fp = NULL;
     cpres_error_t error;
     uint32_t width, height;
     uint8_t *rgba_data = NULL, *webp_data = NULL;
-    size_t written, input_size = 0, webp_size = 0;
+    size_t input_size = 0, webp_size = 0;
     bool have_input_size;
 
     if (!input_path || !output_path || !config) {
@@ -155,35 +178,19 @@ extern cpres_error_t cpres_encode_webp_file(const char *input_path, const char *
         return CPRES_ERROR_OUTPUT_NOT_SMALLER;
     }
 
-    fp = fopen(output_path, "wb");
-    if (!fp) {
-        colopresso_log(CPRES_LOG_LEVEL_ERROR, "Failed to open output file '%s'", output_path);
-        cpres_free(webp_data);
-
-        return CPRES_ERROR_IO;
-    }
-
-    written = fwrite(webp_data, 1, webp_size, fp);
-    fclose(fp);
+    error = write_output_file(output_path, webp_data, webp_size);
     cpres_free(webp_data);
 
-    if (written != webp_size) {
-        colopresso_log(CPRES_LOG_LEVEL_ERROR, "Failed to write output file '%s'", output_path);
-
-        return CPRES_ERROR_IO;
-    }
-
-    return CPRES_OK;
+    return error;
 }
 
 extern cpres_error_t cpres_encode_avif_file(const char *input_path, const char *output_path,
                                             const cpres_config_t *config)
 {
-    FILE *fp = NULL;
     cpres_error_t error;
     uint32_t width, height;
     uint8_t *rgba_data = NULL, *avif_data = NULL;
-    size_t written, avif_size = 0, input_size = 0;
+    size_t avif_size = 0, input_size = 0;
     bool have_input_size;
 
     if (!input_path || !output_path || !config) {
@@ -217,34 +224,18 @@ extern cpres_error_t cpres_encode_avif_file(const char *input_path, const char *
         return CPRES_ERROR_OUTPUT_NOT_SMALLER;
     }
 
-    fp = fopen(output_path, "wb");
-    if (!fp) {
-        colopresso_log(CPRES_LOG_LEVEL_ERROR, "Failed to open output file '%s'", output_path);
-        cpres_free(avif_data);
-
-        return CPRES_ERROR_IO;
-    }
-
-    written = fwrite(avif_data, 1, avif_size, fp);
-    fclose(fp);
+    error = write_output_file(output_path, avif_data, avif_size);
     cpres_free(avif_data);
 
-    if (written != avif_size) {
-        colopresso_log(CPRES_LOG_LEVEL_ERROR, "Failed to write output file '%s'", output_path);
-
-        return CPRES_ERROR_IO;
-    }
-
-    return CPRES_OK;
+    return error;
 }
 
 extern cpres_error_t cpres_encode_pngx_file(const char *input_path, const char *output_path,
                                             const cpres_config_t *config)
 {
-    FILE *fp = NULL;
     cpres_error_t err;
     uint8_t *input_data = NULL, *optimized_data = NULL;
-    size_t input_size = 0, png_size = 0, optimized_size = 0, written = 0;
+    size_t input_size = 0, png_size = 0, optimized_size = 0;
     bool have_input_size = false, allow_lossy_rgba_larger_output = false;
 
     if (!input_path || !output_path || !config) {
@@ -287,25 +278,10 @@ extern cpres_error_t cpres_encode_pngx_file(const char *input_path, const char *
         }
     }
 
-    fp = fopen(output_path, "wb");
-    if (!fp) {
-        colopresso_log(CPRES_LOG_LEVEL_ERROR, "Failed to open output file '%s'", output_path);
-        cpres_free(optimized_data);
-
-        return CPRES_ERROR_IO;
-    }
-
-    written = fwrite(optimized_data, 1, optimized_size, fp);
-    fclose(fp);
+    err = write_output_file(output_path, optimized_data, optimized_size);
     cpres_free(optimized_data);
 
-    if (written != optimized_size) {
-        colopresso_log(CPRES_LOG_LEVEL_ERROR, "Failed to write output file '%s'", output_path);
-
-        return CPRES_ERROR_IO;
-    }
-
-    return CPRES_OK;
+    return err;
 }
 
 #endif /* COLOPRESSO_WITH_FILE_OPS */
