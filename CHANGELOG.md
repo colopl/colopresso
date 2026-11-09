@@ -67,9 +67,11 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
 - **Changed:** Pull requests that only change the Electron app or shared UI (`app/`), JS dependencies or
   documents skip the library, CLI, WebAssembly and Python wheel jobs; the Electron jobs and their E2E
   still run. Pushes and manual runs always run every job (#352).
-- **Changed:** CI builds one Electron architecture per OS at a time (two Electron jobs at once instead
-  of four), because downloads from GitHub failed with 504 Gateway Time-out when all four ran together.
-  A failed architecture no longer cancels the other (#352).
+- **Changed:** The CI and release Electron jobs cache what Electron and electron-builder download from
+  GitHub (Electron itself and tools such as NSIS and the DMG builder), keyed by OS, architecture,
+  Electron and electron-builder versions, so builds no longer fail whenever GitHub answers with 504
+  Gateway Time-out. The cache is saved right after the build, before tests run. Jobs that build the Rust
+  bridge also cache the Cargo registry. A failed Electron architecture no longer cancels the other (#352).
 
 ### Documentation
 - **Added:** `.claude/skills/rollup-dependencies`, a Claude Code skill (`/rollup-dependencies`) for

@@ -65,9 +65,11 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
 - **変更:** Pull Request の変更が Electron アプリと共通 UI (`app/`)、JS の依存、ドキュメントだけのときは、
   ライブラリ・CLI・WebAssembly・Python wheel のジョブを省くようにしました。Electron のジョブと E2E は実行します。
   push と手動実行では、これまでどおりすべてのジョブを実行します (#352)。
-- **変更:** CI の Electron のビルドを OS ごとに 1 アーキテクチャずつ実行するようにしました (同時に 4 つではなく
-  2 つ)。4 つ同時に動かすと GitHub からのダウンロードが 504 Gateway Time-out で失敗していたためです。
-  1 つのアーキテクチャが失敗しても、もう一方は取り消されません (#352)。
+- **変更:** CI とリリースの Electron のジョブで、Electron と electron-builder が GitHub から取得するもの (Electron
+  本体と NSIS や DMG 作成用のツール) をキャッシュするようにしました。キーは OS、アーキテクチャ、Electron と
+  electron-builder の版です。GitHub が 504 Gateway Time-out を返すたびにビルドが失敗することがなくなります。
+  キャッシュはビルドの直後、テストより前に保存します。Rust のブリッジをビルドするジョブでは Cargo の
+  レジストリもキャッシュします。Electron のあるアーキテクチャが失敗しても、もう一方は取り消されません (#352)。
 
 ### Documentation
 - **追加:** 依存関係のロールアップ更新 (棚卸し, セキュリティ確認, 更新, 各プラットフォームでのビルド,

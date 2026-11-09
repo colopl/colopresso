@@ -253,11 +253,8 @@ jobs:
     name: WindowsElectron (${{ matrix.arch.electron }})
     needs: Prepare
     strategy:
-      # Electron and electron-builder downloads from GitHub hit 504 Gateway Time-out when all four
-      # Electron jobs run at once, so each OS builds one architecture at a time (two jobs in total),
-      # and a failed architecture does not cancel the other.
+      # One architecture failing (for example on a transient download error) must not cancel the other.
       fail-fast: false
-      max-parallel: 1
       matrix:
         arch:
           - electron: x64
@@ -267,6 +264,11 @@ jobs:
             cmake: ARM64
             runs-on: windows-11-arm
     runs-on: ${{ matrix.arch.runs-on }}
+    env:
+      # Electron and electron-builder (tools such as NSIS and the DMG builder) download into these
+      # directories, which are cached so the builds do not depend on GitHub serving them every time.
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+      electron_config_cache: ${{ github.workspace }}/.cache/electron
     steps:
       - name: Download dummy versioned code
         uses: actions/download-artifact@v8
@@ -287,6 +289,30 @@ jobs:
         uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: ${{ needs.Prepare.outputs.rust_stable }}
+      - name: Resolve Electron versions for the download cache
+        id: electron_versions
+        shell: bash
+        run: |
+          echo "electron=$(sed -n 's/^  electron@\([0-9][^:(]*\):$/\1/p' pnpm-lock.yaml | head -n 1)" >> "${GITHUB_OUTPUT}"
+          echo "builder=$(sed -n 's/^  app-builder-lib@\([0-9][^:(]*\):$/\1/p' pnpm-lock.yaml | head -n 1)" >> "${GITHUB_OUTPUT}"
+      - name: Restore Electron downloads
+        id: electron_cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            .cache/electron
+            .cache/electron-builder
+          key: electron-downloads-${{ runner.os }}-${{ matrix.arch.electron }}-${{ steps.electron_versions.outputs.electron }}-${{ steps.electron_versions.outputs.builder }}
+      - name: Cache Cargo registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('library/pngx_bridge/Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
       - name: Install dependencies
         shell: pwsh
         run: pnpm install --frozen-lockfile
@@ -298,6 +324,16 @@ jobs:
           cmake --build "build" --config "Release" --parallel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Saved as soon as the build has downloaded everything, so a later failure (tests, E2E) does
+      # not throw the downloads away.
+      - name: Save Electron downloads
+        if: steps.electron_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            .cache/electron
+            .cache/electron-builder
+          key: ${{ steps.electron_cache.outputs.cache-primary-key }}
       - name: Test native addon
         shell: pwsh
         run: node --test "app/electron/native/colopresso_native.test.mjs"
@@ -325,11 +361,8 @@ jobs:
     name: macOSElectron (${{ matrix.arch.name }})
     needs: Prepare
     strategy:
-      # Electron and electron-builder downloads from GitHub hit 504 Gateway Time-out when all four
-      # Electron jobs run at once, so each OS builds one architecture at a time (two jobs in total),
-      # and a failed architecture does not cancel the other.
+      # One architecture failing (for example on a transient download error) must not cancel the other.
       fail-fast: false
-      max-parallel: 1
       matrix:
         arch:
           - name: Apple Silicon
@@ -341,6 +374,11 @@ jobs:
             electron: x64
             runs-on: macos-26-intel
     runs-on: ${{ matrix.arch.runs-on }}
+    env:
+      # Electron and electron-builder (tools such as NSIS and the DMG builder) download into these
+      # directories, which are cached so the builds do not depend on GitHub serving them every time.
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+      electron_config_cache: ${{ github.workspace }}/.cache/electron
     steps:
       - name: Download dummy versioned code
         uses: actions/download-artifact@v8
@@ -362,6 +400,30 @@ jobs:
         uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: ${{ needs.Prepare.outputs.rust_stable }}
+      - name: Resolve Electron versions for the download cache
+        id: electron_versions
+        shell: bash
+        run: |
+          echo "electron=$(sed -n 's/^  electron@\([0-9][^:(]*\):$/\1/p' pnpm-lock.yaml | head -n 1)" >> "${GITHUB_OUTPUT}"
+          echo "builder=$(sed -n 's/^  app-builder-lib@\([0-9][^:(]*\):$/\1/p' pnpm-lock.yaml | head -n 1)" >> "${GITHUB_OUTPUT}"
+      - name: Restore Electron downloads
+        id: electron_cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            .cache/electron
+            .cache/electron-builder
+          key: electron-downloads-${{ runner.os }}-${{ matrix.arch.electron }}-${{ steps.electron_versions.outputs.electron }}-${{ steps.electron_versions.outputs.builder }}
+      - name: Cache Cargo registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('library/pngx_bridge/Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build Electron app (native addon)
@@ -370,6 +432,16 @@ jobs:
           cmake --build "build" --config "Release" --parallel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Saved as soon as the build has downloaded everything, so a later failure (tests, E2E) does
+      # not throw the downloads away.
+      - name: Save Electron downloads
+        if: steps.electron_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            .cache/electron
+            .cache/electron-builder
+          key: ${{ steps.electron_cache.outputs.cache-primary-key }}
       - name: Test native addon
         run: node --test "app/electron/native/colopresso_native.test.mjs"
         env:
@@ -405,6 +477,16 @@ jobs:
         run: |
           tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
           Remove-Item "dummy-versioned-code.tar.gz" -Force
+      - name: Cache Cargo registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('library/pngx_bridge/Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
       - name: Configure CMake
         run: cmake -B build -DCMAKE_BUILD_TYPE="Release" -DCOLOPRESSO_USE_CLI=ON -DCOLOPRESSO_USE_TESTS=ON
       - name: Build
@@ -437,6 +519,16 @@ jobs:
         run: |
           tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
           rm -rf "dummy-versioned-code.tar.gz"
+      - name: Cache Cargo registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('library/pngx_bridge/Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
       - name: Configure CMake
         run: |
           cmake -B build \
@@ -595,6 +687,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r python/requirements.txt
+      - name: Cache Cargo registry
+        if: matrix.os != 'linux'
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('library/pngx_bridge/Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
       - name: Build wheels
         env:
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux }}

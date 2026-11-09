@@ -208,6 +208,11 @@ jobs:
           - ${{ needs.Prepare.outputs.update_channel }}
           - ${{ needs.Prepare.outputs.internal_channel_raw }}
     runs-on: ${{ matrix.arch.runs-on }}
+    env:
+      # Electron and electron-builder (tools such as NSIS and the DMG builder) download into these
+      # directories, which are cached so the builds do not depend on GitHub serving them every time.
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+      electron_config_cache: ${{ github.workspace }}/.cache/electron
     steps:
       - name: Download versioned code
         uses: actions/download-artifact@v8
@@ -250,6 +255,30 @@ jobs:
         uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: ${{ needs.Prepare.outputs.rust_stable }}
+      - name: Resolve Electron versions for the download cache
+        id: electron_versions
+        shell: bash
+        run: |
+          echo "electron=$(sed -n 's/^  electron@\([0-9][^:(]*\):$/\1/p' pnpm-lock.yaml | head -n 1)" >> "${GITHUB_OUTPUT}"
+          echo "builder=$(sed -n 's/^  app-builder-lib@\([0-9][^:(]*\):$/\1/p' pnpm-lock.yaml | head -n 1)" >> "${GITHUB_OUTPUT}"
+      - name: Restore Electron downloads
+        id: electron_cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            .cache/electron
+            .cache/electron-builder
+          key: electron-downloads-${{ runner.os }}-${{ matrix.arch.electron }}-${{ steps.electron_versions.outputs.electron }}-${{ steps.electron_versions.outputs.builder }}
+      - name: Cache Cargo registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('library/pngx_bridge/Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
       - name: Install dependencies
         shell: pwsh
         run: pnpm install --frozen-lockfile
@@ -266,6 +295,16 @@ jobs:
           cmake --build "build" --config "Release" --parallel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Saved as soon as the build has downloaded everything, so a later failure (tests, E2E) does
+      # not throw the downloads away.
+      - name: Save Electron downloads
+        if: steps.electron_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            .cache/electron
+            .cache/electron-builder
+          key: ${{ steps.electron_cache.outputs.cache-primary-key }}
       - name: Copy artifacts
         shell: pwsh
         run: |
@@ -299,6 +338,11 @@ jobs:
           - electron: x64
             runs-on: macos-15-intel
     runs-on: ${{ matrix.arch.runs-on }}
+    env:
+      # Electron and electron-builder (tools such as NSIS and the DMG builder) download into these
+      # directories, which are cached so the builds do not depend on GitHub serving them every time.
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+      electron_config_cache: ${{ github.workspace }}/.cache/electron
     steps:
       - name: Download versioned code
         uses: actions/download-artifact@v8
@@ -359,6 +403,30 @@ jobs:
           printf '%s' "${APPLE_API_KEY}" > "${KEY_PATH}"
           chmod 600 "${KEY_PATH}"
           echo "KEY_PATH=${KEY_PATH}" >> "${GITHUB_OUTPUT}"
+      - name: Resolve Electron versions for the download cache
+        id: electron_versions
+        shell: bash
+        run: |
+          echo "electron=$(sed -n 's/^  electron@\([0-9][^:(]*\):$/\1/p' pnpm-lock.yaml | head -n 1)" >> "${GITHUB_OUTPUT}"
+          echo "builder=$(sed -n 's/^  app-builder-lib@\([0-9][^:(]*\):$/\1/p' pnpm-lock.yaml | head -n 1)" >> "${GITHUB_OUTPUT}"
+      - name: Restore Electron downloads
+        id: electron_cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            .cache/electron
+            .cache/electron-builder
+          key: electron-downloads-${{ runner.os }}-${{ matrix.arch.electron }}-${{ steps.electron_versions.outputs.electron }}-${{ steps.electron_versions.outputs.builder }}
+      - name: Cache Cargo registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('library/pngx_bridge/Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build Electron app (signed & notarized)
@@ -393,6 +461,16 @@ jobs:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           NOTARY_KEY_PATH: ${{ steps.prepare_apple_key.outputs.KEY_PATH }}
+      # Saved as soon as the build has downloaded everything, so a later failure (tests, E2E) does
+      # not throw the downloads away.
+      - name: Save Electron downloads
+        if: steps.electron_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            .cache/electron
+            .cache/electron-builder
+          key: ${{ steps.electron_cache.outputs.cache-primary-key }}
       - name: Clean up Apple API Key
         if: ${{ always() && steps.macos_signing.outputs.HAS_NOTARY == 'true' }}
         env:
