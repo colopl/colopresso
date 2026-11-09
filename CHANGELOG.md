@@ -46,11 +46,18 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
   and chroma anchors are enabled (#353).
 - **Fixed:** The color ranking of the Reduced RGBA32 mode uses a consistent comparison for sorting
   (#353).
+- **Fixed:** `cpres_encode_*_file()` return `CPRES_ERROR_IO` when the output file cannot be closed
+  (for example, when the disk is full) and remove the partially written file; they reported success
+  before (#353).
+- **Added:** `colopresso_remove_regular_file()` in `colopresso/portable.h`: removes a path only when it
+  is a regular file (not a device, a FIFO or a symbolic link). The file APIs and the CLI use it to
+  remove a partially written output file (#353).
 
 ### CLI
-- **Fixed:** Floating-point options reject `nan` and `inf`, `--quality <min>-<max>` and
-  `--protect-color` are parsed strictly (trailing text, signs and spaces were accepted), and a failed
-  write removes the partially written output file (#353).
+- **Fixed:** Numeric options reject `nan`, `inf`, leading spaces and a leading `+`.
+  `--quality <min>-<max>` no longer accepts trailing text, `--protect-color` accepts hexadecimal
+  digits only (signs and spaces inside a color were accepted), and a failed write removes the
+  partially written output file (#353).
 
 ### GUI
 - **Changed:** The GUI runs on Electron 45 (Chromium 156, Node.js 24.22) instead of Electron 44
