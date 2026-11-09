@@ -23,6 +23,20 @@ jobs:
     steps:
       - name: Approved
         run: echo "CI execution approved (or no approval gate required for this event)."
+  Style:
+    needs: Approval
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup clang-format
+        run: |
+          python3 -m venv "${RUNNER_TEMP}/style"
+          "${RUNNER_TEMP}/style/bin/pip" install --requirement "utils/style-requirements.txt"
+      - name: C conventions (AGENTS.md, utils/check_style.py)
+        run: python3 -I "utils/check_style.py"
+      - name: clang-format
+        run: git ls-files -z '*.c' '*.h' | xargs -0 "${RUNNER_TEMP}/style/bin/clang-format" --dry-run --Werror --style=file
   Prepare:
     needs: Approval
     runs-on: ubuntu-latest
