@@ -1,0 +1,46 @@
+name: cibuildwheel virtualenv
+description: >-
+  Put the virtualenv.pyz that cibuildwheel uses on Windows and macOS into its cache, fetching it
+  through the GitHub API with the job token. cibuildwheel otherwise downloads it from a GitHub release
+  anonymously on every run, which fails while GitHub limits anonymous requests. Run it after
+  cibuildwheel is installed, with the same Python.
+inputs:
+  token:
+    description: Token for the GitHub API
+    default: ${{ github.token }}
+runs:
+  using: composite
+  steps:
+    - name: Fetch virtualenv through the GitHub API
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+        # The version, URL and checksum come from the installed cibuildwheel, so they always match
+        # what it would download itself. Python on Windows ends the line with CR, which is dropped.
+        read -r VERSION URL SHA256 CACHE_DIR < <(python -I -c '
+        import tomllib
+        from cibuildwheel.util import resources
+        from cibuildwheel.util.file import CIBW_CACHE_PATH
+        with resources.VIRTUALENV.open("rb") as f:
+            config = tomllib.load(f)["default"]
+        print(config["version"], config["url"], config["sha256"], CIBW_CACHE_PATH.as_posix())
+        ' | tr -d '\r')
+        if ! [[ "${URL}" =~ ^https://github\.com/([^/]+/[^/]+)/releases/download/([^/]+)/([^/]+)$ ]]; then
+          echo "virtualenv is not downloaded from a GitHub release (${URL}); nothing to do."
+          exit 0
+        fi
+        DEST="${CACHE_DIR}/virtualenv-${VERSION}.pyz"
+        if test -f "${DEST}"; then
+          echo "virtualenv ${VERSION} is already cached."
+          exit 0
+        fi
+        mkdir -p "${CACHE_DIR}"
+        gh release download "${BASH_REMATCH[2]}" --repo "${BASH_REMATCH[1]}" --pattern "${BASH_REMATCH[3]}" --output "${DEST}.tmp"
+        if ! python -I -c 'import hashlib, sys; sys.exit(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest() != sys.argv[2])' "${DEST}.tmp" "${SHA256}"; then
+          rm -f "${DEST}.tmp"
+          echo "virtualenv.pyz does not match its checksum." >&2
+          exit 1
+        fi
+        mv "${DEST}.tmp" "${DEST}"

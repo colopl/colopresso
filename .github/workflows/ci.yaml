@@ -7,9 +7,14 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+# A new push to a pull request cancels the older run of that pull request. Pushes to main and manual
+# runs are grouped by commit, so none of them is cancelled or held back by a later one.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   Approval:
@@ -22,6 +27,7 @@ jobs:
     needs: Approval
     runs-on: ubuntu-latest
     outputs:
+      native: ${{ steps.changes.outputs.native }}
       emsdk_version: ${{ steps.get_emsdk_version.outputs.emsdk_version }}
       rust_stable: ${{ steps.get_rust_versions.outputs.rust_stable }}
       wasm_pack_version: ${{ steps.get_rust_versions.outputs.wasm_pack_version }}
@@ -30,7 +36,27 @@ jobs:
         uses: actions/checkout@v7
         with:
           submodules: true
-          fetch-depth: 1
+          fetch-depth: 2
+      - name: Detect changes outside Electron
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          # A pull request that only touches the Electron app, the shared UI, the JS dependencies or
+          # documents cannot change the library, the CLI, the WebAssembly builds or the Python wheels,
+          # so those jobs are skipped for it; the Electron jobs and their E2E still run. Pushes and
+          # manual runs always run everything. The checkout of a pull request is its merge commit,
+          # whose first parent is the base branch.
+          if test "${EVENT_NAME}" != "pull_request"; then
+            echo "native=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          git diff --name-only HEAD^1 HEAD | tee "${RUNNER_TEMP}/changed-files.txt"
+          if grep -qvE '^(app/|\.claude/|resources/|pages/|[^/]+\.md$|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|\.prettierrc\.json$|\.github/renovate\.json$)' "${RUNNER_TEMP}/changed-files.txt"; then
+            echo "native=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "native=false" >> "${GITHUB_OUTPUT}"
+          fi
       - name: Setup Node.js
         uses: actions/setup-node@v7.1.0
         with:
@@ -66,17 +92,28 @@ jobs:
           path: ./dummy-versioned-code.tar.gz
           retention-days: 1
   LinuxAndWasm:
+    name: LinuxAndWasm (${{ matrix.arch.name }}, ${{ matrix.mode }})
     needs: Prepare
+    if: needs.Prepare.outputs.native == 'true'
     strategy:
+      # Every mode is an independent check, so one failing must not cancel the others.
+      fail-fast: false
       matrix:
-        include:
-          - arch: amd64
+        arch:
+          - name: amd64
             platform: linux/amd64
-            runs-on: ubuntu-24.04
-          - arch: arm64
+            runs-on: ubuntu-26.04
+          - name: arm64
             platform: linux/arm64
-            runs-on: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runs-on }}
+            runs-on: ubuntu-26.04-arm
+        mode:
+          - native
+          - asan
+          - ubsan
+          - wasm
+    runs-on: ${{ matrix.arch.runs-on }}
+    env:
+      DOCKER_BUILD_RECORD_UPLOAD: false
     steps:
       - name: Download dummy versioned code
         uses: actions/download-artifact@v8
@@ -87,66 +124,122 @@ jobs:
         run: |
           tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
           rm -rf "dummy-versioned-code.tar.gz"
+      - name: Restore libaom source
+        uses: ./.github/actions/libaom-source
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      # The toolchain stage does not depend on the project sources, so its layers come from the
+      # Actions cache unless the Dockerfile, rust-toolchain.toml or the emsdk submodule changed. The
+      # four modes of an architecture build the same image; only the native job writes the cache, and
+      # only outside pull requests, so pull requests reuse the image of main without adding to the
+      # cache storage of the repository.
       - name: Build container
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile
+          target: toolchain
+          build-args: |
+            PLATFORM=${{ matrix.arch.platform }}
+            ENABLE_VALGRIND=0
+            ENABLE_CLANG=1
+            ENABLE_EMSDK=1
+            EMSDK_VERSION=${{ needs.Prepare.outputs.emsdk_version }}
+          tags: ci
+          load: true
+          cache-from: type=gha,scope=ci-${{ matrix.arch.name }}
+          cache-to: ${{ github.event_name != 'pull_request' && matrix.mode == 'native' && format('type=gha,scope=ci-{0},mode=max,ignore-error=true', matrix.arch.name) || '' }}
+      # The objects of the third-party libraries (libaom, libavif, libwebp, ...) dominate the build.
+      # The key changes with the submodules and the toolchain. A key is saved once, outside pull
+      # requests; pull requests and later runs restore it (or the latest entry of the mode), so the
+      # number of entries does not grow with the number of runs.
+      - name: Resolve ccache key
+        id: ccache_key
         run: |
-          docker build \
-            --file "Dockerfile" \
-            --build-arg PLATFORM="${{ matrix.platform }}" \
-            --build-arg ENABLE_VALGRIND="0" \
-            --build-arg ENABLE_CLANG="1" \
-            --build-arg ENABLE_EMSDK="1" \
-            --build-arg EMSDK_VERSION="${{ needs.Prepare.outputs.emsdk_version }}" \
-            --target "builder" \
-            --tag "ci" \
-            .
-      - name: Build and test native and integrated Node/WebAssembly modes
+          SUBMODULES="$(git ls-tree HEAD third_party/ | sha256sum | cut -c1-16)"
+          echo "prefix=ccache-${{ runner.os }}-${{ matrix.arch.name }}-${{ matrix.mode }}-" >> "${GITHUB_OUTPUT}"
+          echo "key=ccache-${{ runner.os }}-${{ matrix.arch.name }}-${{ matrix.mode }}-${SUBMODULES}-${{ hashFiles('Dockerfile', 'cmake/libaom.cmake') }}" >> "${GITHUB_OUTPUT}"
+      - name: Restore ccache
+        id: ccache
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/ccache
+          key: ${{ steps.ccache_key.outputs.key }}
+          restore-keys: ${{ steps.ccache_key.outputs.prefix }}
+      - name: Build and test
+        env:
+          MODE: ${{ matrix.mode }}
         run: |
           docker run \
             --rm \
             --volume "${PWD}:/workspace" \
             --workdir "/workspace" \
+            --env MODE \
+            --env CCACHE_DIR="/workspace/.cache/ccache" \
+            --env CCACHE_BASEDIR="/workspace" \
+            --env CCACHE_MAXSIZE="250M" \
             ci \
             /bin/bash -lc '
               set -e
 
-              rm -rf "build"
-              cmake -B "build" \
-                -DCMAKE_BUILD_TYPE="Release" \
-                -DCOLOPRESSO_USE_TESTS=ON \
-                -DCOLOPRESSO_USE_UTILS=ON \
-                -DCOLOPRESSO_USE_CLI=ON
-              cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
-              ctest --test-dir "build" --output-on-failure --parallel
+              ccache --zero-stats > /dev/null
+              LAUNCHER=(-DCMAKE_C_COMPILER_LAUNCHER="ccache" -DCMAKE_CXX_COMPILER_LAUNCHER="ccache")
 
-              for OPTS in ASAN UBSAN; do
-                rm -rf "build"
-                cmake -B "build" \
-                  -DCMAKE_C_COMPILER="$(command -v "clang")" \
-                  -DCMAKE_CXX_COMPILER="$(command -v "clang++")" \
-                  -DCMAKE_BUILD_TYPE="Debug" \
-                  -DCOLOPRESSO_USE_TESTS=ON \
-                  -DCOLOPRESSO_USE_UTILS=ON \
-                  -DCOLOPRESSO_USE_CLI=ON \
-                  -DCOLOPRESSO_USE_${OPTS}=ON
-                cmake --build "build" --config "Debug" --parallel="$(($(nproc)-1))"
-                ctest --test-dir "build" --output-on-failure --parallel
-              done
+              case "${MODE}" in
+                native)
+                  cmake -B "build" \
+                    -DCMAKE_BUILD_TYPE="Release" \
+                    -DCOLOPRESSO_USE_TESTS=ON \
+                    -DCOLOPRESSO_USE_UTILS=ON \
+                    -DCOLOPRESSO_USE_CLI=ON \
+                    "${LAUNCHER[@]}"
+                  cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
+                  ctest --test-dir "build" --output-on-failure --parallel
+                  ;;
+                asan | ubsan)
+                  cmake -B "build" \
+                    -DCMAKE_C_COMPILER="$(command -v "clang")" \
+                    -DCMAKE_CXX_COMPILER="$(command -v "clang++")" \
+                    -DCMAKE_BUILD_TYPE="Debug" \
+                    -DCOLOPRESSO_USE_TESTS=ON \
+                    -DCOLOPRESSO_USE_UTILS=ON \
+                    -DCOLOPRESSO_USE_CLI=ON \
+                    -DCOLOPRESSO_USE_${MODE^^}=ON \
+                    "${LAUNCHER[@]}"
+                  cmake --build "build" --config "Debug" --parallel="$(($(nproc)-1))"
+                  ctest --test-dir "build" --output-on-failure --parallel
+                  ;;
+                wasm)
+                  # emcc runs the compiler through this wrapper.
+                  export EM_COMPILER_WRAPPER="ccache"
+                  emcmake cmake -B "build" \
+                    -DCMAKE_BUILD_TYPE="Release" \
+                    -DCOLOPRESSO_NODE_BUILD=ON \
+                    -DCOLOPRESSO_USE_TESTS=ON \
+                    -DCOLOPRESSO_USE_UTILS=ON \
+                    -DCOLOPRESSO_USE_CLI=ON
+                  cmake --build "build" --target "pngx_bridge_build" --parallel="$(($(nproc)-1))"
+                  if emnm "build/pngx_bridge/target/wasm32-unknown-emscripten/release/libpngx_bridge.a" | grep -Eq "(_Unwind_|__cxa_throw|__cxa_begin_catch|__gxx_personality_v0|__clang_call_terminate)"; then
+                    echo "pngx_bridge archive still depends on unwind exception symbols"
+                    exit 1
+                  fi
+                  cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
+                  ctest --test-dir "build" --output-on-failure --parallel
+                  ;;
+                *)
+                  echo "Unknown mode: ${MODE}" >&2
+                  exit 1
+                  ;;
+              esac
 
-              rm -rf "build"
-              emcmake cmake -B "build" \
-                -DCMAKE_BUILD_TYPE="Release" \
-                -DCOLOPRESSO_NODE_BUILD=ON \
-                -DCOLOPRESSO_USE_TESTS=ON \
-                -DCOLOPRESSO_USE_UTILS=ON \
-                -DCOLOPRESSO_USE_CLI=ON
-              cmake --build "build" --target "pngx_bridge_build" --parallel="$(($(nproc)-1))"
-              if emnm "build/pngx_bridge/target/wasm32-unknown-emscripten/release/libpngx_bridge.a" | grep -Eq "(_Unwind_|__cxa_throw|__cxa_begin_catch|__gxx_personality_v0|__clang_call_terminate)"; then
-                echo "pngx_bridge archive still depends on unwind exception symbols"
-                exit 1
-              fi
-              cmake --build "build" --config "Release" --parallel="$(($(nproc)-1))"
-              ctest --test-dir "build" --output-on-failure --parallel
+              ccache --show-stats
             '
+      - name: Save ccache
+        if: ${{ !cancelled() && github.event_name != 'pull_request' && steps.ccache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .cache/ccache
+          key: ${{ steps.ccache_key.outputs.key }}
   Valgrind:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: Prepare
@@ -155,10 +248,10 @@ jobs:
         include:
           - arch: amd64
             platform: linux/amd64
-            runs-on: ubuntu-24.04
+            runs-on: ubuntu-26.04
           - arch: arm64
             platform: linux/arm64
-            runs-on: ubuntu-24.04-arm
+            runs-on: ubuntu-26.04-arm
     runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 720
     steps:
@@ -197,6 +290,8 @@ jobs:
               -o "${VALGRIND_TARBALL}" \
               "https://sourceware.org/pub/valgrind/valgrind-${VALGRIND_VERSION}.tar.bz2"
           fi
+      - name: Restore libaom source
+        uses: ./.github/actions/libaom-source
       - name: Build container
         run: |
           docker build \
@@ -227,8 +322,11 @@ jobs:
               ctest --test-dir "build" --output-on-failure --parallel
             '
   WindowsElectron:
+    name: WindowsElectron (${{ matrix.arch.electron }})
     needs: Prepare
     strategy:
+      # One architecture failing (for example on a transient download error) must not cancel the other.
+      fail-fast: false
       matrix:
         arch:
           - electron: x64
@@ -238,6 +336,11 @@ jobs:
             cmake: ARM64
             runs-on: windows-11-arm
     runs-on: ${{ matrix.arch.runs-on }}
+    env:
+      # electron-builder downloads its tools (such as NSIS) into ELECTRON_BUILDER_CACHE and the
+      # Electron zip into the per-user cache of @electron/get (%LOCALAPPDATA%\electron\Cache). Both
+      # are cached so the builds do not depend on GitHub serving them every time.
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
     steps:
       - name: Download dummy versioned code
         uses: actions/download-artifact@v8
@@ -258,6 +361,39 @@ jobs:
         uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: ${{ needs.Prepare.outputs.rust_stable }}
+      - name: Resolve Electron versions for the download cache
+        id: electron_versions
+        shell: bash
+        run: |
+          echo "electron=$(sed -n 's/^  electron@\([0-9][^:(]*\):$/\1/p' pnpm-lock.yaml | head -n 1)" >> "${GITHUB_OUTPUT}"
+          echo "builder=$(sed -n 's/^  app-builder-lib@\([0-9][^:(]*\):$/\1/p' pnpm-lock.yaml | head -n 1)" >> "${GITHUB_OUTPUT}"
+      - name: Restore Electron downloads
+        id: electron_cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/AppData/Local/electron/Cache
+            .cache/electron-builder
+          key: electron-downloads-${{ runner.os }}-${{ matrix.arch.electron }}-${{ steps.electron_versions.outputs.electron }}-${{ steps.electron_versions.outputs.builder }}
+      # If the API fails as well, electron-builder still tries its own (anonymous) download.
+      - name: Fetch Electron through the GitHub API
+        continue-on-error: true
+        uses: ./.github/actions/electron-download
+        with:
+          version: ${{ steps.electron_versions.outputs.electron }}
+          arch: ${{ matrix.arch.electron }}
+      - name: Cache Cargo registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('library/pngx_bridge/Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
+      - name: Restore libaom source
+        uses: ./.github/actions/libaom-source
       - name: Install dependencies
         shell: pwsh
         run: pnpm install --frozen-lockfile
@@ -269,22 +405,65 @@ jobs:
           cmake --build "build" --config "Release" --parallel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Saved as soon as the build has downloaded everything, so a later failure (tests, E2E) does
+      # not throw the downloads away.
+      - name: Save Electron downloads
+        if: steps.electron_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/AppData/Local/electron/Cache
+            .cache/electron-builder
+          key: ${{ steps.electron_cache.outputs.cache-primary-key }}
       - name: Test native addon
         shell: pwsh
         run: node --test "app/electron/native/colopresso_native.test.mjs"
         env:
           COLOPRESSO_NATIVE_ADDON_PATH: ${{ github.workspace }}/build/electron/native/colopresso_native.node
           COLOPRESSO_TEST_ASSETS_DIR: ${{ github.workspace }}/assets
+      - name: Electron E2E
+        shell: bash
+        timeout-minutes: 45
+        run: bash "app/electron/e2e/smoke.sh" "${RUNNER_TEMP}/colopresso-e2e"
+        env:
+          COLOPRESSO_E2E_LAUNCH_ATTEMPTS: '3'
+          DEBUG: 'pw:browser,pw:protocol'
+      - name: Upload Electron E2E results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: electron-e2e-windows-${{ matrix.arch.electron }}
+          path: |
+            ${{ runner.temp }}/colopresso-e2e/shots
+            ${{ runner.temp }}/colopresso-e2e/driver.log
+            ${{ runner.temp }}/colopresso-e2e/driver.stderr.log
+          if-no-files-found: ignore
   macOSElectron:
+    name: macOSElectron (${{ matrix.arch.name }})
     needs: Prepare
     strategy:
+      # One architecture failing (for example on a transient download error) must not cancel the other.
+      fail-fast: false
       matrix:
         arch:
-          - electron: arm64
-            runs-on: macos-15
-          - electron: x64
-            runs-on: macos-15-intel
+          - name: Apple Silicon
+            slug: apple-silicon
+            electron: arm64
+            runs-on: macos-26
+            e2e: true
+          # On the Intel runner the app repeatedly stopped responding during the E2E, in some runs in
+          # all three attempts, so Intel only builds the app and tests the native addon.
+          - name: Intel
+            slug: intel
+            electron: x64
+            runs-on: macos-26-intel
+            e2e: false
     runs-on: ${{ matrix.arch.runs-on }}
+    env:
+      # electron-builder downloads its tools (such as the DMG builder) into ELECTRON_BUILDER_CACHE and
+      # the Electron zip into the per-user cache of @electron/get (~/Library/Caches/electron). Both
+      # are cached so the builds do not depend on GitHub serving them every time.
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
     steps:
       - name: Download dummy versioned code
         uses: actions/download-artifact@v8
@@ -306,6 +485,39 @@ jobs:
         uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: ${{ needs.Prepare.outputs.rust_stable }}
+      - name: Resolve Electron versions for the download cache
+        id: electron_versions
+        shell: bash
+        run: |
+          echo "electron=$(sed -n 's/^  electron@\([0-9][^:(]*\):$/\1/p' pnpm-lock.yaml | head -n 1)" >> "${GITHUB_OUTPUT}"
+          echo "builder=$(sed -n 's/^  app-builder-lib@\([0-9][^:(]*\):$/\1/p' pnpm-lock.yaml | head -n 1)" >> "${GITHUB_OUTPUT}"
+      - name: Restore Electron downloads
+        id: electron_cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/Library/Caches/electron
+            .cache/electron-builder
+          key: electron-downloads-${{ runner.os }}-${{ matrix.arch.electron }}-${{ steps.electron_versions.outputs.electron }}-${{ steps.electron_versions.outputs.builder }}
+      # If the API fails as well, electron-builder still tries its own (anonymous) download.
+      - name: Fetch Electron through the GitHub API
+        continue-on-error: true
+        uses: ./.github/actions/electron-download
+        with:
+          version: ${{ steps.electron_versions.outputs.electron }}
+          arch: ${{ matrix.arch.electron }}
+      - name: Cache Cargo registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('library/pngx_bridge/Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
+      - name: Restore libaom source
+        uses: ./.github/actions/libaom-source
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build Electron app (native addon)
@@ -314,13 +526,42 @@ jobs:
           cmake --build "build" --config "Release" --parallel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Saved as soon as the build has downloaded everything, so a later failure (tests, E2E) does
+      # not throw the downloads away.
+      - name: Save Electron downloads
+        if: steps.electron_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/Library/Caches/electron
+            .cache/electron-builder
+          key: ${{ steps.electron_cache.outputs.cache-primary-key }}
       - name: Test native addon
         run: node --test "app/electron/native/colopresso_native.test.mjs"
         env:
           COLOPRESSO_NATIVE_ADDON_PATH: ${{ github.workspace }}/build/electron/native/colopresso_native.node
           COLOPRESSO_TEST_ASSETS_DIR: ${{ github.workspace }}/assets
+      - name: Electron E2E
+        if: matrix.arch.e2e
+        timeout-minutes: 45
+        run: bash "app/electron/e2e/smoke.sh" "${RUNNER_TEMP}/colopresso-e2e"
+        env:
+          COLOPRESSO_E2E_LAUNCH_ATTEMPTS: '3'
+          DEBUG: 'pw:browser,pw:protocol'
+      - name: Upload Electron E2E results
+        if: always() && matrix.arch.e2e
+        uses: actions/upload-artifact@v7
+        with:
+          name: electron-e2e-macos-${{ matrix.arch.slug }}
+          path: |
+            ${{ runner.temp }}/colopresso-e2e/shots
+            ${{ runner.temp }}/colopresso-e2e/driver.log
+            ${{ runner.temp }}/colopresso-e2e/driver.stderr.log
+          if-no-files-found: ignore
   WindowsCLI:
+    name: WindowsCLI (x64)
     needs: Prepare
+    if: needs.Prepare.outputs.native == 'true'
     runs-on: windows-latest
     steps:
       - name: Download dummy versioned code
@@ -331,6 +572,18 @@ jobs:
         run: |
           tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
           Remove-Item "dummy-versioned-code.tar.gz" -Force
+      - name: Cache Cargo registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('library/pngx_bridge/Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
+      - name: Restore libaom source
+        uses: ./.github/actions/libaom-source
       - name: Configure CMake
         run: cmake -B build -DCMAKE_BUILD_TYPE="Release" -DCOLOPRESSO_USE_CLI=ON -DCOLOPRESSO_USE_TESTS=ON
       - name: Build
@@ -340,16 +593,18 @@ jobs:
       - name: Test CLI
         run: build\cli\Release\colopresso.exe --version
   macOSCLI:
+    name: macOSCLI (${{ matrix.arch.name }})
     needs: Prepare
+    if: needs.Prepare.outputs.native == 'true'
     strategy:
       matrix:
         arch:
-          - name: apple_silicon
+          - name: Apple Silicon
             rust_target: aarch64-apple-darwin
-            runs-on: macos-15
-          - name: intel
+            runs-on: macos-26
+          - name: Intel
             rust_target: x86_64-apple-darwin
-            runs-on: macos-15-intel
+            runs-on: macos-26-intel
     runs-on: ${{ matrix.arch.runs-on }}
     steps:
       - name: Download dummy versioned code
@@ -361,13 +616,25 @@ jobs:
         run: |
           tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
           rm -rf "dummy-versioned-code.tar.gz"
+      - name: Cache Cargo registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('library/pngx_bridge/Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
+      - name: Restore libaom source
+        uses: ./.github/actions/libaom-source
       - name: Configure CMake
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE="Release" \
             -DCOLOPRESSO_USE_CLI=ON \
             -DCOLOPRESSO_USE_TESTS=ON \
-            ${{ matrix.arch.name == 'intel' && '-DAOM_TARGET_CPU="generic"' || '' }}
+            ${{ matrix.arch.name == 'Intel' && '-DAOM_TARGET_CPU="generic"' || '' }}
       - name: Build
         run: cmake --build "build" --config "Release" --parallel
       - name: Test
@@ -375,15 +642,19 @@ jobs:
       - name: Test CLI
         run: ./build/cli/colopresso --version
   LinuxCLI:
+    name: LinuxCLI (${{ matrix.arch }})
     needs: Prepare
+    if: needs.Prepare.outputs.native == 'true'
     strategy:
       matrix:
         include:
           - arch: amd64
-            runs-on: ubuntu-24.04
+            runs-on: ubuntu-26.04
           - arch: arm64
-            runs-on: ubuntu-24.04-arm
+            runs-on: ubuntu-26.04-arm
     runs-on: ${{ matrix.runs-on }}
+    env:
+      DOCKER_BUILD_RECORD_UPLOAD: false
     steps:
       - name: Download dummy versioned code
         uses: actions/download-artifact@v8
@@ -394,33 +665,66 @@ jobs:
         run: |
           tar -xzf "dummy-versioned-code.tar.gz" --strip-components=1
           rm -rf "dummy-versioned-code.tar.gz"
+      - name: Restore libaom source
+        uses: ./.github/actions/libaom-source
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Build container
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile.alpine
+          tags: cli
+          load: true
+          cache-from: type=gha,scope=cli-${{ matrix.arch }}
+          cache-to: ${{ github.event_name != 'pull_request' && format('type=gha,scope=cli-{0},mode=max,ignore-error=true', matrix.arch) || '' }}
+      - name: Resolve ccache key
+        id: ccache_key
         run: |
-          docker build \
-            --file "Dockerfile.alpine" \
-            --tag "cli" \
-            .
+          SUBMODULES="$(git ls-tree HEAD third_party/ | sha256sum | cut -c1-16)"
+          echo "prefix=ccache-${{ runner.os }}-${{ matrix.arch }}-cli-" >> "${GITHUB_OUTPUT}"
+          echo "key=ccache-${{ runner.os }}-${{ matrix.arch }}-cli-${SUBMODULES}-${{ hashFiles('Dockerfile.alpine', 'cmake/libaom.cmake') }}" >> "${GITHUB_OUTPUT}"
+      - name: Restore ccache
+        id: ccache
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/ccache
+          key: ${{ steps.ccache_key.outputs.key }}
+          restore-keys: ${{ steps.ccache_key.outputs.prefix }}
       - name: Build CLI in container
         run: |
           docker run \
             --rm \
             --volume "${PWD}:/workspace" \
             --workdir "/workspace" \
+            --env CCACHE_DIR="/workspace/.cache/ccache" \
+            --env CCACHE_BASEDIR="/workspace" \
+            --env CCACHE_MAXSIZE="250M" \
             "cli" \
             /bin/sh -c '
               set -e
+              ccache --zero-stats > /dev/null
               cmake -B build \
                 -DCMAKE_BUILD_TYPE="Release" \
                 -DCMAKE_EXE_LINKER_FLAGS="-static" \
+                -DCMAKE_C_COMPILER_LAUNCHER="ccache" \
+                -DCMAKE_CXX_COMPILER_LAUNCHER="ccache" \
                 -DCOLOPRESSO_USE_CLI=ON \
                 -DCOLOPRESSO_USE_TESTS=ON
               cmake --build "build" --config "Release" --target "colopresso_cli" --parallel="$(($(nproc)-1))"
+              ccache --show-stats
               strip build/cli/colopresso
               build/cli/colopresso --version
               build/cli/colopresso --verbose --format=webp assets/example.png "/tmp/example.webp"
               build/cli/colopresso --verbose --format=avif assets/example.png "/tmp/example.avif"
               build/cli/colopresso --verbose --format=pngx assets/example.png "/tmp/example.png"
             '
+      - name: Save ccache
+        if: ${{ !cancelled() && github.event_name != 'pull_request' && steps.ccache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .cache/ccache
+          key: ${{ steps.ccache_key.outputs.key }}
       - name: Test binary in minimal container
         run: |
           docker run \
@@ -464,29 +768,31 @@ jobs:
               /colopresso --verbose --format=pngx "/assets/example.png" "/tmp/example.png"
             '
   PythonWheel:
+    name: PythonWheel (${{ matrix.os }}, ${{ matrix.arch }})
     needs: Prepare
+    if: needs.Prepare.outputs.native == 'true'
     strategy:
       matrix:
         include:
           - os: linux
             arch: amd64
-            runs-on: ubuntu-24.04
+            runs-on: ubuntu-26.04
             cibw_archs_linux: x86_64
           - os: linux
             arch: arm64
-            runs-on: ubuntu-24.04-arm
+            runs-on: ubuntu-26.04-arm
             cibw_archs_linux: aarch64
           - os: windows
-            arch: amd64
+            arch: x64
             runs-on: windows-latest
             cibw_archs_windows: AMD64
           - os: macos
-            arch: amd64
-            runs-on: macos-15-intel
+            arch: Intel
+            runs-on: macos-26-intel
             cibw_archs_macos: x86_64
           - os: macos
-            arch: arm64
-            runs-on: macos-15
+            arch: Apple Silicon
+            runs-on: macos-26
             cibw_archs_macos: arm64
     runs-on: ${{ matrix.runs-on }}
     steps:
@@ -515,6 +821,24 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r python/requirements.txt
+      - name: Cache Cargo registry
+        if: matrix.os != 'linux'
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('library/pngx_bridge/Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
+      - name: Restore libaom source
+        uses: ./.github/actions/libaom-source
+      # If the API fails as well, cibuildwheel still tries its own (anonymous) download.
+      - name: Fetch virtualenv for cibuildwheel through the GitHub API
+        if: matrix.os != 'linux'
+        continue-on-error: true
+        uses: ./.github/actions/cibuildwheel-virtualenv
       - name: Build wheels
         env:
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux }}

@@ -54,11 +54,63 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
   package.json" (#350).
 - **Removed:** The `electron@44.7.2` exemption from pnpm's `minimumReleaseAge`, which is no longer
   needed (#350).
+- **Added:** CI runs a GUI end-to-end smoke test of the packaged Electron app on Windows (x64, arm64)
+  and macOS (Apple Silicon): WebP, AVIF and PNGX conversions through the folder flow, a dropped file
+  and a dropped batch saved as a ZIP. Screenshots and logs are uploaded as artifacts. The macOS Intel
+  job only builds the app and tests the native addon, because the app repeatedly stopped responding
+  during the test on that runner. `pnpm run e2e:electron` runs it locally, and `playwright-core` is a
+  new devDependency (#352).
+- **Changed:** CI runs on macOS 26 (`macos-26`, `macos-26-intel`) and Ubuntu 26.04 (`ubuntu-26.04`,
+  `ubuntu-26.04-arm`), and release Linux jobs on Ubuntu 26.04. Release macOS jobs stay on macOS 15
+  because the binaries have no deployment target and would otherwise require the newer macOS. CI job
+  names label macOS as Intel / Apple Silicon, Windows as x64 / arm64 and Linux as amd64 / arm64 (#352).
+- **Changed:** Renovate also updates runner labels set in workflow matrices, except the macOS runners
+  of release builds (#352).
+- **Changed:** Pull requests that only change the Electron app or shared UI (`app/`), JS dependencies or
+  documents skip the library, CLI, WebAssembly and Python wheel jobs; the Electron jobs and their E2E
+  still run. Pushes and manual runs always run every job (#352).
+- **Changed:** The CI and release Electron jobs cache what Electron and electron-builder download from
+  GitHub (Electron itself and tools such as NSIS and the DMG builder), keyed by OS, architecture,
+  Electron and electron-builder versions, so builds no longer fail whenever GitHub answers with 504
+  Gateway Time-out. The cache is saved right after the build, before tests run. Jobs that build the Rust
+  bridge also cache the Cargo registry. A failed Electron architecture no longer cancels the other (#352).
+- **Changed:** CI and release jobs no longer clone libaom from aomedia.googlesource.com on every build:
+  they restore the checkout of the tag in use into `.cache/libaom/<tag>` from the Actions cache and
+  clone it only on a cache miss. CMake builds from such a checkout when it is present. The libaom
+  version logic moved to `cmake/libaom.cmake`, which `cmake -P cmake/libaom.cmake` runs to print the
+  tag (#352).
+- **Changed:** The Linux CI job runs its modes (native, ASan, UBSan and the integrated Node.js /
+  WebAssembly build) as separate parallel jobs for each architecture, such as
+  `LinuxAndWasm (amd64, asan)`, instead of one after another (#352).
+- **Changed:** `Dockerfile` has a new `toolchain` stage with the compilers and SDKs (GCC, LLVM 22,
+  Rust, Emscripten and ccache), which `builder` and `devcontainer` build on. It reads only
+  `rust-toolchain.toml` and the scripts of the `third_party/emsdk` submodule, so CI keeps its layers in
+  the Actions cache and rebuilds them only when the toolchain changes; the Alpine image of the Linux
+  CLI job is cached the same way. The Emscripten SDK is installed in `/opt/emsdk` instead of
+  `/project/third_party/emsdk`, and `EMSDK_VERSION=0` (the default) installs the release the submodule
+  is pinned to without reading its Git metadata (#352).
+- **Changed:** Container builds in CI compile C and C++ through ccache. Each architecture and mode
+  keeps its ccache directory in the Actions cache, keyed by the submodule commits and the Dockerfile.
+  Image layers and ccache directories are saved only by pushes and manual runs; pull requests reuse
+  those of main (#352).
+- **Changed:** A push to main or a manual run is no longer cancelled by a later one; only an outdated
+  run of a pull request is cancelled. The CI workflow's `GITHUB_TOKEN` is read-only
+  (`contents: read`). The release workflow keeps `contents: write`, and its code signing, which uses
+  secrets, is unaffected (#352).
+- **Changed:** CI and release jobs fetch the Electron zip, its `SHASUMS256.txt` and the
+  `virtualenv.pyz` that cibuildwheel uses on Windows and macOS through the GitHub API with the job
+  token, and put them where electron-builder and cibuildwheel look first. electron-builder downloaded
+  `SHASUMS256.txt` from github.com anonymously on every build, even with the zip cached, and
+  cibuildwheel downloaded `virtualenv.pyz` on every run, so both failed while GitHub answered anonymous
+  requests with 504 Gateway Time-out. The tools electron-builder downloads (such as NSIS and the DMG
+  builder) are still fetched anonymously, but only on a cache miss (#352).
 
 ### Documentation
 - **Added:** `.claude/skills/rollup-dependencies`, a Claude Code skill (`/rollup-dependencies`) for
   dependency rollups: inventory, security review, updates, builds on each platform, CHANGELOG and
   PR preparation (#350).
+- **Added:** `.claude/skills/colopresso-electron-e2e`, a Claude Code skill (`/colopresso-electron-e2e`)
+  for driving the packaged Electron app and debugging GUI issues (#352).
 
 ### Dependencies
 - Electron 45.2.3, electron-updater 6.8.12, electron-builder 26.18.1, Vite 8.3.6, pnpm 12.18.0,

@@ -51,11 +51,61 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
   しました。Windows の CI ランナーでは electron-builder がビルドディレクトリで起動され、
   「Cannot find package.json」で失敗していました (#350)。
 - **削除:** 不要になった、pnpm の `minimumReleaseAge` に対する `electron@44.7.2` の除外を削除しました (#350)。
+- **追加:** CI の Windows (x64, arm64) と macOS (Apple Silicon) で、パッケージした Electron アプリを
+  GUI から操作する E2E のスモークテストを実行するようにしました。WebP, AVIF, PNGX のフォルダ変換、1 ファイルの
+  ドロップ、複数ファイルの ZIP 保存を行います。スクリーンショットとログはアーティファクトに残ります。macOS
+  Intel のジョブでは、その Runner でテスト中にアプリが応答しなくなることが続いたため、アプリのビルドと
+  ネイティブアドオンのテストだけを行います。
+  `pnpm run e2e:electron` で手元からも実行でき、devDependency に `playwright-core` を追加しています (#352)。
+- **変更:** CI を macOS 26 (`macos-26`, `macos-26-intel`) と Ubuntu 26.04 (`ubuntu-26.04`, `ubuntu-26.04-arm`)
+  で、リリースの Linux ジョブを Ubuntu 26.04 で実行するようにしました。リリースの macOS ジョブは macOS 15 の
+  ままです。バイナリにデプロイメントターゲットを指定していないため、新しい macOS でビルドすると、その macOS
+  以降でしか動かなくなるためです。CI のジョブ名では、macOS を Intel / Apple Silicon、Windows を x64 / arm64、
+  Linux を amd64 / arm64 と表記します (#352)。
+- **変更:** Renovate が、ワークフローの matrix で指定した Runner のラベルも更新するようにしました。リリース
+  ビルドの macOS Runner は対象外です (#352)。
+- **変更:** Pull Request の変更が Electron アプリと共通 UI (`app/`)、JS の依存、ドキュメントだけのときは、
+  ライブラリ・CLI・WebAssembly・Python wheel のジョブを省くようにしました。Electron のジョブと E2E は実行します。
+  push と手動実行では、これまでどおりすべてのジョブを実行します (#352)。
+- **変更:** CI とリリースの Electron のジョブで、Electron と electron-builder が GitHub から取得するもの (Electron
+  本体と NSIS や DMG 作成用のツール) をキャッシュするようにしました。キーは OS、アーキテクチャ、Electron と
+  electron-builder の版です。GitHub が 504 Gateway Time-out を返すたびにビルドが失敗することがなくなります。
+  キャッシュはビルドの直後、テストより前に保存します。Rust のブリッジをビルドするジョブでは Cargo の
+  レジストリもキャッシュします。Electron のあるアーキテクチャが失敗しても、もう一方は取り消されません (#352)。
+- **変更:** CI とリリースのジョブで、ビルドのたびに aomedia.googlesource.com から libaom を clone しないように
+  しました。使う版の libaom を Actions のキャッシュから `.cache/libaom/<tag>` に復元し、キャッシュがないときだけ
+  clone します。CMake は、そこに同じ版があればそれを使ってビルドします。libaom の版を決める処理は
+  `cmake/libaom.cmake` に移し、`cmake -P cmake/libaom.cmake` でタグを表示できます (#352)。
+- **変更:** Linux の CI ジョブで、各モード (ネイティブ, ASan, UBSan, Node.js / WebAssembly の統合ビルド) を
+  順に実行するのをやめ、アーキテクチャごとに別々のジョブ (`LinuxAndWasm (amd64, asan)` など) として並列に
+  実行するようにしました (#352)。
+- **変更:** `Dockerfile` に、コンパイラと SDK (GCC, LLVM 22, Rust, Emscripten, ccache) を入れる `toolchain`
+  ステージを追加し、`builder` と `devcontainer` はその上に作るようにしました。このステージが読むのは
+  `rust-toolchain.toml` と `third_party/emsdk` submodule のスクリプトだけなので、CI はその層を Actions の
+  キャッシュに保存し、ツールチェーンが変わったときだけ作り直します。Linux の CLI ジョブの Alpine イメージも
+  同じようにキャッシュします。Emscripten SDK のインストール先は `/project/third_party/emsdk` から
+  `/opt/emsdk` に変わりました。`EMSDK_VERSION=0` (既定値) では、Git のメタデータを読まずに、submodule が
+  固定しているリリースを入れます (#352)。
+- **変更:** CI のコンテナ内のビルドで、C と C++ を ccache 経由でコンパイルするようにしました。ccache の
+  ディレクトリはアーキテクチャとモードごとに Actions のキャッシュに保存し、キーには submodule のコミットと
+  Dockerfile を使います。イメージの層と ccache を保存するのは push と手動実行のときだけで、Pull Request では
+  main のものを使います (#352)。
+- **変更:** main への push と手動実行は、後の実行で取り消されないようにしました。取り消すのは Pull Request の
+  古い実行だけです。CI ワークフローの `GITHUB_TOKEN` を読み取り専用 (`contents: read`) にしました。リリースの
+  ワークフローは `contents: write` のままで、secrets を使うコード署名には影響しません (#352)。
+- **変更:** CI とリリースのジョブで、Electron の zip とその `SHASUMS256.txt`、および Windows と macOS で
+  cibuildwheel が使う `virtualenv.pyz` を、ジョブのトークンを使って GitHub の API から取得し、electron-builder と
+  cibuildwheel が最初に探す場所に置くようにしました。これまで electron-builder は zip がキャッシュにあっても
+  `SHASUMS256.txt` をビルドのたびに github.com から匿名で取得し、cibuildwheel は `virtualenv.pyz` を毎回取得して
+  いたため、GitHub が匿名のリクエストに 504 Gateway Time-out を返す間は失敗していました。electron-builder が
+  取得するツール (NSIS や DMG 作成用のツールなど) は今も匿名で取得しますが、キャッシュがないときだけです (#352)。
 
 ### Documentation
 - **追加:** 依存関係のロールアップ更新 (棚卸し, セキュリティ確認, 更新, 各プラットフォームでのビルド,
   CHANGELOG と PR の準備) を行う Claude Code 用スキル `.claude/skills/rollup-dependencies`
   (`/rollup-dependencies`) を追加しました (#350)。
+- **追加:** パッケージした Electron アプリの操作と GUI の不具合の調査を行う Claude Code 用スキル
+  `.claude/skills/colopresso-electron-e2e` (`/colopresso-electron-e2e`) を追加しました (#352)。
 
 ### Dependencies
 - Electron 45.2.3, electron-updater 6.8.12, electron-builder 26.18.1, Vite 8.3.6, pnpm 12.18.0,

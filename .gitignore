@@ -20,3 +20,4 @@
 /quality
 *.DS_Store
 Thumbs.db
+/.cache

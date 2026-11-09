@@ -1,0 +1,31 @@
+name: libaom source
+description: >-
+  Restore the libaom checkout that the AVIF encoder is built from into .cache/libaom/<tag>, cloning it from
+  aomedia.googlesource.com only on a cache miss. cmake/thirdparty.cmake uses that checkout instead of
+  cloning at configure time, also inside containers that mount or copy the workspace.
+runs:
+  using: composite
+  steps:
+    - name: Resolve libaom tag
+      id: tag
+      shell: bash
+      run: echo "tag=$(cmake -P cmake/libaom.cmake | tr -d '\r')" >> "${GITHUB_OUTPUT}"
+    - name: Restore libaom checkout
+      id: restore
+      if: steps.tag.outputs.tag != ''
+      uses: actions/cache/restore@v6
+      with:
+        path: .cache/libaom/${{ steps.tag.outputs.tag }}
+        key: libaom-${{ runner.os }}-${{ steps.tag.outputs.tag }}
+    - name: Clone libaom
+      if: steps.tag.outputs.tag != '' && steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        LIBAOM_TAG: ${{ steps.tag.outputs.tag }}
+      run: git clone --depth 1 --branch "${LIBAOM_TAG}" "https://aomedia.googlesource.com/aom.git" ".cache/libaom/${LIBAOM_TAG}"
+    - name: Save libaom checkout
+      if: steps.tag.outputs.tag != '' && steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: .cache/libaom/${{ steps.tag.outputs.tag }}
+        key: ${{ steps.restore.outputs.cache-primary-key }}

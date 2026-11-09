@@ -5,7 +5,10 @@ ARG ENABLE_CLANG=1
 ARG ENABLE_EMSDK=1
 ARG EMSDK_VERSION=0
 
-FROM --platform=${PLATFORM} debian:${DEBIAN_VERSION} AS builder
+# Compilers and SDKs. This stage reads only rust-toolchain.toml and third_party/emsdk from the build
+# context, so its layers stay valid across commits and CI caches them. Layers are ordered from the
+# least to the most frequently updated.
+FROM --platform=${PLATFORM} debian:${DEBIAN_VERSION} AS toolchain
 
 # Timezone
 ENV TZ="Asia/Tokyo"
@@ -28,6 +31,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       "gcc" "g++" \
       "make" "cmake" \
       "nasm" \
+      "ccache" \
       "libc6-dev" "libc6-dbg" "libstdc++-14-dev" \
       "pkg-config" \
       "python3" \
@@ -35,34 +39,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 SHELL [ "/bin/bash", "-c" ]
 CMD [ "/bin/bash" ]
-
-COPY rust-toolchain.toml /tmp/rust-toolchain.toml
-RUN set -e; \
-    RUST_STABLE_VERSION="$(grep -E '^channel\s*=' /tmp/rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')"; \
-    RUST_STABLE_COMPONENTS="$(sed -n '/^components\s*=/p' /tmp/rust-toolchain.toml | grep -o '"[^"]*"' | tr -d '"' | paste -sd, -)"; \
-    WASM_PACK_VERSION="$(grep -E '^wasm-pack\s*=' /tmp/rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')"; \
-    echo "RUST_STABLE_VERSION=${RUST_STABLE_VERSION}" > /tmp/rust-versions.env; \
-    echo "RUST_STABLE_COMPONENTS=${RUST_STABLE_COMPONENTS}" >> /tmp/rust-versions.env; \
-    echo "WASM_PACK_VERSION=${WASM_PACK_VERSION}" >> /tmp/rust-versions.env; \
-    rm "/tmp/rust-toolchain.toml"
-
-ENV RUSTUP_HOME="/opt/rust/rustup"
-ENV CARGO_HOME="/opt/rust/cargo"
-RUN --mount=type=cache,target=/opt/rust/cargo/registry,sharing=locked \
-    --mount=type=cache,target=/opt/rust/cargo/git,sharing=locked \
-    set -e; \
-    . /tmp/rust-versions.env; \
-    curl --proto '=https' --tlsv1.2 -sSf "https://sh.rustup.rs" | sh -s -- -y --default-toolchain "${RUST_STABLE_VERSION}" --profile "minimal" --no-modify-path && \
-    echo 'export PATH="${CARGO_HOME}/bin:${PATH}"' > "/etc/profile.d/cargo.sh" && \
-    . "/etc/profile.d/cargo.sh" && \
-    rustup toolchain install "${RUST_STABLE_VERSION}" && \
-    if test -n "${RUST_STABLE_COMPONENTS}"; then \
-      set -- $(printf '%s' "${RUST_STABLE_COMPONENTS}" | tr ',' ' '); \
-      rustup component add "$@" --toolchain "${RUST_STABLE_VERSION}"; \
-    fi && \
-    rustup target add "wasm32-unknown-emscripten" && \
-    rustup target add "wasm32-unknown-unknown" && \
-    cargo install "wasm-pack" --version "${WASM_PACK_VERSION}" --locked
 
 ARG ENABLE_CLANG
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -92,7 +68,62 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       update-alternatives --install "/usr/bin/llvm-config" llvm-config "/usr/bin/llvm-config-22" 100; \
     fi
 
-# Copy project files
+COPY rust-toolchain.toml /tmp/rust-toolchain.toml
+RUN set -e; \
+    RUST_STABLE_VERSION="$(grep -E '^channel\s*=' /tmp/rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')"; \
+    RUST_STABLE_COMPONENTS="$(sed -n '/^components\s*=/p' /tmp/rust-toolchain.toml | grep -o '"[^"]*"' | tr -d '"' | paste -sd, -)"; \
+    WASM_PACK_VERSION="$(grep -E '^wasm-pack\s*=' /tmp/rust-toolchain.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/')"; \
+    echo "RUST_STABLE_VERSION=${RUST_STABLE_VERSION}" > /tmp/rust-versions.env; \
+    echo "RUST_STABLE_COMPONENTS=${RUST_STABLE_COMPONENTS}" >> /tmp/rust-versions.env; \
+    echo "WASM_PACK_VERSION=${WASM_PACK_VERSION}" >> /tmp/rust-versions.env; \
+    rm "/tmp/rust-toolchain.toml"
+
+ENV RUSTUP_HOME="/opt/rust/rustup"
+ENV CARGO_HOME="/opt/rust/cargo"
+RUN --mount=type=cache,target=/opt/rust/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/opt/rust/cargo/git,sharing=locked \
+    set -e; \
+    . /tmp/rust-versions.env; \
+    curl --proto '=https' --tlsv1.2 -sSf "https://sh.rustup.rs" | sh -s -- -y --default-toolchain "${RUST_STABLE_VERSION}" --profile "minimal" --no-modify-path && \
+    echo 'export PATH="${CARGO_HOME}/bin:${PATH}"' > "/etc/profile.d/cargo.sh" && \
+    . "/etc/profile.d/cargo.sh" && \
+    rustup toolchain install "${RUST_STABLE_VERSION}" && \
+    if test -n "${RUST_STABLE_COMPONENTS}"; then \
+      set -- $(printf '%s' "${RUST_STABLE_COMPONENTS}" | tr ',' ' '); \
+      rustup component add "$@" --toolchain "${RUST_STABLE_VERSION}"; \
+    fi && \
+    rustup target add "wasm32-unknown-emscripten" && \
+    rustup target add "wasm32-unknown-unknown" && \
+    cargo install "wasm-pack" --version "${WASM_PACK_VERSION}" --locked
+
+# Emscripten SDK, installed into /opt/emsdk from the scripts of the third_party/emsdk submodule.
+# EMSDK_VERSION=0 installs the release the submodule is pinned to: emsdk tags each release on the
+# commit that points its "latest" alias at that release.
+ARG ENABLE_EMSDK
+ARG EMSDK_VERSION
+ENV EMSDK_QUIET=1
+RUN --mount=type=bind,source=third_party/emsdk,target=/tmp/emsdk-src \
+    set -e; \
+    if test "${ENABLE_EMSDK}" != "0"; then \
+      mkdir -p "/opt/emsdk" && \
+      cp -a "/tmp/emsdk-src/." "/opt/emsdk/" && \
+      rm -f "/opt/emsdk/.git" && \
+      cd "/opt/emsdk" && \
+        if test "${EMSDK_VERSION}" = "0"; then \
+          EM_GIT_TAG="$(sed -n 's/^ *"latest": *"\([^"]*\)".*/\1/p' "emscripten-releases-tags.json" | head -n 1)"; \
+        else \
+          EM_GIT_TAG="${EMSDK_VERSION}"; \
+        fi && \
+        test -n "${EM_GIT_TAG}" && \
+        ./emsdk install "${EM_GIT_TAG}" && \
+        ./emsdk activate "${EM_GIT_TAG}" && \
+        echo ". \"$(pwd)/emsdk_env.sh\"" >> "/etc/profile.d/emsdk.sh" && \
+      cd -; \
+    fi
+
+# Project sources, and the tools whose versions are read from them
+FROM --platform=${PLATFORM} toolchain AS builder
+
 COPY . "/project"
 
 # Valgrind
@@ -126,25 +157,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       rm -rf "${VALGRIND_SRC_DIR}" "/project/valgrind-${VALGRIND_VERSION}.tar.bz2" && \
       valgrind --version; \
     fi
-
-# Emscripten SDK
-ARG ENABLE_EMSDK
-ARG EMSDK_VERSION
-RUN set -e; \
-    if test "${ENABLE_EMSDK}" != "0"; then \
-      cd "/project/third_party/emsdk" && \
-        if test "${EMSDK_VERSION}" = "0"; then \
-          EM_GIT_TAG="$(git describe --tags --abbrev=0)"; \
-        else \
-          EM_GIT_TAG="${EMSDK_VERSION}"; \
-        fi && \
-        ./emsdk install "${EM_GIT_TAG}" && \
-        ./emsdk activate "${EM_GIT_TAG}" && \
-        echo ". \"$(pwd)/emsdk_env.sh\"" >> "/etc/profile.d/emsdk.sh" && \
-      cd -; \
-    fi
-
-ENV EMSDK_QUIET=1
 
 # pnpm (version pinned by the packageManager field of package.json)
 RUN set -e; \

@@ -93,26 +93,31 @@ if(EMSCRIPTEN AND COLOPRESSO_ENABLE_WASM_SIMD)
 endif()
 
 # libavif
-# libavif releases pin an older libaom than libavif main does. Declaring libaom first makes
-# FetchContent use the newer tag, which carries upstream security fixes. The override turns itself
-# off once the libavif submodule pins this tag or a later one.
-set(COLOPRESSO_AOM_VERSION 3.15.3)
-file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libavif/cmake/Modules/LocalAom.cmake" _avif_aom_tag_line REGEX "^set\\(AVIF_AOM_GIT_TAG v[0-9.]+\\)$")
-string(REGEX REPLACE "^set\\(AVIF_AOM_GIT_TAG v([0-9.]+)\\)$" "\\1" _avif_aom_version "${_avif_aom_tag_line}")
-if(_avif_aom_version AND _avif_aom_version VERSION_LESS COLOPRESSO_AOM_VERSION)
-  message(STATUS "libaom: overriding libavif's v${_avif_aom_version} with v${COLOPRESSO_AOM_VERSION}")
+# Declaring libaom before libavif makes FetchContent use the tag chosen in cmake/libaom.cmake.
+include(cmake/libaom.cmake)
+colopresso_libaom_tag(_colopresso_aom_tag _colopresso_aom_override)
+if(_colopresso_aom_override)
+  message(STATUS "libaom: overriding libavif's pin with ${_colopresso_aom_tag}")
   FetchContent_Declare(
     libaom
     EXCLUDE_FROM_ALL
     GIT_REPOSITORY "https://aomedia.googlesource.com/aom.git"
-    GIT_TAG "v${COLOPRESSO_AOM_VERSION}"
+    GIT_TAG "${_colopresso_aom_tag}"
     GIT_PROGRESS ON
     GIT_SHALLOW ON
     UPDATE_COMMAND ""
   )
 endif()
-unset(_avif_aom_tag_line)
-unset(_avif_aom_version)
+# A checkout of the same tag in .cache/libaom/<tag> (CI restores one from its cache) is used instead of
+# cloning aomedia.googlesource.com at configure time.
+set(_colopresso_aom_checkout "${CMAKE_SOURCE_DIR}/.cache/libaom/${_colopresso_aom_tag}")
+if(_colopresso_aom_tag AND NOT FETCHCONTENT_SOURCE_DIR_LIBAOM AND EXISTS "${_colopresso_aom_checkout}/CMakeLists.txt")
+  message(STATUS "libaom: using the checkout in ${_colopresso_aom_checkout}")
+  set(FETCHCONTENT_SOURCE_DIR_LIBAOM "${_colopresso_aom_checkout}")
+endif()
+unset(_colopresso_aom_tag)
+unset(_colopresso_aom_override)
+unset(_colopresso_aom_checkout)
 
 add_subdirectory(third_party/libavif EXCLUDE_FROM_ALL)
 

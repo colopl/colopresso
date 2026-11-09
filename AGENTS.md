@@ -36,6 +36,7 @@
 - `/app`: GUI 版 `colopresso` アプリケーションの実装です
     - `/app/electron`: Electron アプリケーションとしての GUI 版 `colopresso` の実装です
         - `/app/electron/native`: Electron から `libcolopresso` を呼び出す Node-API ネイティブアドオン (`colopresso_native.c`) です
+        - `/app/electron/e2e`: パッケージした Electron アプリを Playwright で操作する E2E テスト (`smoke.sh`, `driver.mjs`) です。 CI の `WindowsElectron` (x64 / arm64) と `macOSElectron` (Apple Silicon) で実行され、手順は `colopresso-electron-e2e` スキルにまとめています
     - `/app/shared`: Electron アプリケーションが利用する共通実装 (React コンポーネント, フォーマット定義 `formats/`, i18n 等) です。 CMake ビルド時に Vite で `build/electron` へバンドルされます
 - `/python`: Python バインディング (`colopresso` パッケージ) です。 C 拡張 `_colopresso_ext.c` と `core.py` で構成され、 API は `python/README.md` に記載されています
 - `/cmake`: CMakeLists.txt から参照される CMake の構成ファイルです
@@ -46,8 +47,9 @@
 - `/third_party`: サードパーティライブラリの git submodule です。このディレクトリ以下のコードは編集しないでください
 - `/dist`: 何かしらのアーティファクトが生じるビルドが行われた時出力されるディレクトリです
 - `/build`: ビルド用ディレクトリです。基本的に CMake で指定されます
-- `/.claude/skills`: Claude Code 用のスキルです。 `rollup-dependencies` は依存関係をまとめて更新する (ロールアップ) 手順です
+- `/.claude/skills`: Claude Code 用のスキルです。 `rollup-dependencies` は依存関係をまとめて更新する (ロールアップ) 手順、 `colopresso-electron-e2e` はビルドした Electron アプリを Playwright で操作して GUI からの変換を確かめる手順です
 - `/.devcontainer`, `Dockerfile`, `Dockerfile.alpine`: Linux 開発環境 (Dev Container) と CI 用のコンテナ定義です
+    - `Dockerfile` の `toolchain` ステージ (コンパイラと SDK) は CI が Actions のキャッシュに保存して使い回します。このステージではプロジェクト全体を `COPY` せず、必要なファイルだけを読むようにしてください。読むファイルが変わるたびにキャッシュが無効になります
 - `/.github/workflows`: CI (`ci.yaml`), カバレッジ (`coverage.yaml`), リリース (`release.yaml`) のワークフローです
 - `CMakeLists.txt`: プロジェクト全体の CMake 構成ファイルです
 - `CHANGELOG.md`, `CHANGELOG_ja.md`: 変更履歴です (英語 / 日本語)。書式は「変更履歴の記載」を参照してください
@@ -73,3 +75,6 @@
 ## 注意事項
 - アプリケーションのビルドを行う時は必ず `README.md` を読み、従ってください。 Dev Container を用いた Linux 環境では「Build (Linux)」、 macOS 上で直接作業する場合は「Build (macOS)」の手順を参考にしてください
     - Linux 上での Electron アプリのビルドは現状サポートしていません。 Electron アプリのビルドが必要な場合、自分でビルドしようとせず、チャットでその旨伝えてください
+- Pull Request の CI は、変更が `app/`, JS の依存 (`package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`), ドキュメント (`*.md`, `.claude/`), `resources/`, `pages/`, `.prettierrc.json`, `.github/renovate.json` だけなら、ライブラリ・ CLI ・ WebAssembly ・ Python wheel のジョブを省きます (Electron のジョブと E2E は実行します)。省いてよい範囲を変える時は、 `.github/workflows/ci.yaml` の Prepare ジョブの判定を更新してください
+- CI のジョブ名やアーティファクト名でアーキテクチャを表す時は、 macOS は `Intel` / `Apple Silicon`、 Windows は `x64` / `arm64`、 Linux は `amd64` / `arm64` と書いてください。リリース成果物のファイル名は自動更新が参照しているので、この表記に合わせて変えないでください
+- macOS のリリースビルドの Runner は、最低対応 macOS が上がらないよう据え置いています (デプロイメントターゲットを指定していないため、ビルドした macOS 以降でしか動かなくなります)。 CI の Runner は Renovate が追い、リリースの macOS Runner は Renovate の対象から外しています
