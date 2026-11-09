@@ -72,7 +72,8 @@ Windows x64 なら `dist_build/win-unpacked/colopresso.exe` ができる。Linux
 | `COLOPRESSO_APP` | 起動する `.app` または実行ファイル | `dist_build/mac-arm64/colopresso.app` など |
 | `COLOPRESSO_E2E_USER_DATA` | アプリのユーザーデータ | 一時ディレクトリ |
 | `SCREENSHOT_DIR` | スクリーンショットの保存先 | `$TMPDIR/colopresso-e2e-shots` |
-| `COLOPRESSO_E2E_LAUNCH_TIMEOUT` | 起動を待つ秒数 | 60 |
+| `COLOPRESSO_E2E_LAUNCH_TIMEOUT` | 1 回の起動を待つ秒数 | 60 |
+| `COLOPRESSO_E2E_LAUNCH_ATTEMPTS` | 時間切れの起動をやり直す回数の上限 (初回を含む) | 2 |
 | `DEBUG` | Playwright のデバッグログ (例: `pw:browser,pw:protocol`)。標準エラーに出る | なし |
 
 ## 一通り確かめる (smoke)
@@ -187,5 +188,11 @@ gh run download <run id> -n electron-e2e-windows-x64 -D /tmp/e2e-win
   カレントディレクトリとして起動され、`Cannot find package.json in the ...\build` で失敗したことが
   ある。現在は `cmake/electron_app.cmake` が `--projectDir` を明示して渡すので起きない。この引数を
   外すと再発する。
+- **Windows の CI で起動がまれに止まる:** アプリは起動して更新確認まで進んでいるのに、Playwright の
+  接続 (`electron.launch`) が応答せず時間切れになることがある。通常の起動は数秒で終わるので、
+  ドライバは時間切れの起動をやり直し、`RETRY: launch attempt ...` と出す (CI の Windows は 3 回まで)。
+  やり直しの途中で出る `WARN: unhandled rejection` はその副産物で、失敗とはみなさない。`RETRY` が
+  頻繁に出るようになったら、`driver.stderr.log` のプロトコルログで止まった箇所を調べる。CI の Windows
+  では `DEBUG=pw:browser,pw:protocol` を付けているので、このログが毎回アーティファクトに残る。
 - **Windows はローカルで試していない:** Windows での実行は CI の `WindowsElectron` (x64) で確かめて
   いる。手元の Windows で動かすときは Git Bash から `smoke.sh` を実行する。

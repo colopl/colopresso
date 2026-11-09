@@ -281,7 +281,7 @@ jobs:
         timeout-minutes: 30
         run: bash "app/electron/e2e/smoke.sh" "${RUNNER_TEMP}/colopresso-e2e"
         env:
-          COLOPRESSO_E2E_LAUNCH_TIMEOUT: '180'
+          COLOPRESSO_E2E_LAUNCH_ATTEMPTS: '3'
           DEBUG: 'pw:browser,pw:protocol'
       - name: Upload Electron E2E results
         if: always() && matrix.arch.electron == 'x64'

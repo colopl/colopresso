@@ -49,6 +49,7 @@ const FORMAT_LABELS = { webp: 'WebP', avif: 'AVIF', png: 'PNG', pngx: 'PNG' };
 let app = null;
 let page = null;
 let userDataDir = null;
+let launching = false;
 const logs = [];
 
 function log(line) {
@@ -126,12 +127,27 @@ const COMMANDS = {
     }
     const executablePath = resolveExecutable(path.resolve(process.env.COLOPRESSO_APP ?? defaultAppPath()));
     userDataDir = pathArg(arg) || process.env.COLOPRESSO_E2E_USER_DATA || fs.mkdtempSync(path.join(os.tmpdir(), 'colopresso-e2e-userdata-'));
-    app = await electron.launch({
-      executablePath,
-      args: [`--user-data-dir=${userDataDir}`],
-      env: { ...process.env, ELECTRON_ENABLE_LOGGING: '1' },
-      timeout: (Number(process.env.COLOPRESSO_E2E_LAUNCH_TIMEOUT) || 60) * 1000,
-    });
+    // On the Windows CI runner the Playwright handshake occasionally stalls although the app is up;
+    // a normal launch finishes within a few seconds, so a timed-out attempt is retried.
+    const attempts = Math.max(1, Number(process.env.COLOPRESSO_E2E_LAUNCH_ATTEMPTS) || 2);
+    launching = true;
+    for (let attempt = 1; !app; attempt += 1) {
+      try {
+        app = await electron.launch({
+          executablePath,
+          args: [`--user-data-dir=${userDataDir}`],
+          env: { ...process.env, ELECTRON_ENABLE_LOGGING: '1' },
+          timeout: (Number(process.env.COLOPRESSO_E2E_LAUNCH_TIMEOUT) || 60) * 1000,
+        });
+      } catch (error) {
+        if (attempt >= attempts) {
+          launching = false;
+          throw error;
+        }
+        console.log(`RETRY: launch attempt ${attempt}/${attempts} failed (${error.message.split('\n')[0]}); retrying`);
+      }
+    }
+    launching = false;
     app.process().stdout?.on('data', (chunk) =>
       String(chunk)
         .split('\n')
@@ -349,6 +365,13 @@ const COMMANDS = {
     console.log('commands:', Object.keys(COMMANDS).join(', '));
   },
 };
+
+// Playwright can leave a rejected promise behind when a launch times out. Keep the REPL alive so the
+// launch can be retried; the launch result decides failure, other rejections are errors.
+process.on('unhandledRejection', (reason) => {
+  const message = reason instanceof Error ? reason.message.split('\n')[0] : String(reason);
+  console.log(`${launching ? 'WARN' : 'ERROR'}: unhandled rejection: ${message}`);
+});
 
 // Playwright starts Electron with its own pipes, so the app does not compete for this process's stdin.
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: 'driver> ' });
