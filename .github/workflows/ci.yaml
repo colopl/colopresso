@@ -149,7 +149,6 @@ jobs:
               ctest --test-dir "build" --output-on-failure --parallel
             '
   Valgrind:
-    name: Valgrind (${{ matrix.arch }})
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: Prepare
     strategy:
@@ -349,6 +348,7 @@ jobs:
         run: bash "app/electron/e2e/smoke.sh" "${RUNNER_TEMP}/colopresso-e2e"
         env:
           COLOPRESSO_E2E_LAUNCH_ATTEMPTS: '3'
+          DEBUG: 'pw:browser,pw:protocol'
       - name: Upload Electron E2E results
         if: always()
         uses: actions/upload-artifact@v7

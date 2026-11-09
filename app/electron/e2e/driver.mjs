@@ -44,6 +44,9 @@ function resolveExecutable(appPath) {
 }
 
 const DROP_ZONE = '[class*="_dropZone_"]';
+const LAUNCH_TIMEOUT_SECONDS = Number(process.env.COLOPRESSO_E2E_LAUNCH_TIMEOUT) || 60;
+const LAUNCH_ATTEMPTS = Math.max(1, Number(process.env.COLOPRESSO_E2E_LAUNCH_ATTEMPTS) || 2);
+const COMMAND_TIMEOUT_SECONDS = Number(process.env.COLOPRESSO_E2E_COMMAND_TIMEOUT) || 120;
 const FORMAT_LABELS = { webp: 'WebP', avif: 'AVIF', png: 'PNG', pngx: 'PNG' };
 
 let app = null;
@@ -129,7 +132,7 @@ const COMMANDS = {
     userDataDir = pathArg(arg) || process.env.COLOPRESSO_E2E_USER_DATA || fs.mkdtempSync(path.join(os.tmpdir(), 'colopresso-e2e-userdata-'));
     // On the Windows CI runner the Playwright handshake occasionally stalls although the app is up;
     // a normal launch finishes within a few seconds, so a timed-out attempt is retried.
-    const attempts = Math.max(1, Number(process.env.COLOPRESSO_E2E_LAUNCH_ATTEMPTS) || 2);
+    const attempts = LAUNCH_ATTEMPTS;
     launching = true;
     for (let attempt = 1; !app; attempt += 1) {
       try {
@@ -137,7 +140,7 @@ const COMMANDS = {
           executablePath,
           args: [`--user-data-dir=${userDataDir}`],
           env: { ...process.env, ELECTRON_ENABLE_LOGGING: '1' },
-          timeout: (Number(process.env.COLOPRESSO_E2E_LAUNCH_TIMEOUT) || 60) * 1000,
+          timeout: LAUNCH_TIMEOUT_SECONDS * 1000,
         });
       } catch (error) {
         if (attempt >= attempts) {
@@ -163,6 +166,10 @@ const COMMANDS = {
     page = await app.firstWindow();
     page.on('console', (message) => log(`[renderer:${message.type()}] ${message.text()}`));
     page.on('pageerror', (error) => log(`[renderer:pageerror] ${error.message}`));
+    page.on('crash', () => {
+      log('[renderer:crash]');
+      console.log('ERROR: the renderer process crashed');
+    });
     await page.waitForSelector(DROP_ZONE, { timeout: 30_000 });
     const versions = await app.evaluate(({ app: electronApp }) => ({
       userData: electronApp.getPath('userData'),
@@ -172,6 +179,16 @@ const COMMANDS = {
     }));
     console.log('launched', executablePath);
     console.log(JSON.stringify(versions));
+    // Child process failures and unresponsive renderers end up in `logs` through the main process stdout.
+    const gpu = await app.evaluate(({ app: electronApp, webContents }) => {
+      electronApp.on('child-process-gone', (_event, details) => console.log(`[child-process-gone] ${JSON.stringify(details)}`));
+      for (const contents of webContents.getAllWebContents()) {
+        contents.on('render-process-gone', (_event, details) => console.log(`[render-process-gone] ${JSON.stringify(details)}`));
+        contents.on('unresponsive', () => console.log('[renderer-unresponsive]'));
+      }
+      return electronApp.getGPUFeatureStatus();
+    });
+    console.log('gpu:', JSON.stringify(gpu));
   },
 
   async ss(name) {
@@ -378,6 +395,45 @@ const rl = readline.createInterface({ input: process.stdin, output: process.stdo
 const queue = [];
 let running = false;
 let closing = false;
+const TIMED_OUT = Symbol('timed out');
+
+// A hung renderer makes Playwright calls such as page.evaluate wait forever, so every command gets
+// a time limit; wait and sleep get their own duration plus a minute.
+function commandLimitSeconds(command, rawArgs) {
+  if (command === 'wait') {
+    return (Number(rawArgs) || 600) + 60;
+  }
+  if (command === 'sleep') {
+    return (Number(rawArgs) || 1) + 60;
+  }
+  if (command === 'launch') {
+    return LAUNCH_TIMEOUT_SECONDS * LAUNCH_ATTEMPTS + 120;
+  }
+  return COMMAND_TIMEOUT_SECONDS;
+}
+
+async function withTimeout(promise, seconds) {
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(TIMED_OUT), seconds * 1000);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// After a command hangs the app cannot be trusted to answer anything, so print what was collected,
+// kill the app and stop.
+function abortHungCommand(command, seconds) {
+  console.log(`ERROR: ${command} did not finish within ${seconds}s; the app stopped responding`);
+  for (const line of logs.slice(-200)) {
+    console.log(line);
+  }
+  app?.process()?.kill('SIGKILL');
+  process.exit(1);
+}
 
 async function drain() {
   if (running) {
@@ -396,8 +452,11 @@ async function drain() {
       console.log('unknown command:', command, '- try: help');
       continue;
     }
+    const limit = commandLimitSeconds(command, rawArgs);
     try {
-      await handler(rawArgs);
+      if ((await withTimeout(handler(rawArgs), limit)) === TIMED_OUT) {
+        abortHungCommand(command, limit);
+      }
     } catch (error) {
       console.log('ERROR:', error.message);
     }
