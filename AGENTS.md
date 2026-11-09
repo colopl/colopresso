@@ -53,6 +53,7 @@
 - `/.github/workflows`: CI (`ci.yaml`), カバレッジ (`coverage.yaml`), リリース (`release.yaml`) のワークフローです
 - `CMakeLists.txt`: プロジェクト全体の CMake 構成ファイルです
 - `CHANGELOG.md`, `CHANGELOG_ja.md`: 変更履歴です (英語 / 日本語)。書式は「変更履歴の記載」を参照してください
+- `SECURITY.md`, `SECURITY_ja.md`: セキュリティポリシー (サポートするバージョンと脆弱性の報告方法) です (英語 / 日本語)
 
 ## コーディング規約
 - C 言語のコードを書く時は C11 標準 (GNU 拡張なし) に準拠し、可能な限り常に標準化された型 `stdint.h` `stdbool.h` 等の標準型を用いるようにしてください

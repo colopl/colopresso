@@ -128,6 +128,8 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
   (`/rollup-dependencies`) を追加しました (#350)。
 - **追加:** パッケージした Electron アプリの操作と GUI の不具合の調査を行う Claude Code 用スキル
   `.claude/skills/colopresso-electron-e2e` (`/colopresso-electron-e2e`) を追加しました (#352)。
+- **追加:** サポートするバージョンと、脆弱性を非公開で報告する方法を `SECURITY_ja.md` (英語版は `SECURITY.md`) に
+  まとめました (#XXX)。
 
 ### Dependencies
 - Electron 45.2.3, electron-updater 6.8.12, electron-builder 26.18.1, Vite 8.3.6, pnpm 12.18.0,

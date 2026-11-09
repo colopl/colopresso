@@ -135,6 +135,8 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
   PR preparation (#350).
 - **Added:** `.claude/skills/colopresso-electron-e2e`, a Claude Code skill (`/colopresso-electron-e2e`)
   for driving the packaged Electron app and debugging GUI issues (#352).
+- **Added:** `SECURITY.md` (and `SECURITY_ja.md`) describes the supported versions and how to report a
+  vulnerability privately (#XXX).
 
 ### Dependencies
 - Electron 45.2.3, electron-updater 6.8.12, electron-builder 26.18.1, Vite 8.3.6, pnpm 12.18.0,
