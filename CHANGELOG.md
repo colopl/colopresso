@@ -39,18 +39,18 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
   interpolates its inputs directly into shell commands (#350).
 
 ### Library
-- **Changed:** `pngx_threads` values above the number of logical CPUs are clamped to it (#XXX).
+- **Changed:** `pngx_threads` values above the number of logical CPUs are clamped to it (#353).
 - **Fixed:** Non-finite `webp_quality`, `webp_target_psnr` and `avif_quality` values return
-  `CPRES_ERROR_INVALID_PARAMETER` instead of reaching the encoders (#XXX).
+  `CPRES_ERROR_INVALID_PARAMETER` instead of reaching the encoders (#353).
 - **Fixed:** PNGX palette256 quantization no longer fails when exactly 256 protected colors are given
-  and chroma anchors are enabled (#XXX).
+  and chroma anchors are enabled (#353).
 - **Fixed:** The color ranking of the Reduced RGBA32 mode uses a consistent comparison for sorting
-  (#XXX).
+  (#353).
 
 ### CLI
 - **Fixed:** Floating-point options reject `nan` and `inf`, `--quality <min>-<max>` and
   `--protect-color` are parsed strictly (trailing text, signs and spaces were accepted), and a failed
-  write removes the partially written output file (#XXX).
+  write removes the partially written output file (#353).
 
 ### GUI
 - **Changed:** The GUI runs on Electron 45 (Chromium 156, Node.js 24.22) instead of Electron 44
@@ -63,7 +63,7 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
 ### Python
 - **Fixed:** Non-finite floats and integers outside the C `int` range raise `ValueError` /
   `OverflowError` instead of being passed on or truncated, and the configuration is read from a
-  snapshot of the dictionary and of the protected color list (#XXX).
+  snapshot of the dictionary and of the protected color list (#353).
 
 ### Build / CI
 - **Changed:** Windows builds link zlib 1.4's static library under its new MSVC name, `libzs.lib`
@@ -124,10 +124,10 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
   requests with 504 Gateway Time-out. The tools electron-builder downloads (such as NSIS and the DMG
   builder) are still fetched anonymously, but only on a cache miss (#352).
 - **Changed:** The C sources are compiled as C11 without GNU extensions (was C99). MSVC builds use
-  `/std:c11`, which needs Visual Studio 2019 16.8 or later (#XXX).
+  `/std:c11`, which needs Visual Studio 2019 16.8 or later (#353).
 - **Changed:** The C sources follow new coding conventions (4-space indentation, 100 columns,
   declarations at the top of each function in a fixed order, macros at the top of each file; see
-  AGENTS.md). A new Style job checks them with `utils/check_style.py` and clang-format 23 (#XXX).
+  AGENTS.md). A new Style job checks them with `utils/check_style.py` and clang-format 23 (#353).
 
 ### Documentation
 - **Added:** `.claude/skills/rollup-dependencies`, a Claude Code skill (`/rollup-dependencies`) for
@@ -136,7 +136,7 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
 - **Added:** `.claude/skills/colopresso-electron-e2e`, a Claude Code skill (`/colopresso-electron-e2e`)
   for driving the packaged Electron app and debugging GUI issues (#352).
 - **Added:** `SECURITY.md` (and `SECURITY_ja.md`) describes the supported versions and how to report a
-  vulnerability privately (#XXX).
+  vulnerability privately (#353).
 
 ### Dependencies
 - Electron 45.2.3, electron-updater 6.8.12, electron-builder 26.18.1, Vite 8.3.6, pnpm 12.18.0,
