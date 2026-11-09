@@ -34,14 +34,12 @@ static size_t g_png_size = 0;
 
 static void load_asset(void)
 {
-    char path[1024];
-
     if (g_png_data) {
         return;
     }
 
-    TEST_ASSERT_TRUE(format_test_asset_path(path, sizeof(path), "128x128.png"));
-    TEST_ASSERT_EQUAL_INT(CPRES_OK, cpres_read_file_to_memory(path, &g_png_data, &g_png_size));
+    g_png_data = load_test_asset_png("128x128.png", &g_png_size);
+    TEST_ASSERT_NOT_NULL(g_png_data);
     TEST_ASSERT_GREATER_THAN_size_t(TRUNCATED_PNG_SIZE, g_png_size);
 }
 
@@ -80,7 +78,7 @@ void test_encode_truncated_png_memory(void)
     TEST_ASSERT_NULL(out);
 }
 
-#if COLOPRESSO_WITH_FILE_OPS
+#ifndef COLOPRESSO_DISABLE_FILE_OPS
 void test_encode_truncated_png_file(void)
 {
     cpres_config_t config;
@@ -212,7 +210,7 @@ int main(void)
     UNITY_BEGIN();
 
     RUN_TEST(test_encode_truncated_png_memory);
-#if COLOPRESSO_WITH_FILE_OPS
+#ifndef COLOPRESSO_DISABLE_FILE_OPS
     RUN_TEST(test_encode_truncated_png_file);
 #endif
     RUN_TEST(test_encode_non_finite_quality);
