@@ -55,9 +55,11 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
 - **Removed:** The `electron@44.7.2` exemption from pnpm's `minimumReleaseAge`, which is no longer
   needed (#350).
 - **Added:** CI runs a GUI end-to-end smoke test of the packaged Electron app on Windows (x64, arm64)
-  and macOS (Intel, Apple Silicon): WebP, AVIF and PNGX conversions through the folder flow, a dropped
-  file and a dropped batch saved as a ZIP. Screenshots and logs are uploaded as artifacts.
-  `pnpm run e2e:electron` runs it locally, and `playwright-core` is a new devDependency (#352).
+  and macOS (Apple Silicon): WebP, AVIF and PNGX conversions through the folder flow, a dropped file
+  and a dropped batch saved as a ZIP. Screenshots and logs are uploaded as artifacts. The macOS Intel
+  job only builds the app and tests the native addon, because the app repeatedly stopped responding
+  during the test on that runner. `pnpm run e2e:electron` runs it locally, and `playwright-core` is a
+  new devDependency (#352).
 - **Changed:** CI runs on macOS 26 (`macos-26`, `macos-26-intel`) and Ubuntu 26.04 (`ubuntu-26.04`,
   `ubuntu-26.04-arm`), and release Linux jobs on Ubuntu 26.04. Release macOS jobs stay on macOS 15
   because the binaries have no deployment target and would otherwise require the newer macOS. CI job

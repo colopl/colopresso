@@ -138,12 +138,13 @@ printf '%s\n' launch "format avif" "mock-folder /tmp/in" pick "wait 600" files "
 
 ## CI での実行
 
-`.github/workflows/ci.yaml` の `WindowsElectron` (x64 / arm64) と `macOSElectron` (Intel /
-Apple Silicon) のすべてが、アプリをビルドしてネイティブアドオンのテストを通したあと、`smoke.sh` を
-実行する。スクリーンショットとドライバのログは、成否に関係なく `electron-e2e-windows-x64`,
-`electron-e2e-windows-arm64`, `electron-e2e-macos-intel`, `electron-e2e-macos-apple-silicon` という
-アーティファクトに残る。macOS は `macos-26` / `macos-26-intel` で動くが、リリースのビルドは最低対応
-バージョンを上げないよう macOS 15 のままである。
+`.github/workflows/ci.yaml` の `WindowsElectron` (x64 / arm64) と `macOSElectron` (Apple Silicon) が、
+アプリをビルドしてネイティブアドオンのテストを通したあと、`smoke.sh` を実行する。`macOSElectron`
+(Intel) はビルドとネイティブアドオンのテストだけで、E2E は実行しない (後述の「CI でアプリが応答
+しなくなる」)。スクリーンショットとドライバのログは、成否に関係なく `electron-e2e-windows-x64`,
+`electron-e2e-windows-arm64`, `electron-e2e-macos-apple-silicon` というアーティファクトに残る。
+macOS は `macos-26` / `macos-26-intel` で動くが、リリースのビルドは最低対応バージョンを上げないよう
+macOS 15 のままである。
 
 Pull Request の変更が Electron と共通 UI (`app/`)、JS の依存、ドキュメントだけのときは、ライブラリ・
 CLI・WebAssembly・Python wheel のジョブは省かれ、Electron のジョブとこの E2E だけが走る。そうした
@@ -203,11 +204,12 @@ gh run download <run id> -n electron-e2e-windows-x64 -D /tmp/e2e-win
   カレントディレクトリとして起動され、`Cannot find package.json in the ...\build` で失敗したことが
   ある。現在は `cmake/electron_app.cmake` が `--projectDir` を明示して渡すので起きない。この引数を
   外すと再発する。
-- **CI でアプリがまれに応答しなくなる:** macOS Intel (`macos-26-intel`) で、起動直後のスクリーン
-  ショットが時間切れになり、その後のページでの評価も返らなくなったことがある (同じ手順はほかの
-  Runner では数秒で終わり、次の実行では通った)。原因は特定できていない。コマンドの時間切れと
-  `smoke.sh` のやり直しはこのためにある。`RETRY: attempt ...` が頻繁に出るようになったら、
-  `driver.attempt-N.log` の `gpu:` の行 (GPU の状態) と `[child-process-gone]` /
+- **CI でアプリが応答しなくなる:** macOS Intel (`macos-26-intel`) で、起動直後のスクリーンショットや
+  変換の待機が時間切れになり、その後のページでの評価も返らなくなる (同じ手順はほかの Runner では
+  数秒で終わる)。通る実行もあったが、3 回のやり直しがすべて止まる実行が続いたため、Intel では E2E を
+  外した。原因は特定できていない。コマンドの時間切れと `smoke.sh` のやり直しはこのためにある。
+  Intel で E2E を試し直すときは `matrix.arch.e2e` を `true` にする。`RETRY: attempt ...` が頻繁に
+  出るようになったら、`driver.attempt-N.log` の `gpu:` の行 (GPU の状態) と `[child-process-gone]` /
   `[render-process-gone]` / `[renderer-unresponsive]` のログ、`driver.stderr.attempt-N.log` の
   プロトコルログを見る。
 - **Windows の CI で起動がまれに止まる:** アプリは起動して更新確認まで進んでいるのに、Playwright の

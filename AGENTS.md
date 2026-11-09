@@ -36,7 +36,7 @@
 - `/app`: GUI 版 `colopresso` アプリケーションの実装です
     - `/app/electron`: Electron アプリケーションとしての GUI 版 `colopresso` の実装です
         - `/app/electron/native`: Electron から `libcolopresso` を呼び出す Node-API ネイティブアドオン (`colopresso_native.c`) です
-        - `/app/electron/e2e`: パッケージした Electron アプリを Playwright で操作する E2E テスト (`smoke.sh`, `driver.mjs`) です。 CI の `WindowsElectron` (x64 / arm64) と `macOSElectron` (Intel / Apple Silicon) で実行され、手順は `colopresso-electron-e2e` スキルにまとめています
+        - `/app/electron/e2e`: パッケージした Electron アプリを Playwright で操作する E2E テスト (`smoke.sh`, `driver.mjs`) です。 CI の `WindowsElectron` (x64 / arm64) と `macOSElectron` (Apple Silicon) で実行され、手順は `colopresso-electron-e2e` スキルにまとめています
     - `/app/shared`: Electron アプリケーションが利用する共通実装 (React コンポーネント, フォーマット定義 `formats/`, i18n 等) です。 CMake ビルド時に Vite で `build/electron` へバンドルされます
 - `/python`: Python バインディング (`colopresso` パッケージ) です。 C 拡張 `_colopresso_ext.c` と `core.py` で構成され、 API は `python/README.md` に記載されています
 - `/cmake`: CMakeLists.txt から参照される CMake の構成ファイルです

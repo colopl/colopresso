@@ -51,9 +51,11 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
   しました。Windows の CI ランナーでは electron-builder がビルドディレクトリで起動され、
   「Cannot find package.json」で失敗していました (#350)。
 - **削除:** 不要になった、pnpm の `minimumReleaseAge` に対する `electron@44.7.2` の除外を削除しました (#350)。
-- **追加:** CI の Windows (x64, arm64) と macOS (Intel, Apple Silicon) で、パッケージした Electron アプリを
+- **追加:** CI の Windows (x64, arm64) と macOS (Apple Silicon) で、パッケージした Electron アプリを
   GUI から操作する E2E のスモークテストを実行するようにしました。WebP, AVIF, PNGX のフォルダ変換、1 ファイルの
-  ドロップ、複数ファイルの ZIP 保存を行います。スクリーンショットとログはアーティファクトに残ります。
+  ドロップ、複数ファイルの ZIP 保存を行います。スクリーンショットとログはアーティファクトに残ります。macOS
+  Intel のジョブでは、その Runner でテスト中にアプリが応答しなくなることが続いたため、アプリのビルドと
+  ネイティブアドオンのテストだけを行います。
   `pnpm run e2e:electron` で手元からも実行でき、devDependency に `playwright-core` を追加しています (#352)。
 - **変更:** CI を macOS 26 (`macos-26`, `macos-26-intel`) と Ubuntu 26.04 (`ubuntu-26.04`, `ubuntu-26.04-arm`)
   で、リリースの Linux ジョブを Ubuntu 26.04 で実行するようにしました。リリースの macOS ジョブは macOS 15 の
