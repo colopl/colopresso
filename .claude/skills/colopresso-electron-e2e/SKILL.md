@@ -8,7 +8,8 @@ description: >-
   ネイティブアドオンの状態、リリース版 CLI との出力比較) も含む。「GUI で変換できるか試して」
   「Electron を更新したのでアプリの動作確認をして」「パッケージしたアプリを操作して」
   「GUI のスクリーンショットを撮って」「GUI でだけ起きる不具合を調べて」などの依頼で使う。
-  Electron や electron-builder, electron-updater の更新後の確認にも使う。
+  Electron や electron-builder, electron-updater の更新後の確認や、CI の Electron E2E ジョブが
+  失敗したときの調査にも使う。
 ---
 
 # colopresso Electron アプリの E2E 確認
@@ -20,18 +21,19 @@ description: >-
 
 - **想定利用者:** このリポジトリのメンテナ。公開リポジトリに含まれるので、社内情報・個人情報・
   トークンは書かないし、作業中の出力にも含めない。
-- **実体:** 手順書と 3 本のスクリプト。`scripts/driver.mjs` (Playwright の `_electron` で操作する
-  REPL)、`scripts/smoke.sh` (一連の変換を流して検証する)、`scripts/check_outputs.py` (出力の検証)。
-- **外部への通信:** Playwright (`playwright-core`) を npm レジストリから取得する。起動したアプリは、
-  普段どおり GitHub Releases に更新を確認しに行く (ローカルビルドは版が `123.456.789` なので更新は
-  提示されない)。ほかに外部へは送らない。
+- **実体:** 手順書と、CI と共用の 3 本のスクリプト (`app/electron/e2e/`)。`driver.mjs`
+  (Playwright の `_electron` で操作する REPL)、`smoke.sh` (一連の変換を流して検証する)、
+  `check_outputs.py` (出力の検証)。
+- **外部への通信:** `playwright-core` は devDependency なので `pnpm install` で npm レジストリから
+  入る。起動したアプリは、普段どおり GitHub Releases に更新を確認しに行く (ローカルビルドは版が
+  `123.456.789`、CI では `999.999.998` なので更新は提示されない)。ほかに外部へは送らない。
 
 ## 操作の区分
 
 | 区分 | 操作 |
 |---|---|
 | 🔴 行わない | 利用者の実際のユーザーデータ (`~/Library/Application Support/colopresso` など) を使って起動する、利用者の実際の画像フォルダを変換対象にする、インストール済みのアプリを上書きする |
-| 🟡 毎回ユーザーに確認してから | リポジトリの `dist_build/` や `build/` を上書きするビルド、`playwright-core` をリポジトリの依存に加えること、ブランチの push |
+| 🟡 毎回ユーザーに確認してから | リポジトリの `dist_build/` や `build/` を上書きするビルド、ブランチの push、`workflow_dispatch` での CI の実行 |
 | 🟢 実行して結果を報告 | 一時ディレクトリでのビルド、アプリの起動と操作、`assets/` のコピーの変換、スクリーンショット、ログの取得 |
 
 ドライバは既定で一時ディレクトリをユーザーデータにする。指定しない起動はインストール済みの colopresso
@@ -56,22 +58,16 @@ Windows x64 なら `dist_build/win-unpacked/colopresso.exe` ができる。Linux
   利用者のグローバルな wasm-pack は変えない。
 - macOS では、ビルドログに `packaging platform=darwin arch=arm64 electron=<版>` が出ていることを確かめる。
 
-### 2. Playwright を一時ディレクトリに入れる
+### 2. Playwright
 
-`playwright-core` はリポジトリの依存ではない。一時ディレクトリに入れ、そのパスを `PLAYWRIGHT_DIR`
-で渡す。
-
-```bash
-PW_DIR="$(mktemp -d)"
-npm install --prefix "${PW_DIR}" --no-audit --no-fund playwright-core@1
-export PLAYWRIGHT_DIR="${PW_DIR}"
-```
+`playwright-core` は devDependency なので、`pnpm install --frozen-lockfile` で入る。ブラウザは
+ダウンロードしない (Electron の起動にだけ使う)。
 
 ### 3. 環境変数
 
 | 変数 | 意味 | 既定値 |
 |---|---|---|
-| `PLAYWRIGHT_DIR` | `playwright-core` を入れたディレクトリ | カレントディレクトリ |
+| `PLAYWRIGHT_DIR` | `playwright-core` を読み込むディレクトリ | リポジトリのルート |
 | `COLOPRESSO_APP` | 起動する `.app` または実行ファイル | `dist_build/mac-arm64/colopresso.app` など |
 | `COLOPRESSO_E2E_USER_DATA` | アプリのユーザーデータ | 一時ディレクトリ |
 | `SCREENSHOT_DIR` | スクリーンショットの保存先 | `$TMPDIR/colopresso-e2e-shots` |
@@ -79,14 +75,16 @@ export PLAYWRIGHT_DIR="${PW_DIR}"
 ## 一通り確かめる (smoke)
 
 ```bash
-bash .claude/skills/colopresso-electron-e2e/scripts/smoke.sh [作業ディレクトリ]
+pnpm run e2e:electron [作業ディレクトリ]
+# または bash app/electron/e2e/smoke.sh [作業ディレクトリ]
 ```
 
 `assets/` の `example.png`, `128x128.png`, `16bit.png`, `banding.png` のコピーを、WebP, AVIF,
 PNGX の 3 モードでフォルダ変換し、`example.png` 1 枚のドロップと 3 枚のドロップ (ZIP 保存) も行う。
-その後 `check_outputs.py` が、出力の有無、ファイル形式、PNG のカラータイプを確かめ、macOS では
-`sips` で読み込んで寸法が元画像と同じかも確かめる。ドライバのエラー、要素が見つからない、待ち時間
-切れ、レンダラーの例外があれば失敗にする。終了コードは 0 (すべて OK) か 1。
+その後 `check_outputs.py` が出力を確かめる。PNG はチャンクの CRC と、展開した画素データの長さまで、
+WebP と AVIF はコンテナのヘッダから読んだ寸法を元画像と比べる (OS に依存しない)。macOS では `sips`
+でのデコードも確かめる。ドライバのエラー、要素が見つからない、待ち時間切れ、レンダラーの例外が
+あれば失敗にする。終了コードは 0 (すべて OK) か 1。Windows では Git Bash から実行する。
 
 最後に、作業ディレクトリの `shots/` のスクリーンショットを実際に開いて見る。真っ白な画面や
 エラー表示は、ログに出なくても失敗である。
@@ -97,7 +95,7 @@ PNGX の 3 モードでフォルダ変換し、`example.png` 1 枚のドロッ�
 
 ```bash
 printf '%s\n' launch "format avif" "mock-folder /tmp/in" pick "wait 600" files "ss avif" quit \
-  | node .claude/skills/colopresso-electron-e2e/scripts/driver.mjs
+  | node app/electron/e2e/driver.mjs
 ```
 
 | コマンド | 動作 |
@@ -120,6 +118,24 @@ printf '%s\n' launch "format avif" "mock-folder /tmp/in" pick "wait 600" files "
 
 フォルダ変換の出力は元の PNG の隣に書き出される。WebP は `.webp`、AVIF は `.avif`、PNGX は
 `_optimized.png`。ドロップしたファイルは `mock-save` で指定した場所に保存される。
+
+## CI での実行
+
+`.github/workflows/ci.yaml` の `WindowsElectron` (x64) と `macOSElectron` (arm64) が、アプリを
+ビルドしてネイティブアドオンのテストを通したあと、`smoke.sh` を実行する。スクリーンショットと
+ドライバのログは、成否に関係なく `electron-e2e-windows-x64` / `electron-e2e-macos-arm64` という
+アーティファクトに残る。
+
+失敗したときは、ログとスクリーンショットを取得して見る。
+
+```bash
+gh run download <run id> -n electron-e2e-windows-x64 -D /tmp/e2e-win
+```
+
+`driver.log` で最初の `ERROR:` / `TIMEOUT` / `NOT_FOUND` の前後と、`logs 200` の出力 (メイン
+プロセスとレンダラーのログ) を読み、`shots/` の該当する場面のスクリーンショットを開く。Windows でだけ
+落ちるときは、パスの扱い (`smoke.sh` は Git Bash のパスを `cygpath -m` で変換してから Node.js と
+Python に渡している) と、出力先の書き込み権限から疑う。
 
 ## 不具合を調べる
 
@@ -148,7 +164,8 @@ printf '%s\n' launch "format avif" "mock-folder /tmp/in" pick "wait 600" files "
 - **ネイティブのダイアログは操作できない:** `pick` や保存の前に、必ず `mock-folder` / `mock-save`
   を実行する。差し替えはアプリを終了するまで有効。
 - **ドロップゾーンの要素:** CSS Modules のクラス名 (`_dropZone_xxxxx`) で探している。画面の構成を
-  変えたときに `pick -> NOT_FOUND` になったら、`driver.mjs` の `DROP_ZONE` を直す。
+  変えたときに `pick -> NOT_FOUND` になったら、`app/electron/e2e/driver.mjs` の `DROP_ZONE` を直す。
+  GUI を変えたときは、CI で E2E が通ることも確かめる。
 - **変換の終了判定:** ドロップゾーンのキャンセルボタンの有無で見ている。変換が一瞬で終わると
   「never saw it busy」と表示されるが、出力を確かめれば問題ない。
 - **出力が元より大きくなることがある:** グラデーションの多い画像 (`banding.png`) は、PNGX の
@@ -159,5 +176,5 @@ printf '%s\n' launch "format avif" "mock-folder /tmp/in" pick "wait 600" files "
   カレントディレクトリとして起動され、`Cannot find package.json in the ...\build` で失敗したことが
   ある。現在は `cmake/electron_app.cmake` が `--projectDir` を明示して渡すので起きない。この引数を
   外すと再発する。
-- **Windows での実行は未検証:** ドライバは Windows の実行ファイルのパスにも対応しているが、
-  この手順を Windows で通したことはまだない。
+- **Windows はローカルで試していない:** Windows での実行は CI の `WindowsElectron` (x64) で確かめて
+  いる。手元の Windows で動かすときは Git Bash から `smoke.sh` を実行する。

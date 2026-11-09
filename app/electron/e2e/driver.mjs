@@ -11,8 +11,7 @@
 
 // REPL driver for the packaged colopresso Electron app, built on Playwright's _electron.
 // Commands are read line by line from stdin and run one at a time, so a script can be piped in.
-// playwright-core is resolved from PLAYWRIGHT_DIR (default: the current directory), so it does
-// not have to be a dependency of the repository.
+// playwright-core comes from the repository's devDependencies; PLAYWRIGHT_DIR points elsewhere.
 
 import { createRequire } from 'node:module';
 import * as fs from 'node:fs';
@@ -20,8 +19,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import * as readline from 'node:readline';
 
-const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
-const requireFromTools = createRequire(path.join(path.resolve(process.env.PLAYWRIGHT_DIR ?? process.cwd()), 'noop.js'));
+const REPO_ROOT = path.resolve(import.meta.dirname, '../../..');
+const requireFromTools = createRequire(path.join(path.resolve(process.env.PLAYWRIGHT_DIR ?? REPO_ROOT), 'noop.js'));
 const { _electron: electron } = requireFromTools('playwright-core');
 
 const SHOT_DIR = path.resolve(process.env.SCREENSHOT_DIR ?? path.join(os.tmpdir(), 'colopresso-e2e-shots'));

@@ -275,6 +275,20 @@ jobs:
         env:
           COLOPRESSO_NATIVE_ADDON_PATH: ${{ github.workspace }}/build/electron/native/colopresso_native.node
           COLOPRESSO_TEST_ASSETS_DIR: ${{ github.workspace }}/assets
+      - name: Electron E2E
+        if: matrix.arch.electron == 'x64'
+        shell: bash
+        timeout-minutes: 30
+        run: bash "app/electron/e2e/smoke.sh" "${RUNNER_TEMP}/colopresso-e2e"
+      - name: Upload Electron E2E results
+        if: always() && matrix.arch.electron == 'x64'
+        uses: actions/upload-artifact@v7
+        with:
+          name: electron-e2e-windows-${{ matrix.arch.electron }}
+          path: |
+            ${{ runner.temp }}/colopresso-e2e/shots
+            ${{ runner.temp }}/colopresso-e2e/driver.log
+          if-no-files-found: ignore
   macOSElectron:
     needs: Prepare
     strategy:
@@ -319,6 +333,19 @@ jobs:
         env:
           COLOPRESSO_NATIVE_ADDON_PATH: ${{ github.workspace }}/build/electron/native/colopresso_native.node
           COLOPRESSO_TEST_ASSETS_DIR: ${{ github.workspace }}/assets
+      - name: Electron E2E
+        if: matrix.arch.electron == 'arm64'
+        timeout-minutes: 30
+        run: bash "app/electron/e2e/smoke.sh" "${RUNNER_TEMP}/colopresso-e2e"
+      - name: Upload Electron E2E results
+        if: always() && matrix.arch.electron == 'arm64'
+        uses: actions/upload-artifact@v7
+        with:
+          name: electron-e2e-macos-${{ matrix.arch.electron }}
+          path: |
+            ${{ runner.temp }}/colopresso-e2e/shots
+            ${{ runner.temp }}/colopresso-e2e/driver.log
+          if-no-files-found: ignore
   WindowsCLI:
     needs: Prepare
     runs-on: windows-latest
