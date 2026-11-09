@@ -18,7 +18,7 @@ project(colopresso
 # C Standard Configuration
 # ==============================================================================
 
-set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -59,7 +59,7 @@ include(cmake/thirdparty.cmake)
 
 file(GLOB_RECURSE COLOPRESSO_SOURCES "library/src/*.c")
 
-set(COLOPRESSO_FILE_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/library/src/colopresso_file.c")
+set(COLOPRESSO_FILE_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/library/src/file.c")
 if(NOT COLOPRESSO_WITH_FILE_OPS)
   list(REMOVE_ITEM COLOPRESSO_SOURCES "${COLOPRESSO_FILE_SOURCE}")
 endif()
@@ -69,6 +69,7 @@ endif()
 # ==============================================================================
 
 add_library(colopresso STATIC ${COLOPRESSO_SOURCES})
+colopresso_set_c_standard(colopresso)
 
 # SIMD configuration
 if(COLOPRESSO_ENABLE_SIMD)
@@ -207,6 +208,7 @@ if(COLOPRESSO_USE_UTILS)
       get_filename_component(UTIL_NAME ${UTIL_SOURCE} NAME_WE)
       set(UTIL_TARGET "util_${UTIL_NAME}")
       add_executable(${UTIL_TARGET} ${UTIL_SOURCE})
+      colopresso_set_c_standard(${UTIL_TARGET})
       target_link_libraries(${UTIL_TARGET} PRIVATE colopresso)
       set(_util_properties
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/utils

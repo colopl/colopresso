@@ -60,6 +60,7 @@ set(COLOPRESSO_PYTHON_ABI_VERSION 0x030a0000)
 add_library(colopresso_python MODULE
   ${CMAKE_CURRENT_SOURCE_DIR}/python/colopresso/_colopresso_ext.c
 )
+colopresso_set_c_standard(colopresso_python)
 
 target_compile_definitions(colopresso_python PRIVATE
   Py_LIMITED_API=${COLOPRESSO_PYTHON_ABI_VERSION}

@@ -17,6 +17,7 @@ macro(_pngx_bridge_create_wasm_stub)
   set(PNGX_BRIDGE_STUB_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/library/src/wasm.c")
 
   add_library(pngx_bridge STATIC "${PNGX_BRIDGE_STUB_SOURCE}")
+  colopresso_set_c_standard(pngx_bridge)
   add_dependencies(pngx_bridge pngx_bridge_wasm_build)
 
   target_compile_definitions(pngx_bridge PRIVATE PNGX_BRIDGE_WASM_SEPARATION=1)

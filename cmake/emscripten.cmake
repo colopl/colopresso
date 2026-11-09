@@ -196,6 +196,7 @@ function(colopresso_configure_gui_target PLATFORM DISPLAY_NAME)
     set(RESOURCE_DEST_DIR "${OUTPUT_DIR}/resources/${PLATFORM_LOWER}")
   endif()
   add_executable(${TARGET_NAME} ${CMAKE_SOURCE_DIR}/library/src/emscripten.c)
+  colopresso_set_c_standard(${TARGET_NAME})
   target_link_libraries(${TARGET_NAME} PRIVATE colopresso)
 
   if(TARGET colopresso_gui_resources)
