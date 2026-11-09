@@ -8,7 +8,7 @@ Changes are grouped by build type: Library (libcolopresso and its public API), C
 Build / CI, Documentation and General. Each entry is tagged Added, Changed, Fixed or Removed.
 Security fixes are listed first in each release and marked **[SECURITY]**.
 
-## [Unreleased]
+## [15.0.0] - 2026-11-09
 
 ### Security
 - **[SECURITY]** **Fixed:** GUI: Electron is updated from 44.7.2 to 45.2.3 (Chromium 156.0.8078.80).
