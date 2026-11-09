@@ -74,6 +74,8 @@ Windows x64 なら `dist_build/win-unpacked/colopresso.exe` ができる。Linux
 | `SCREENSHOT_DIR` | スクリーンショットの保存先 | `$TMPDIR/colopresso-e2e-shots` |
 | `COLOPRESSO_E2E_LAUNCH_TIMEOUT` | 1 回の起動を待つ秒数 | 60 |
 | `COLOPRESSO_E2E_LAUNCH_ATTEMPTS` | 時間切れの起動をやり直す回数の上限 (初回を含む) | 2 |
+| `COLOPRESSO_E2E_COMMAND_TIMEOUT` | 1 つのコマンドを待つ秒数 (`wait` / `sleep` は指定の秒数 + 60 秒) | 120 |
+| `COLOPRESSO_E2E_RUN_ATTEMPTS` | `smoke.sh` が、コマンドの時間切れで止まった実行を最初からやり直す回数の上限 (初回を含む) | 3 |
 | `DEBUG` | Playwright のデバッグログ (例: `pw:browser,pw:protocol`)。標準エラーに出る | なし |
 
 ## 一通り確かめる (smoke)
@@ -89,6 +91,11 @@ PNGX の 3 モードでフォルダ変換し、`example.png` 1 枚のドロッ�
 WebP と AVIF はコンテナのヘッダから読んだ寸法を元画像と比べる (OS に依存しない)。macOS では `sips`
 でのデコードも確かめる。ドライバのエラー、要素が見つからない、待ち時間切れ、レンダラーの例外が
 あれば失敗にする。終了コードは 0 (すべて OK) か 1。Windows では Git Bash から実行する。
+
+アプリが応答しなくなりコマンドが時間切れになると、ドライバはそこまでのログを出してアプリを終了し、
+終了コード 2 で止まる。`smoke.sh` はこの場合だけ、入力とユーザーデータを作り直して最初からやり直す
+(既定で 3 回まで)。やり直した回のログは `driver.attempt-N.log` / `driver.stderr.attempt-N.log` に
+残る。変換結果の誤りや要素が見つからないといった通常の失敗はやり直さない。
 
 最後に、作業ディレクトリの `shots/` のスクリーンショットを実際に開いて見る。真っ白な画面や
 エラー表示は、ログに出なくても失敗である。
@@ -190,11 +197,18 @@ gh run download <run id> -n electron-e2e-windows-x64 -D /tmp/e2e-win
   カレントディレクトリとして起動され、`Cannot find package.json in the ...\build` で失敗したことが
   ある。現在は `cmake/electron_app.cmake` が `--projectDir` を明示して渡すので起きない。この引数を
   外すと再発する。
+- **CI でアプリがまれに応答しなくなる:** macOS Intel (`macos-26-intel`) で、起動直後のスクリーン
+  ショットが時間切れになり、その後のページでの評価も返らなくなったことがある (同じ手順はほかの
+  Runner では数秒で終わり、次の実行では通った)。原因は特定できていない。コマンドの時間切れと
+  `smoke.sh` のやり直しはこのためにある。`RETRY: attempt ...` が頻繁に出るようになったら、
+  `driver.attempt-N.log` の `gpu:` の行 (GPU の状態) と `[child-process-gone]` /
+  `[render-process-gone]` / `[renderer-unresponsive]` のログ、`driver.stderr.attempt-N.log` の
+  プロトコルログを見る。
 - **Windows の CI で起動がまれに止まる:** アプリは起動して更新確認まで進んでいるのに、Playwright の
   接続 (`electron.launch`) が応答せず時間切れになることがある。通常の起動は数秒で終わるので、
   ドライバは時間切れの起動をやり直し、`RETRY: launch attempt ...` と出す (CI では 3 回まで)。
   やり直しの途中で出る `WARN: unhandled rejection` はその副産物で、失敗とはみなさない。`RETRY` が
-  頻繁に出るようになったら、`driver.stderr.log` のプロトコルログで止まった箇所を調べる。CI の Windows
-  では `DEBUG=pw:browser,pw:protocol` を付けているので、このログが毎回アーティファクトに残る。
+  頻繁に出るようになったら、`driver.stderr.log` のプロトコルログで止まった箇所を調べる。CI では
+  `DEBUG=pw:browser,pw:protocol` を付けているので、このログが毎回アーティファクトに残る。
 - **Windows はローカルで試していない:** Windows での実行は CI の `WindowsElectron` (x64 / arm64) で
   確かめている。手元の Windows で動かすときは Git Bash から `smoke.sh` を実行する。

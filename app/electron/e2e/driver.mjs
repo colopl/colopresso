@@ -425,14 +425,14 @@ async function withTimeout(promise, seconds) {
 }
 
 // After a command hangs the app cannot be trusted to answer anything, so print what was collected,
-// kill the app and stop.
+// kill the app and stop with exit code 2, which smoke.sh treats as retryable.
 function abortHungCommand(command, seconds) {
   console.log(`ERROR: ${command} did not finish within ${seconds}s; the app stopped responding`);
   for (const line of logs.slice(-200)) {
     console.log(line);
   }
   app?.process()?.kill('SIGKILL');
-  process.exit(1);
+  process.exit(2);
 }
 
 async function drain() {

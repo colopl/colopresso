@@ -42,22 +42,29 @@ esac
 
 INPUT_DIR="${WORK_DIR}/in"
 SHOT_DIR="$(posix_path "${SCREENSHOT_DIR:-${WORK_DIR}/shots}")"
-USER_DATA_DIR="$(posix_path "${COLOPRESSO_E2E_USER_DATA:-${WORK_DIR}/userdata}")"
+USER_DATA_ROOT="$(posix_path "${COLOPRESSO_E2E_USER_DATA:-${WORK_DIR}/userdata}")"
 ASSETS=("example.png" "128x128.png" "16bit.png" "banding.png")
 FOLDER_SCENARIOS=("webp" "avif" "pngx-palette256" "pngx-limited" "pngx-reduced")
 
-rm -rf "${INPUT_DIR}"
-mkdir -p "${INPUT_DIR}/drop" "${SHOT_DIR}" "${USER_DATA_DIR}"
-for scenario in "${FOLDER_SCENARIOS[@]}"; do
-  mkdir -p "${INPUT_DIR}/${scenario}"
-  for asset in "${ASSETS[@]}"; do
-    cp "${REPO_ROOT}/assets/${asset}" "${INPUT_DIR}/${scenario}/"
+RUN_ATTEMPTS="${COLOPRESSO_E2E_RUN_ATTEMPTS:-3}"
+
+# Every attempt starts from fresh copies of the inputs and a new, empty user data directory, so
+# settings changed by an earlier attempt do not carry over. Nothing outside this script's own
+# directories is deleted; screenshots of a later attempt overwrite those of an earlier one.
+prepare_inputs() {
+  rm -rf "${INPUT_DIR}"
+  mkdir -p "${INPUT_DIR}/drop" "${SHOT_DIR}" "${USER_DATA_ROOT}"
+  COLOPRESSO_E2E_USER_DATA="$(native_path "$(mktemp -d "${USER_DATA_ROOT}/attempt-${attempt}.XXXXXX")")"
+  for scenario in "${FOLDER_SCENARIOS[@]}"; do
+    mkdir -p "${INPUT_DIR}/${scenario}"
+    for asset in "${ASSETS[@]}"; do
+      cp "${REPO_ROOT}/assets/${asset}" "${INPUT_DIR}/${scenario}/"
+    done
   done
-done
+}
 
 export SCREENSHOT_DIR COLOPRESSO_E2E_USER_DATA
 SCREENSHOT_DIR="$(native_path "${SHOT_DIR}")"
-COLOPRESSO_E2E_USER_DATA="$(native_path "${USER_DATA_DIR}")"
 if [[ -n "${COLOPRESSO_APP:-}" ]]; then
   export COLOPRESSO_APP
   COLOPRESSO_APP="$(native_path "${COLOPRESSO_APP}")"
@@ -103,9 +110,27 @@ commands() {
   echo "quit"
 }
 
-# stderr carries Playwright's DEBUG output when it is enabled, so it goes to a file.
+# stderr carries Playwright's DEBUG output when it is enabled, so it goes to a file. The driver exits
+# with 2 when a command hangs (the app stops responding, seen intermittently on CI runners); only that
+# case is retried, from scratch, so ordinary failures are never hidden by a retry.
 status=0
-commands | node "$(native_path "${SCRIPT_DIR}/driver.mjs")" 2> "${WORK_DIR}/driver.stderr.log" | tee "${WORK_DIR}/driver.log" || status=1
+attempt=1
+while true; do
+  prepare_inputs
+  driver_status=0
+  commands | node "$(native_path "${SCRIPT_DIR}/driver.mjs")" 2> "${WORK_DIR}/driver.stderr.log" | tee "${WORK_DIR}/driver.log" || driver_status="${PIPESTATUS[1]}"
+  if [[ "${driver_status}" -eq 2 && "${attempt}" -lt "${RUN_ATTEMPTS}" ]]; then
+    mv "${WORK_DIR}/driver.log" "${WORK_DIR}/driver.attempt-${attempt}.log"
+    mv "${WORK_DIR}/driver.stderr.log" "${WORK_DIR}/driver.stderr.attempt-${attempt}.log"
+    echo "RETRY: attempt ${attempt}/${RUN_ATTEMPTS} hung; starting over" >&2
+    attempt=$((attempt + 1))
+    continue
+  fi
+  if [[ "${driver_status}" -ne 0 ]]; then
+    status=1
+  fi
+  break
+done
 
 if grep -Eq "^(ERROR:|TIMEOUT)| -> NOT_FOUND|renderer:pageerror|\[renderer:error\]" "${WORK_DIR}/driver.log"; then
   echo "driver reported problems; see ${WORK_DIR}/driver.log" >&2
