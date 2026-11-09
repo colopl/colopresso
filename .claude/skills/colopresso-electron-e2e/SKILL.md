@@ -129,10 +129,12 @@ printf '%s\n' launch "format avif" "mock-folder /tmp/in" pick "wait 600" files "
 
 ## CI での実行
 
-`.github/workflows/ci.yaml` の `WindowsElectron` (x64) と `macOSElectron` (arm64) が、アプリを
-ビルドしてネイティブアドオンのテストを通したあと、`smoke.sh` を実行する。スクリーンショットと
-ドライバのログは、成否に関係なく `electron-e2e-windows-x64` / `electron-e2e-macos-arm64` という
-アーティファクトに残る。
+`.github/workflows/ci.yaml` の `WindowsElectron` (x64 / arm64) と `macOSElectron` (Intel /
+Apple Silicon) のすべてが、アプリをビルドしてネイティブアドオンのテストを通したあと、`smoke.sh` を
+実行する。スクリーンショットとドライバのログは、成否に関係なく `electron-e2e-windows-x64`,
+`electron-e2e-windows-arm64`, `electron-e2e-macos-intel`, `electron-e2e-macos-apple-silicon` という
+アーティファクトに残る。macOS は `macos-26` / `macos-26-intel` で動くが、リリースのビルドは最低対応
+バージョンを上げないよう macOS 15 のままである。
 
 失敗したときは、ログとスクリーンショットを取得して見る。
 
@@ -190,9 +192,9 @@ gh run download <run id> -n electron-e2e-windows-x64 -D /tmp/e2e-win
   外すと再発する。
 - **Windows の CI で起動がまれに止まる:** アプリは起動して更新確認まで進んでいるのに、Playwright の
   接続 (`electron.launch`) が応答せず時間切れになることがある。通常の起動は数秒で終わるので、
-  ドライバは時間切れの起動をやり直し、`RETRY: launch attempt ...` と出す (CI の Windows は 3 回まで)。
+  ドライバは時間切れの起動をやり直し、`RETRY: launch attempt ...` と出す (CI では 3 回まで)。
   やり直しの途中で出る `WARN: unhandled rejection` はその副産物で、失敗とはみなさない。`RETRY` が
   頻繁に出るようになったら、`driver.stderr.log` のプロトコルログで止まった箇所を調べる。CI の Windows
   では `DEBUG=pw:browser,pw:protocol` を付けているので、このログが毎回アーティファクトに残る。
-- **Windows はローカルで試していない:** Windows での実行は CI の `WindowsElectron` (x64) で確かめて
-  いる。手元の Windows で動かすときは Git Bash から `smoke.sh` を実行する。
+- **Windows はローカルで試していない:** Windows での実行は CI の `WindowsElectron` (x64 / arm64) で
+  確かめている。手元の Windows で動かすときは Git Bash から `smoke.sh` を実行する。

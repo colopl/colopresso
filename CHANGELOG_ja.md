@@ -51,10 +51,17 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
   しました。Windows の CI ランナーでは electron-builder がビルドディレクトリで起動され、
   「Cannot find package.json」で失敗していました (#350)。
 - **削除:** 不要になった、pnpm の `minimumReleaseAge` に対する `electron@44.7.2` の除外を削除しました (#350)。
-- **追加:** CI の Windows x64 と macOS arm64 で、パッケージした Electron アプリを GUI から操作する E2E の
-  スモークテストを実行するようにしました。WebP, AVIF, PNGX のフォルダ変換、1 ファイルのドロップ、複数ファイルの
-  ZIP 保存を行います。スクリーンショットとログはアーティファクトに残ります。`pnpm run e2e:electron` で手元からも
-  実行でき、devDependency に `playwright-core` を追加しています (#352)。
+- **追加:** CI の Windows (x64, arm64) と macOS (Intel, Apple Silicon) で、パッケージした Electron アプリを
+  GUI から操作する E2E のスモークテストを実行するようにしました。WebP, AVIF, PNGX のフォルダ変換、1 ファイルの
+  ドロップ、複数ファイルの ZIP 保存を行います。スクリーンショットとログはアーティファクトに残ります。
+  `pnpm run e2e:electron` で手元からも実行でき、devDependency に `playwright-core` を追加しています (#352)。
+- **変更:** CI を macOS 26 (`macos-26`, `macos-26-intel`) と Ubuntu 26.04 (`ubuntu-26.04`, `ubuntu-26.04-arm`)
+  で、リリースの Linux ジョブを Ubuntu 26.04 で実行するようにしました。リリースの macOS ジョブは macOS 15 の
+  ままです。バイナリにデプロイメントターゲットを指定していないため、新しい macOS でビルドすると、その macOS
+  以降でしか動かなくなるためです。CI のジョブ名では、macOS を Intel / Apple Silicon、Windows を x64 / arm64、
+  Linux を amd64 / arm64 と表記します (#352)。
+- **変更:** Renovate が、ワークフローの matrix で指定した Runner のラベルも更新するようにしました。リリース
+  ビルドの macOS Runner は対象外です (#352)。
 
 ### Documentation
 - **追加:** 依存関係のロールアップ更新 (棚卸し, セキュリティ確認, 更新, 各プラットフォームでのビルド,

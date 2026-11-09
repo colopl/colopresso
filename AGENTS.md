@@ -36,7 +36,7 @@
 - `/app`: GUI 版 `colopresso` アプリケーションの実装です
     - `/app/electron`: Electron アプリケーションとしての GUI 版 `colopresso` の実装です
         - `/app/electron/native`: Electron から `libcolopresso` を呼び出す Node-API ネイティブアドオン (`colopresso_native.c`) です
-        - `/app/electron/e2e`: パッケージした Electron アプリを Playwright で操作する E2E テスト (`smoke.sh`, `driver.mjs`) です。 CI の `WindowsElectron` (x64) と `macOSElectron` (arm64) で実行され、手順は `colopresso-electron-e2e` スキルにまとめています
+        - `/app/electron/e2e`: パッケージした Electron アプリを Playwright で操作する E2E テスト (`smoke.sh`, `driver.mjs`) です。 CI の `WindowsElectron` (x64 / arm64) と `macOSElectron` (Intel / Apple Silicon) で実行され、手順は `colopresso-electron-e2e` スキルにまとめています
     - `/app/shared`: Electron アプリケーションが利用する共通実装 (React コンポーネント, フォーマット定義 `formats/`, i18n 等) です。 CMake ビルド時に Vite で `build/electron` へバンドルされます
 - `/python`: Python バインディング (`colopresso` パッケージ) です。 C 拡張 `_colopresso_ext.c` と `core.py` で構成され、 API は `python/README.md` に記載されています
 - `/cmake`: CMakeLists.txt から参照される CMake の構成ファイルです
@@ -74,3 +74,5 @@
 ## 注意事項
 - アプリケーションのビルドを行う時は必ず `README.md` を読み、従ってください。 Dev Container を用いた Linux 環境では「Build (Linux)」、 macOS 上で直接作業する場合は「Build (macOS)」の手順を参考にしてください
     - Linux 上での Electron アプリのビルドは現状サポートしていません。 Electron アプリのビルドが必要な場合、自分でビルドしようとせず、チャットでその旨伝えてください
+- CI のジョブ名やアーティファクト名でアーキテクチャを表す時は、 macOS は `Intel` / `Apple Silicon`、 Windows は `x64` / `arm64`、 Linux は `amd64` / `arm64` と書いてください。リリース成果物のファイル名は自動更新が参照しているので、この表記に合わせて変えないでください
+- macOS のリリースビルドの Runner は、最低対応 macOS が上がらないよう据え置いています (デプロイメントターゲットを指定していないため、ビルドした macOS 以降でしか動かなくなります)。 CI の Runner は Renovate が追い、リリースの macOS Runner は Renovate の対象から外しています
