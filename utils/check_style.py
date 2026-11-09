@@ -28,6 +28,8 @@ Rules (AGENTS.md "コーディング規約"):
   braces          control statements always use braces
   typedef-suffix  typedef names end with _t
   func-order      static inline -> static -> plain -> extern function definitions
+  define-top      #define only at the top of the file, before the first C declaration (include
+                  guards and helper macros #undef'd in the same file excepted)
 Exit status: 0 = clean, 1 = violations (printed as path:line: [rule] message).
 """
 
@@ -71,6 +73,9 @@ JUMPS = ("return", "break", "continue", "goto")
 ASSIGN_RE = re.compile(r"^(?P<lhs>[^=;]*?)(?:<<|>>|[-+*/%&|^])?=(?!=)")
 INCDEC_RE = re.compile(r"^(?:\+\+|--)?\s*(?P<lhs>[\w.\->\[\]*()\s]+?)\s*(?:\+\+|--)?\s*;$")
 IDENT_RE = re.compile(r"[A-Za-z_]\w*")
+DEFINE_RE = re.compile(r"^\s*#\s*define\s+([A-Za-z_]\w*)")
+UNDEF_RE = re.compile(r"^\s*#\s*undef\s+([A-Za-z_]\w*)", re.MULTILINE)
+EXTERN_C_RE = re.compile(r'^(?:extern\s+"C"\s*\{|\})$')
 DECL_RE = re.compile(
     r"^(?:(?:const|static|volatile|register|__extension__)\s+)*"
     r"(?:(?:struct|enum|union)\s+)?(?:(?:unsigned|signed|long|short)\s+)*"
@@ -145,8 +150,31 @@ class Checker:
         if "SPDX-License-Identifier" not in head:
             self.error(0, "spdx", "missing the SPDX header block at the top of the file")
         self.check_typedefs()
+        self.check_define_top()
         self.scan_file()
         return self.errors
+
+    def check_define_top(self):
+        first_code = None
+        i, n = 0, len(self.code)
+        while i < n:
+            stripped = self.code[i].strip()
+            if stripped.startswith("#"):
+                while self.code[i].rstrip().endswith("\\") and i + 1 < n:
+                    i += 1
+            elif stripped and not EXTERN_C_RE.match(self.raw[i].strip()):
+                first_code = i
+                break
+            i += 1
+        if first_code is None:
+            return
+        undefined = set(UNDEF_RE.findall("\n".join(self.code)))
+        for line in range(first_code, n):
+            match = DEFINE_RE.match(self.code[line])
+            if match and match.group(1) not in undefined:
+                self.error(line, "define-top",
+                           f"move #define {match.group(1)} to the top of the file (after the "
+                           "#include lines, before the first declaration)")
 
     def check_typedefs(self):
         text = "\n".join(self.code)
