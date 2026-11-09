@@ -38,6 +38,27 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
 - **[SECURITY]** **Fixed:** Build / CI: the pinned `dtolnay/rust-toolchain` action no longer
   interpolates its inputs directly into shell commands (#350).
 
+### Library
+- **Changed:** `pngx_threads` values above the number of logical CPUs are clamped to it (#353).
+- **Fixed:** Non-finite `webp_quality`, `webp_target_psnr` and `avif_quality` values return
+  `CPRES_ERROR_INVALID_PARAMETER` instead of reaching the encoders (#353).
+- **Fixed:** PNGX palette256 quantization no longer fails when exactly 256 protected colors are given
+  and chroma anchors are enabled (#353).
+- **Fixed:** The color ranking of the Reduced RGBA32 mode uses a consistent comparison for sorting
+  (#353).
+- **Fixed:** `cpres_encode_*_file()` return `CPRES_ERROR_IO` when the output file cannot be closed
+  (for example, when the disk is full) and remove the partially written file; they reported success
+  before (#353).
+- **Added:** `colopresso_remove_regular_file()` in `colopresso/portable.h`: removes a path only when it
+  is a regular file (not a device, a FIFO or a symbolic link). The file APIs and the CLI use it to
+  remove a partially written output file (#353).
+
+### CLI
+- **Fixed:** Numeric options reject `nan`, `inf`, leading spaces and a leading `+`.
+  `--quality <min>-<max>` no longer accepts trailing text, `--protect-color` accepts hexadecimal
+  digits only (signs and spaces inside a color were accepted), and a failed write removes the
+  partially written output file (#353).
+
 ### GUI
 - **Changed:** The GUI runs on Electron 45 (Chromium 156, Node.js 24.22) instead of Electron 44
   (#350).
@@ -45,6 +66,11 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
 ### JS/WASM
 - **Changed:** The Emscripten (Node.js / WebAssembly) builds use Emscripten 7.0.0 (was 6.0.12), whose
   libc++, libunwind and compiler-rt come from LLVM 23.1.3 (#350).
+
+### Python
+- **Fixed:** Non-finite floats and integers outside the C `int` range raise `ValueError` /
+  `OverflowError` instead of being passed on or truncated, and the configuration is read from a
+  snapshot of the dictionary and of the protected color list (#353).
 
 ### Build / CI
 - **Changed:** Windows builds link zlib 1.4's static library under its new MSVC name, `libzs.lib`
@@ -104,6 +130,11 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
   cibuildwheel downloaded `virtualenv.pyz` on every run, so both failed while GitHub answered anonymous
   requests with 504 Gateway Time-out. The tools electron-builder downloads (such as NSIS and the DMG
   builder) are still fetched anonymously, but only on a cache miss (#352).
+- **Changed:** The C sources are compiled as C11 without GNU extensions (was C99). MSVC builds use
+  `/std:c11`, which needs Visual Studio 2019 16.8 or later (#353).
+- **Changed:** The C sources follow new coding conventions (4-space indentation, 100 columns,
+  declarations at the top of each function in a fixed order, macros at the top of each file; see
+  AGENTS.md). A new Style job checks them with `utils/check_style.py` and clang-format 23 (#353).
 
 ### Documentation
 - **Added:** `.claude/skills/rollup-dependencies`, a Claude Code skill (`/rollup-dependencies`) for
@@ -111,6 +142,8 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
   PR preparation (#350).
 - **Added:** `.claude/skills/colopresso-electron-e2e`, a Claude Code skill (`/colopresso-electron-e2e`)
   for driving the packaged Electron app and debugging GUI issues (#352).
+- **Added:** `SECURITY.md` (and `SECURITY_ja.md`) describes the supported versions and how to report a
+  vulnerability privately (#353).
 
 ### Dependencies
 - Electron 45.2.3, electron-updater 6.8.12, electron-builder 26.18.1, Vite 8.3.6, pnpm 12.18.0,

@@ -10,7 +10,7 @@
 cmake_minimum_required(VERSION 3.22)
 project(colopresso_python LANGUAGES C)
 
-set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -162,13 +162,14 @@ target_include_directories(pngx_bridge INTERFACE "${PNGX_BRIDGE_BUILD_DIR}/gener
 # sources
 file(GLOB_RECURSE COLOPRESSO_SOURCES "${COLOPRESSO_ROOT}/library/src/*.c")
 
-set(COLOPRESSO_FILE_SOURCE "${COLOPRESSO_ROOT}/library/src/colopresso_file.c")
+set(COLOPRESSO_FILE_SOURCE "${COLOPRESSO_ROOT}/library/src/file.c")
 if(NOT COLOPRESSO_WITH_FILE_OPS)
   list(REMOVE_ITEM COLOPRESSO_SOURCES "${COLOPRESSO_FILE_SOURCE}")
 endif()
 
 # library
 add_library(colopresso STATIC ${COLOPRESSO_SOURCES})
+colopresso_set_c_standard(colopresso)
 
 if(COLOPRESSO_ENABLE_SIMD)
   target_compile_definitions(colopresso PRIVATE CPRES_USE_SIMD=1)
@@ -257,6 +258,7 @@ set(COLOPRESSO_PYTHON_ABI_VERSION 0x030a0000)
 add_library(colopresso_python MODULE
   "${CMAKE_CURRENT_SOURCE_DIR}/colopresso/_colopresso_ext.c"
 )
+colopresso_set_c_standard(colopresso_python)
 
 target_compile_definitions(colopresso_python PRIVATE
   Py_LIMITED_API=${COLOPRESSO_PYTHON_ABI_VERSION}

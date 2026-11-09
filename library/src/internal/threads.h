@@ -21,7 +21,9 @@ extern "C" {
 #endif
 
 typedef void (*parallel_func_t)(void *context, uint32_t start_index, uint32_t end_index);
-bool colopresso_parallel_for(uint32_t use_threads, uint32_t total_items, parallel_func_t func, void *context);
+
+extern bool colopresso_parallel_for(uint32_t use_threads, uint32_t total_items,
+                                    parallel_func_t func, void *context);
 
 #ifdef __cplusplus
 }

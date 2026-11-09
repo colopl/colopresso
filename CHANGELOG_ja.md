@@ -37,12 +37,35 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
 - **[SECURITY]** **修正:** Build / CI: 固定している `dtolnay/rust-toolchain` アクションを、入力値をシェルの
   コマンドへ直接展開しない版に更新しました (#350)。
 
+### Library
+- **変更:** 論理 CPU 数を超える `pngx_threads` は論理 CPU 数までに抑えるようにしました (#353)。
+- **修正:** 有限でない `webp_quality`, `webp_target_psnr`, `avif_quality` は、エンコーダに渡さず
+  `CPRES_ERROR_INVALID_PARAMETER` を返すようにしました (#353)。
+- **修正:** 保護色をちょうど 256 色指定し、高彩度アンカーが有効なときに PNGX palette256 の減色が失敗して
+  いたのを直しました (#353)。
+- **修正:** Reduced RGBA32 モードの色の順位付けで、整列に一貫した比較を使うようにしました (#353)。
+- **修正:** `cpres_encode_*_file()` は、出力ファイルを閉じられなかったとき (ディスクの空き不足など) に
+  `CPRES_ERROR_IO` を返し、書きかけのファイルを削除するようにしました。以前は成功を返していました (#353)。
+- **追加:** `colopresso/portable.h` に `colopresso_remove_regular_file()` を追加しました。通常のファイル
+  (デバイス, FIFO, シンボリックリンク以外) のときだけ削除します。ファイル API と CLI が、書きかけの出力ファイルの
+  削除に使います (#353)。
+
+### CLI
+- **修正:** 数値のオプションで `nan`, `inf`, 先頭の空白, 先頭の `+` を受け付けないようにしました。
+  `--quality <min>-<max>` は末尾の余分な文字を受け付けず、 `--protect-color` は 16 進数の文字だけを
+  受け付けます (色の中の符号や空白を受け付けていました)。書き込みに失敗したときは、書きかけの出力ファイルを
+  削除します (#353)。
+
 ### GUI
 - **変更:** GUI を Electron 44 から Electron 45 (Chromium 156, Node.js 24.22) に移行しました (#350)。
 
 ### JS/WASM
 - **変更:** Emscripten を使うビルド (Node.js / WebAssembly) の Emscripten を 6.0.12 から 7.0.0 に
   更新しました。libc++, libunwind, compiler-rt は LLVM 23.1.3 のものになります (#350)。
+
+### Python
+- **修正:** 有限でない浮動小数点数と C の `int` の範囲を超える整数は、そのまま渡したり切り詰めたりせず
+  `ValueError` / `OverflowError` にしました。設定は辞書と保護色のリストの複製から読み取ります (#353)。
 
 ### Build / CI
 - **変更:** zlib 1.4 で MSVC 向け静的ライブラリの名前が `zs.lib` から `libzs.lib` に変わったため、Windows の
@@ -99,6 +122,11 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
   `SHASUMS256.txt` をビルドのたびに github.com から匿名で取得し、cibuildwheel は `virtualenv.pyz` を毎回取得して
   いたため、GitHub が匿名のリクエストに 504 Gateway Time-out を返す間は失敗していました。electron-builder が
   取得するツール (NSIS や DMG 作成用のツールなど) は今も匿名で取得しますが、キャッシュがないときだけです (#352)。
+- **変更:** C のソースを C99 ではなく C11 (GNU 拡張なし) でコンパイルするようにしました。 MSVC では
+  `/std:c11` を使うため、 Visual Studio 2019 16.8 以降が必要です (#353)。
+- **変更:** C のソースを新しいコーディング規約 (4 スペースインデント, 100 桁, 関数先頭で決まった順序の宣言,
+  ファイル上部のマクロ。 AGENTS.md を参照) に揃えました。新しい Style ジョブが `utils/check_style.py` と
+  clang-format 23 で検査します (#353)。
 
 ### Documentation
 - **追加:** 依存関係のロールアップ更新 (棚卸し, セキュリティ確認, 更新, 各プラットフォームでのビルド,
@@ -106,6 +134,8 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
   (`/rollup-dependencies`) を追加しました (#350)。
 - **追加:** パッケージした Electron アプリの操作と GUI の不具合の調査を行う Claude Code 用スキル
   `.claude/skills/colopresso-electron-e2e` (`/colopresso-electron-e2e`) を追加しました (#352)。
+- **追加:** サポートするバージョンと、脆弱性を非公開で報告する方法を `SECURITY_ja.md` (英語版は `SECURITY.md`) に
+  まとめました (#353)。
 
 ### Dependencies
 - Electron 45.2.3, electron-updater 6.8.12, electron-builder 26.18.1, Vite 8.3.6, pnpm 12.18.0,

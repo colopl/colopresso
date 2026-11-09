@@ -39,12 +39,13 @@ extern "C" {
 #include <emmintrin.h>
 #endif
 
-#if defined(CPRES_SIMD_WASM128) || defined(CPRES_SIMD_SSE41) || defined(CPRES_SIMD_SSE2) || defined(CPRES_SIMD_NEON)
+#if defined(CPRES_SIMD_WASM128) || defined(CPRES_SIMD_SSE41) || defined(CPRES_SIMD_SSE2) ||        \
+    defined(CPRES_SIMD_NEON)
 #define CPRES_SIMD_ENABLED 1
 #endif
 #endif
 
-uint32_t simd_color_distance_sq_u32(uint32_t lhs, uint32_t rhs);
+extern uint32_t simd_color_distance_sq_u32(uint32_t lhs, uint32_t rhs);
 
 #ifdef __cplusplus
 }

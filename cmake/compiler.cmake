@@ -7,6 +7,20 @@
 # Author: Go Kudo <g-kudo@colopl.co.jp>
 # Developed with AI (LLM) code assistance. See `NOTICE` for details.
 
+# C standard of the project's own targets: strict C11 (no GNU extensions). The third-party
+# libraries keep their own settings. glibc and musl hide POSIX (strdup, gmtime_r, fseeko, ...) and
+# BSD (struct tm's tm_gmtoff) interfaces in strict mode, so they are requested explicitly.
+function(colopresso_set_c_standard TARGET)
+  set_target_properties(${TARGET} PROPERTIES
+    C_STANDARD 11
+    C_STANDARD_REQUIRED ON
+    C_EXTENSIONS OFF
+  )
+  if(UNIX AND NOT APPLE)
+    target_compile_definitions(${TARGET} PRIVATE _POSIX_C_SOURCE=200809L _DEFAULT_SOURCE)
+  endif()
+endfunction()
+
 function(colopresso_configure_simd)
   if(NOT COLOPRESSO_ENABLE_SIMD)
     return()

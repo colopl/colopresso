@@ -50,6 +50,7 @@ list(APPEND _colopresso_test_libs unity)
 function(colopresso_register_test SOURCE)
   get_filename_component(_test_name "${SOURCE}" NAME_WE)
   add_executable(${_test_name} "${SOURCE}")
+  colopresso_set_c_standard(${_test_name})
   target_link_libraries(${_test_name} PRIVATE ${_colopresso_test_libs})
   target_include_directories(${_test_name} PRIVATE
     ${unity_SOURCE_DIR}/src

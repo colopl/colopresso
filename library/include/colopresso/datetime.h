@@ -16,6 +16,7 @@
 #include <stdint.h>
 
 #define CPRES_DT_BUILDTIME_LENGTH 32 /* YYYY-MM-DD HH:ii UTC */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -38,9 +39,12 @@ extern uint8_t cpres_datetime_get_day(const cpres_datetime_t *pdt);
 extern uint8_t cpres_datetime_get_hour(const cpres_datetime_t *pdt);
 extern uint8_t cpres_datetime_get_min(const cpres_datetime_t *pdt);
 extern uint8_t cpres_datetime_get_sec(const cpres_datetime_t *pdt);
-extern cpres_datetime_buildtime_t cpres_datetime_encode_buildtime(cpres_datetime_timestamp_t timestamp);
-extern cpres_datetime_timestamp_t cpres_datetime_decode_buildtime(cpres_datetime_buildtime_t buildtime);
-extern bool cpres_datetime_buildtime2str(cpres_datetime_buildtime_t buildtime, cpres_datetime_buildtime_str_t str);
+extern cpres_datetime_buildtime_t
+cpres_datetime_encode_buildtime(cpres_datetime_timestamp_t timestamp);
+extern cpres_datetime_timestamp_t
+cpres_datetime_decode_buildtime(cpres_datetime_buildtime_t buildtime);
+extern bool cpres_datetime_buildtime2str(cpres_datetime_buildtime_t buildtime,
+                                         cpres_datetime_buildtime_str_t str);
 
 #ifdef __cplusplus
 }

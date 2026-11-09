@@ -12,6 +12,7 @@ if(NOT COLOPRESSO_WITH_FILE_OPS)
 endif()
 
 add_executable(colopresso_cli colopresso.c)
+colopresso_set_c_standard(colopresso_cli)
 target_link_libraries(colopresso_cli PRIVATE colopresso)
 set_target_properties(colopresso_cli PROPERTIES OUTPUT_NAME colopresso)
 

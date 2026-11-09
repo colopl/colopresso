@@ -65,6 +65,7 @@ endif()
 add_library(colopresso_native MODULE
   "${CMAKE_SOURCE_DIR}/app/electron/native/colopresso_native.c"
 )
+colopresso_set_c_standard(colopresso_native)
 
 target_include_directories(colopresso_native PRIVATE
   "${COLOPRESSO_NODE_INCLUDE_DIR}"
