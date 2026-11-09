@@ -42,6 +42,10 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
 - **Changed:** The GUI runs on Electron 45 (Chromium 156, Node.js 24.22) instead of Electron 44
   (#350).
 
+### JS/WASM
+- **Changed:** The Emscripten (Node.js / WebAssembly) builds use Emscripten 7.0.0 (was 6.0.12), whose
+  libc++, libunwind and compiler-rt come from LLVM 23.1.3 (#350).
+
 ### Build / CI
 - **Changed:** Windows builds link zlib 1.4's static library under its new MSVC name, `libzs.lib`
   (was `zs.lib`) (#350).
@@ -55,7 +59,7 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
 
 ### Dependencies
 - Electron 45.2.3, electron-updater 6.8.12, electron-builder 26.18.1, Vite 8.3.6, pnpm 12.18.0,
-  emsdk 6.0.13, Rust 1.99.1, zlib 1.4, libaom 3.15.3, wasm-pack 0.15.1, wasm-bindgen 0.2.130,
+  emsdk 7.0.0, Rust 1.99.1, zlib 1.4, libaom 3.15.3, wasm-pack 0.15.1, wasm-bindgen 0.2.130,
   React 19.3.1, react-redux 9.3.1, `@reduxjs/toolkit` 2.14.0, `@vitejs/plugin-react` 6.2.1, tslib
   2.9.1, Valgrind 3.28.0 (CI), pnpm/action-setup 6.1.1, pypa/gh-action-pypi-publish 1.14.3.
 

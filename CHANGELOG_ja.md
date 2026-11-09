@@ -40,6 +40,10 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
 ### GUI
 - **変更:** GUI を Electron 44 から Electron 45 (Chromium 156, Node.js 24.22) に移行しました (#350)。
 
+### JS/WASM
+- **変更:** Emscripten を使うビルド (Node.js / WebAssembly) の Emscripten を 6.0.12 から 7.0.0 に
+  更新しました。libc++, libunwind, compiler-rt は LLVM 23.1.3 のものになります (#350)。
+
 ### Build / CI
 - **変更:** zlib 1.4 で MSVC 向け静的ライブラリの名前が `zs.lib` から `libzs.lib` に変わったため、Windows の
   ビルドで新しい名前をリンクするようにしました (#350)。
@@ -52,7 +56,7 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
 
 ### Dependencies
 - Electron 45.2.3, electron-updater 6.8.12, electron-builder 26.18.1, Vite 8.3.6, pnpm 12.18.0,
-  emsdk 6.0.13, Rust 1.99.1, zlib 1.4, libaom 3.15.3, wasm-pack 0.15.1, wasm-bindgen 0.2.130,
+  emsdk 7.0.0, Rust 1.99.1, zlib 1.4, libaom 3.15.3, wasm-pack 0.15.1, wasm-bindgen 0.2.130,
   React 19.3.1, react-redux 9.3.1, `@reduxjs/toolkit` 2.14.0, `@vitejs/plugin-react` 6.2.1, tslib
   2.9.1, Valgrind 3.28.0 (CI), pnpm/action-setup 6.1.1, pypa/gh-action-pypi-publish 1.14.3。
 
