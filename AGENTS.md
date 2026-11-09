@@ -56,7 +56,7 @@
 
 ## コーディング規約
 - C 言語のコードを書く時は C11 標準 (GNU 拡張なし) に準拠し、可能な限り常に標準化された型 `stdint.h` `stdbool.h` 等の標準型を用いるようにしてください
-    - CMake では自前のターゲットに `colopresso_set_c_standard()` (`cmake/compiler.cmake`) を適用してください。 C11 / GNU 拡張なしを設定し、 Linux などでは `_POSIX_C_SOURCE=200809L` を定義します
+    - CMake では自前のターゲットに `colopresso_set_c_standard()` (`cmake/compiler.cmake`) を適用してください。 C11 / GNU 拡張なしを設定し、 Linux などでは `_POSIX_C_SOURCE=200809L` と `_DEFAULT_SOURCE` (`struct tm` の `tm_gmtoff` などの BSD 拡張) を定義します
     - Windows (MSVC の `/std:c11`) でもビルドするため、 MSVC が対応しない機能 (VLA, `<threads.h>`, `_Atomic` / `<stdatomic.h>`, `<complex.h>`) は使わないでください。スレッドとミューテックスは `colopresso/portable.h` の互換層を使います
 - 公開 API (`library/include` のヘッダ) の型・構造体の並び・関数のシグネチャは互換性のため変えないでください
 - メモリを無駄に利用しないためにも、利用する範囲が明らかに小さい整数型についてはなるべく小さい物を利用するようにしてください (例: `uint32_t` ではなく `uint8_t` 等)
