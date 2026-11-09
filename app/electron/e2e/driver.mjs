@@ -65,6 +65,50 @@ function requirePage() {
   return page;
 }
 
+// Splits arguments on whitespace, keeping "double" or 'single' quoted text together. Backslashes are
+// literal so that Windows paths can be passed unquoted.
+function splitArgs(text) {
+  const args = [];
+  let current = '';
+  let quote = null;
+  let started = false;
+  for (const char of text) {
+    if (quote) {
+      if (char === quote) {
+        quote = null;
+      } else {
+        current += char;
+      }
+    } else if (char === '"' || char === "'") {
+      quote = char;
+      started = true;
+    } else if (/\s/.test(char)) {
+      if (started) {
+        args.push(current);
+        current = '';
+        started = false;
+      }
+    } else {
+      current += char;
+      started = true;
+    }
+  }
+  if (quote) {
+    throw new Error(`unterminated ${quote} quote`);
+  }
+  if (started) {
+    args.push(current);
+  }
+  return args;
+}
+
+// A single path argument: the rest of the line, with one pair of surrounding quotes removed.
+function pathArg(text) {
+  const trimmed = text.trim();
+  const quoted = trimmed.length >= 2 && (trimmed[0] === '"' || trimmed[0] === "'") && trimmed.endsWith(trimmed[0]);
+  return quoted ? trimmed.slice(1, -1) : trimmed;
+}
+
 async function processingState() {
   return requirePage().evaluate((dropZone) => {
     const zone = document.querySelector(dropZone);
@@ -81,12 +125,12 @@ const COMMANDS = {
       return console.log('already launched');
     }
     const executablePath = resolveExecutable(path.resolve(process.env.COLOPRESSO_APP ?? defaultAppPath()));
-    userDataDir = arg || process.env.COLOPRESSO_E2E_USER_DATA || fs.mkdtempSync(path.join(os.tmpdir(), 'colopresso-e2e-userdata-'));
+    userDataDir = pathArg(arg) || process.env.COLOPRESSO_E2E_USER_DATA || fs.mkdtempSync(path.join(os.tmpdir(), 'colopresso-e2e-userdata-'));
     app = await electron.launch({
       executablePath,
       args: [`--user-data-dir=${userDataDir}`],
       env: { ...process.env, ELECTRON_ENABLE_LOGGING: '1' },
-      timeout: 60_000,
+      timeout: (Number(process.env.COLOPRESSO_E2E_LAUNCH_TIMEOUT) || 60) * 1000,
     });
     app.process().stdout?.on('data', (chunk) =>
       String(chunk)
@@ -115,7 +159,7 @@ const COMMANDS = {
   },
 
   async ss(name) {
-    const file = path.join(SHOT_DIR, `${name || `ss-${Date.now()}`}.png`);
+    const file = path.join(SHOT_DIR, `${pathArg(name) || `ss-${Date.now()}`}.png`);
     await requirePage().screenshot({ path: file });
     console.log('screenshot:', file);
   },
@@ -137,7 +181,7 @@ const COMMANDS = {
   },
 
   async 'mock-folder'(dir) {
-    const folder = path.resolve(dir);
+    const folder = path.resolve(pathArg(dir));
     await app.evaluate(({ dialog }, selected) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [selected] });
     }, folder);
@@ -145,7 +189,7 @@ const COMMANDS = {
   },
 
   async 'mock-save'(target) {
-    const file = path.resolve(target);
+    const file = path.resolve(pathArg(target));
     await app.evaluate(({ dialog }, selected) => {
       dialog.showSaveDialog = async () => ({ canceled: false, filePath: selected });
     }, file);
@@ -165,12 +209,9 @@ const COMMANDS = {
   },
 
   async drop(args) {
-    const files = args
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((file) => path.resolve(file));
+    const files = splitArgs(args).map((file) => path.resolve(file));
     if (files.length === 0) {
-      throw new Error('usage: drop <file.png> [...]');
+      throw new Error('usage: drop <file.png> [...] (quote paths that contain spaces)');
     }
     const payload = files.map((file) => ({ name: path.basename(file), base64: fs.readFileSync(file).toString('base64') }));
     const transfer = await requirePage().evaluateHandle((items) => {
@@ -201,8 +242,8 @@ const COMMANDS = {
   },
 
   async field(args) {
-    const [id, ...rest] = args.split(/\s+/);
-    const value = rest.join(' ');
+    const [, id = '', rest = ''] = /^(\S*)\s*([\s\S]*)$/.exec(args.trim());
+    const value = pathArg(rest);
     const result = await requirePage().evaluate(
       ({ fieldId, fieldValue }) => {
         const element = document.querySelector(`#advancedModal [data-field-id="${fieldId}"]`);
@@ -309,8 +350,8 @@ const COMMANDS = {
   },
 };
 
-const input = process.stdin.isTTY ? fs.createReadStream(null, { fd: fs.openSync('/dev/stdin', 'r') }) : process.stdin;
-const rl = readline.createInterface({ input, output: process.stdout, prompt: 'driver> ' });
+// Playwright starts Electron with its own pipes, so the app does not compete for this process's stdin.
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: 'driver> ' });
 const queue = [];
 let running = false;
 let closing = false;
@@ -322,7 +363,7 @@ async function drain() {
   running = true;
   while (queue.length > 0) {
     const line = queue.shift();
-    const [command, ...rest] = line.split(/\s+/);
+    const [, command = '', rawArgs = ''] = /^(\S*)\s*([\s\S]*)$/.exec(line);
     if (!command || command.startsWith('#')) {
       continue;
     }
@@ -333,7 +374,7 @@ async function drain() {
       continue;
     }
     try {
-      await handler(rest.join(' '));
+      await handler(rawArgs);
     } catch (error) {
       console.log('ERROR:', error.message);
     }

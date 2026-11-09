@@ -70,7 +70,7 @@ commands() {
   echo "ss 00-launch"
   for format in webp avif; do
     echo "format ${format}"
-    echo "mock-folder ${IN}/${format}"
+    echo "mock-folder \"${IN}/${format}\""
     echo "pick"
     echo "wait 900"
     echo "files"
@@ -82,7 +82,7 @@ commands() {
     echo "settings"
     echo "field pngx_lossy_type ${type}"
     echo "apply"
-    echo "mock-folder ${IN}/pngx-${mode}"
+    echo "mock-folder \"${IN}/pngx-${mode}\""
     echo "pick"
     echo "wait 900"
     echo "files"
@@ -90,12 +90,12 @@ commands() {
     type=$((type + 1))
   done
   echo "format webp"
-  echo "mock-save ${IN}/drop/example-single.webp"
-  echo "drop ${ASSET_DIR}/example.png"
+  echo "mock-save \"${IN}/drop/example-single.webp\""
+  echo "drop \"${ASSET_DIR}/example.png\""
   echo "wait 300"
   echo "eval (() => { const c = document.getElementById('createZipCheckbox'); if (!c.checked) c.click(); return c.checked; })()"
-  echo "mock-save ${IN}/drop/batch.zip"
-  echo "drop ${ASSET_DIR}/example.png ${ASSET_DIR}/128x128.png ${ASSET_DIR}/banding.png"
+  echo "mock-save \"${IN}/drop/batch.zip\""
+  echo "drop \"${ASSET_DIR}/example.png\" \"${ASSET_DIR}/128x128.png\" \"${ASSET_DIR}/banding.png\""
   echo "wait 300"
   echo "status"
   echo "ss 03-drop-zip"
@@ -103,12 +103,17 @@ commands() {
   echo "quit"
 }
 
+# stderr carries Playwright's DEBUG output when it is enabled, so it goes to a file.
 status=0
-commands | node "$(native_path "${SCRIPT_DIR}/driver.mjs")" | tee "${WORK_DIR}/driver.log" || status=1
+commands | node "$(native_path "${SCRIPT_DIR}/driver.mjs")" 2> "${WORK_DIR}/driver.stderr.log" | tee "${WORK_DIR}/driver.log" || status=1
 
 if grep -Eq "^(ERROR:|TIMEOUT)| -> NOT_FOUND|renderer:pageerror|\[renderer:error\]" "${WORK_DIR}/driver.log"; then
   echo "driver reported problems; see ${WORK_DIR}/driver.log" >&2
   status=1
+fi
+if [[ "${status}" -ne 0 ]]; then
+  echo "--- last lines of ${WORK_DIR}/driver.stderr.log ---" >&2
+  tail -n 40 "${WORK_DIR}/driver.stderr.log" >&2 || true
 fi
 "${PYTHON}" -I "$(native_path "${SCRIPT_DIR}/check_outputs.py")" "${IN}" || status=1
 echo "work dir: $(native_path "${WORK_DIR}")"
