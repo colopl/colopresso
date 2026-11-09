@@ -42,6 +42,19 @@
       "datasourceTemplate": "github-releases",
       "versioningTemplate": "semver-coerced",
       "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Track GitHub-hosted runner labels set in workflow matrices; the github-actions manager only reads a job's own runs-on",
+      "managerFilePatterns": [
+        "/(^|/)\\.github/workflows/[^/]+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\n)[ ]{6,}(?:-[ ]+)?runs-on:[ ]*['\"]?(?<depName>ubuntu|macos|windows)-(?<currentValue>[0-9][^\\s'\"]*)['\"]?"
+      ],
+      "datasourceTemplate": "github-runners",
+      "versioningTemplate": "docker",
+      "depTypeTemplate": "github-runner"
     }
   ],
   "packageRules": [
@@ -79,6 +92,19 @@
         "npm"
       ],
       "minimumReleaseAge": "1 day"
+    },
+    {
+      "description": "Keep the macOS runners of release builds: binaries built on a newer macOS require that macOS because no deployment target is set",
+      "matchFileNames": [
+        ".github/workflows/release.yaml"
+      ],
+      "matchDatasources": [
+        "github-runners"
+      ],
+      "matchPackageNames": [
+        "macos"
+      ],
+      "enabled": false
     }
   ]
 }

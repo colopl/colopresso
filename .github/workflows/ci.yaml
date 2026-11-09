@@ -66,16 +66,17 @@ jobs:
           path: ./dummy-versioned-code.tar.gz
           retention-days: 1
   LinuxAndWasm:
+    name: LinuxAndWasm (${{ matrix.arch }})
     needs: Prepare
     strategy:
       matrix:
         include:
           - arch: amd64
             platform: linux/amd64
-            runs-on: ubuntu-24.04
+            runs-on: ubuntu-26.04
           - arch: arm64
             platform: linux/arm64
-            runs-on: ubuntu-24.04-arm
+            runs-on: ubuntu-26.04-arm
     runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Download dummy versioned code
@@ -148,6 +149,7 @@ jobs:
               ctest --test-dir "build" --output-on-failure --parallel
             '
   Valgrind:
+    name: Valgrind (${{ matrix.arch }})
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: Prepare
     strategy:
@@ -155,10 +157,10 @@ jobs:
         include:
           - arch: amd64
             platform: linux/amd64
-            runs-on: ubuntu-24.04
+            runs-on: ubuntu-26.04
           - arch: arm64
             platform: linux/arm64
-            runs-on: ubuntu-24.04-arm
+            runs-on: ubuntu-26.04-arm
     runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 720
     steps:
@@ -227,6 +229,7 @@ jobs:
               ctest --test-dir "build" --output-on-failure --parallel
             '
   WindowsElectron:
+    name: WindowsElectron (${{ matrix.arch.electron }})
     needs: Prepare
     strategy:
       matrix:
@@ -276,7 +279,6 @@ jobs:
           COLOPRESSO_NATIVE_ADDON_PATH: ${{ github.workspace }}/build/electron/native/colopresso_native.node
           COLOPRESSO_TEST_ASSETS_DIR: ${{ github.workspace }}/assets
       - name: Electron E2E
-        if: matrix.arch.electron == 'x64'
         shell: bash
         timeout-minutes: 30
         run: bash "app/electron/e2e/smoke.sh" "${RUNNER_TEMP}/colopresso-e2e"
@@ -284,7 +286,7 @@ jobs:
           COLOPRESSO_E2E_LAUNCH_ATTEMPTS: '3'
           DEBUG: 'pw:browser,pw:protocol'
       - name: Upload Electron E2E results
-        if: always() && matrix.arch.electron == 'x64'
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: electron-e2e-windows-${{ matrix.arch.electron }}
@@ -294,14 +296,19 @@ jobs:
             ${{ runner.temp }}/colopresso-e2e/driver.stderr.log
           if-no-files-found: ignore
   macOSElectron:
+    name: macOSElectron (${{ matrix.arch.name }})
     needs: Prepare
     strategy:
       matrix:
         arch:
-          - electron: arm64
-            runs-on: macos-15
-          - electron: x64
-            runs-on: macos-15-intel
+          - name: Apple Silicon
+            slug: apple-silicon
+            electron: arm64
+            runs-on: macos-26
+          - name: Intel
+            slug: intel
+            electron: x64
+            runs-on: macos-26-intel
     runs-on: ${{ matrix.arch.runs-on }}
     steps:
       - name: Download dummy versioned code
@@ -338,20 +345,22 @@ jobs:
           COLOPRESSO_NATIVE_ADDON_PATH: ${{ github.workspace }}/build/electron/native/colopresso_native.node
           COLOPRESSO_TEST_ASSETS_DIR: ${{ github.workspace }}/assets
       - name: Electron E2E
-        if: matrix.arch.electron == 'arm64'
         timeout-minutes: 30
         run: bash "app/electron/e2e/smoke.sh" "${RUNNER_TEMP}/colopresso-e2e"
+        env:
+          COLOPRESSO_E2E_LAUNCH_ATTEMPTS: '3'
       - name: Upload Electron E2E results
-        if: always() && matrix.arch.electron == 'arm64'
+        if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: electron-e2e-macos-${{ matrix.arch.electron }}
+          name: electron-e2e-macos-${{ matrix.arch.slug }}
           path: |
             ${{ runner.temp }}/colopresso-e2e/shots
             ${{ runner.temp }}/colopresso-e2e/driver.log
             ${{ runner.temp }}/colopresso-e2e/driver.stderr.log
           if-no-files-found: ignore
   WindowsCLI:
+    name: WindowsCLI (x64)
     needs: Prepare
     runs-on: windows-latest
     steps:
@@ -372,16 +381,17 @@ jobs:
       - name: Test CLI
         run: build\cli\Release\colopresso.exe --version
   macOSCLI:
+    name: macOSCLI (${{ matrix.arch.name }})
     needs: Prepare
     strategy:
       matrix:
         arch:
-          - name: apple_silicon
+          - name: Apple Silicon
             rust_target: aarch64-apple-darwin
-            runs-on: macos-15
-          - name: intel
+            runs-on: macos-26
+          - name: Intel
             rust_target: x86_64-apple-darwin
-            runs-on: macos-15-intel
+            runs-on: macos-26-intel
     runs-on: ${{ matrix.arch.runs-on }}
     steps:
       - name: Download dummy versioned code
@@ -399,7 +409,7 @@ jobs:
             -DCMAKE_BUILD_TYPE="Release" \
             -DCOLOPRESSO_USE_CLI=ON \
             -DCOLOPRESSO_USE_TESTS=ON \
-            ${{ matrix.arch.name == 'intel' && '-DAOM_TARGET_CPU="generic"' || '' }}
+            ${{ matrix.arch.name == 'Intel' && '-DAOM_TARGET_CPU="generic"' || '' }}
       - name: Build
         run: cmake --build "build" --config "Release" --parallel
       - name: Test
@@ -407,14 +417,15 @@ jobs:
       - name: Test CLI
         run: ./build/cli/colopresso --version
   LinuxCLI:
+    name: LinuxCLI (${{ matrix.arch }})
     needs: Prepare
     strategy:
       matrix:
         include:
           - arch: amd64
-            runs-on: ubuntu-24.04
+            runs-on: ubuntu-26.04
           - arch: arm64
-            runs-on: ubuntu-24.04-arm
+            runs-on: ubuntu-26.04-arm
     runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Download dummy versioned code
@@ -496,29 +507,30 @@ jobs:
               /colopresso --verbose --format=pngx "/assets/example.png" "/tmp/example.png"
             '
   PythonWheel:
+    name: PythonWheel (${{ matrix.os }}, ${{ matrix.arch }})
     needs: Prepare
     strategy:
       matrix:
         include:
           - os: linux
             arch: amd64
-            runs-on: ubuntu-24.04
+            runs-on: ubuntu-26.04
             cibw_archs_linux: x86_64
           - os: linux
             arch: arm64
-            runs-on: ubuntu-24.04-arm
+            runs-on: ubuntu-26.04-arm
             cibw_archs_linux: aarch64
           - os: windows
-            arch: amd64
+            arch: x64
             runs-on: windows-latest
             cibw_archs_windows: AMD64
           - os: macos
-            arch: amd64
-            runs-on: macos-15-intel
+            arch: Intel
+            runs-on: macos-26-intel
             cibw_archs_macos: x86_64
           - os: macos
-            arch: arm64
-            runs-on: macos-15
+            arch: Apple Silicon
+            runs-on: macos-26
             cibw_archs_macos: arm64
     runs-on: ${{ matrix.runs-on }}
     steps:

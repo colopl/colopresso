@@ -611,9 +611,9 @@ jobs:
       matrix:
         include:
           - arch: amd64
-            runs-on: ubuntu-24.04
+            runs-on: ubuntu-26.04
           - arch: arm64
-            runs-on: ubuntu-24.04-arm
+            runs-on: ubuntu-26.04-arm
     runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Download versioned code
@@ -672,11 +672,11 @@ jobs:
         include:
           - os: linux
             arch: amd64
-            runs-on: ubuntu-24.04
+            runs-on: ubuntu-26.04
             cibw_archs_linux: x86_64
           - os: linux
             arch: arm64
-            runs-on: ubuntu-24.04-arm
+            runs-on: ubuntu-26.04-arm
             cibw_archs_linux: aarch64
           - os: windows
             arch: amd64
