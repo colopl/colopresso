@@ -46,6 +46,7 @@
 - `/third_party`: サードパーティライブラリの git submodule です。このディレクトリ以下のコードは編集しないでください
 - `/dist`: 何かしらのアーティファクトが生じるビルドが行われた時出力されるディレクトリです
 - `/build`: ビルド用ディレクトリです。基本的に CMake で指定されます
+- `/.claude/skills`: Claude Code 用のスキルです。 `rollup-dependencies` は依存関係をまとめて更新する (ロールアップ) 手順です
 - `/.devcontainer`, `Dockerfile`, `Dockerfile.alpine`: Linux 開発環境 (Dev Container) と CI 用のコンテナ定義です
 - `/.github/workflows`: CI (`ci.yaml`), カバレッジ (`coverage.yaml`), リリース (`release.yaml`) のワークフローです
 - `CMakeLists.txt`: プロジェクト全体の CMake 構成ファイルです
@@ -66,6 +67,7 @@
 - `## [Unreleased]` 節はリリース直後には存在しません。無い場合は、最新バージョンの節 (`## [X.Y.Z] - YYYY-MM-DD`) の直前に `## [Unreleased]` を新設し、その中に追記してください。既にある場合はそこへ追記します
 - 記載先は変更が属するビルドタイプの節です: `Library` (libcolopresso 本体, 公開 API), `CLI`, `GUI` (Electron), `JS/WASM` (Node.js / Emscripten ビルド), `Python`, `Build / CI` (CMake, Docker, ワークフロー, Renovate, リリース処理), `Documentation`, `General`, `Security`, `Dependencies`。節名は日本語版でも英語表記のままにしてください。該当する節がなければ既存の節の並び順に合わせて新設してください
 - 各項目は `- **Added:**` / `- **Changed:**` / `- **Fixed:**` / `- **Removed:**` (日本語版は `**追加:**` / `**変更:**` / `**修正:**` / `**削除:**`) で始め、末尾に PR 番号を `(#123)` の形で付けてください。定型的な依存関係の更新は `Dependencies` にバージョンだけをまとめます
+- セキュリティに関わる変更 (依存関係のセキュリティ更新を含む) は、他の節より前、 `## [Unreleased]` 直下の最初の節として置いた `Security` 節に記載し、各項目の先頭に `**[SECURITY]**` を付けてください (例: `- **[SECURITY]** **Fixed:** GUI: ...`)。影響を受けるビルドタイプは項目の本文に `GUI:` のように書きます
 - リリース時は `## [Unreleased]` を `## [X.Y.Z] - YYYY-MM-DD` (リリース日) に改名するだけにし、空の `## [Unreleased]` 節は残さないでください
 
 ## 注意事項

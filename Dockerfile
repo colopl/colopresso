@@ -98,7 +98,7 @@ COPY . "/project"
 # Valgrind
 ARG ENABLE_VALGRIND
 # renovate: datasource=custom.valgrind depName=valgrind
-ARG VALGRIND_VERSION=3.27.1
+ARG VALGRIND_VERSION=3.28.0
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     set -e; \
