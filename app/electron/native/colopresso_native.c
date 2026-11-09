@@ -781,6 +781,31 @@ static void cleanup_convert_work(colopresso_convert_work_t *work)
     free(work);
 }
 
+static bool set_uint32_property(napi_env env, napi_value object, const char *name, uint32_t value)
+{
+    napi_value number;
+
+    return napi_create_uint32(env, value, &number) == napi_ok &&
+           napi_set_named_property(env, object, name, number) == napi_ok;
+}
+
+static bool set_string_property(napi_env env, napi_value object, const char *name,
+                                const char *value)
+{
+    napi_value string;
+
+    return napi_create_string_utf8(env, value, NAPI_AUTO_LENGTH, &string) == napi_ok &&
+           napi_set_named_property(env, object, name, string) == napi_ok;
+}
+
+static bool set_bool_property(napi_env env, napi_value object, const char *name, bool value)
+{
+    napi_value boolean;
+
+    return napi_get_boolean(env, value, &boolean) == napi_ok &&
+           napi_set_named_property(env, object, name, boolean) == napi_ok;
+}
+
 static bool set_double_property(napi_env env, napi_value object, const char *name, double value)
 {
     napi_value number;
@@ -871,51 +896,49 @@ static void complete_convert(napi_env env, napi_status status, void *data)
 
 static napi_value get_version_info(napi_env env, napi_callback_info info)
 {
-    const char *compiler_version, *rust_version;
-    napi_value result, value;
+    const char *compiler_version = cpres_get_compiler_version_string(),
+               *rust_version = cpres_get_rust_version_string();
+    napi_value result;
 
     (void)info;
 
-    napi_create_object(env, &result);
-    napi_create_uint32(env, cpres_get_version(), &value);
-    napi_set_named_property(env, result, "version", value);
-    napi_create_uint32(env, cpres_get_libwebp_version(), &value);
-    napi_set_named_property(env, result, "libwebpVersion", value);
-    napi_create_uint32(env, cpres_get_libpng_version(), &value);
-    napi_set_named_property(env, result, "libpngVersion", value);
-    napi_create_uint32(env, cpres_get_libavif_version(), &value);
-    napi_set_named_property(env, result, "libavifVersion", value);
-    napi_create_uint32(env, cpres_get_pngx_oxipng_version(), &value);
-    napi_set_named_property(env, result, "pngxOxipngVersion", value);
-    napi_create_uint32(env, cpres_get_pngx_libimagequant_version(), &value);
-    napi_set_named_property(env, result, "pngxLibimagequantVersion", value);
-    napi_create_uint32(env, cpres_get_buildtime(), &value);
-    napi_set_named_property(env, result, "buildtime", value);
+    if (napi_create_object(env, &result) != napi_ok ||
+        !set_uint32_property(env, result, "version", cpres_get_version()) ||
+        !set_uint32_property(env, result, "libwebpVersion", cpres_get_libwebp_version()) ||
+        !set_uint32_property(env, result, "libpngVersion", cpres_get_libpng_version()) ||
+        !set_uint32_property(env, result, "libavifVersion", cpres_get_libavif_version()) ||
+        !set_uint32_property(env, result, "pngxOxipngVersion", cpres_get_pngx_oxipng_version()) ||
+        !set_uint32_property(env, result, "pngxLibimagequantVersion",
+                             cpres_get_pngx_libimagequant_version()) ||
+        !set_uint32_property(env, result, "buildtime", cpres_get_buildtime()) ||
+        !set_string_property(env, result, "compilerVersionString",
+                             compiler_version ? compiler_version : "unknown") ||
+        !set_string_property(env, result, "rustVersionString",
+                             rust_version ? rust_version : "unknown")) {
+        napi_throw_error(env, COLOPRESSO_NATIVE_ERROR_CONVERSION_FAILED,
+                         "failed to create the version information");
 
-    compiler_version = cpres_get_compiler_version_string();
-    napi_create_string_utf8(env, compiler_version ? compiler_version : "unknown", NAPI_AUTO_LENGTH,
-                            &value);
-    napi_set_named_property(env, result, "compilerVersionString", value);
-    rust_version = cpres_get_rust_version_string();
-    napi_create_string_utf8(env, rust_version ? rust_version : "unknown", NAPI_AUTO_LENGTH, &value);
-    napi_set_named_property(env, result, "rustVersionString", value);
+        return NULL;
+    }
 
     return result;
 }
 
 static napi_value get_thread_info(napi_env env, napi_callback_info info)
 {
-    napi_value result, value;
+    napi_value result;
 
     (void)info;
 
-    napi_create_object(env, &result);
-    napi_get_boolean(env, cpres_is_threads_enabled(), &value);
-    napi_set_named_property(env, result, "enabled", value);
-    napi_create_uint32(env, cpres_get_default_thread_count(), &value);
-    napi_set_named_property(env, result, "defaultThreads", value);
-    napi_create_uint32(env, cpres_get_max_thread_count(), &value);
-    napi_set_named_property(env, result, "maxThreads", value);
+    if (napi_create_object(env, &result) != napi_ok ||
+        !set_bool_property(env, result, "enabled", cpres_is_threads_enabled()) ||
+        !set_uint32_property(env, result, "defaultThreads", cpres_get_default_thread_count()) ||
+        !set_uint32_property(env, result, "maxThreads", cpres_get_max_thread_count())) {
+        napi_throw_error(env, COLOPRESSO_NATIVE_ERROR_CONVERSION_FAILED,
+                         "failed to create the thread information");
+
+        return NULL;
+    }
 
     return result;
 }
@@ -1046,7 +1069,10 @@ static napi_value init_module(napi_env env, napi_value exports)
         {"convert", NULL, convert, NULL, NULL, NULL, napi_default, NULL},
     };
 
-    napi_define_properties(env, exports, sizeof(descriptors) / sizeof(descriptors[0]), descriptors);
+    if (napi_define_properties(env, exports, sizeof(descriptors) / sizeof(descriptors[0]),
+                               descriptors) != napi_ok) {
+        return NULL;
+    }
 
     return exports;
 }
