@@ -253,6 +253,11 @@ jobs:
     name: WindowsElectron (${{ matrix.arch.electron }})
     needs: Prepare
     strategy:
+      # Electron and electron-builder downloads from GitHub hit 504 Gateway Time-out when all four
+      # Electron jobs run at once, so each OS builds one architecture at a time (two jobs in total),
+      # and a failed architecture does not cancel the other.
+      fail-fast: false
+      max-parallel: 1
       matrix:
         arch:
           - electron: x64
@@ -320,6 +325,11 @@ jobs:
     name: macOSElectron (${{ matrix.arch.name }})
     needs: Prepare
     strategy:
+      # Electron and electron-builder downloads from GitHub hit 504 Gateway Time-out when all four
+      # Electron jobs run at once, so each OS builds one architecture at a time (two jobs in total),
+      # and a failed architecture does not cancel the other.
+      fail-fast: false
+      max-parallel: 1
       matrix:
         arch:
           - name: Apple Silicon
