@@ -228,7 +228,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7.1.0
         with:
-          node-version: '24'
+          node-version: '26'
           cache: 'pnpm'
       - name: Override productName for internal channel
         if: ${{ startsWith(matrix.channel, 'colopl_internal') }}
@@ -367,7 +367,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: '26'
           cache: 'pnpm'
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
@@ -1014,7 +1014,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: '26'
       - name: Download Source Artifacts
         uses: actions/download-artifact@v8
         with:
