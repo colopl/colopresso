@@ -20,6 +20,29 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
   prints registry credentials in the error for a tarball missing from the store in offline mode, and
   pnpm 12.20.0 removes undici 6 (CVE-2026-84947) from the bundled node-gyp (#361).
 
+### Library
+- **Changed:** Images with more than 268,435,456 pixels (16384 x 16384) are rejected with
+  `CPRES_ERROR_INVALID_PNG`, like images wider or taller than 65536 pixels. WebP cannot encode
+  images that large either (#362).
+- **Changed:** PNGX checks the PNG signature and the IHDR dimensions against the same limits before
+  quantizing or optimizing and returns `CPRES_ERROR_INVALID_PNG` for other input. The lossless
+  optimizer no longer inflates more image data than an image of that size needs (#362).
+- **Changed:** `cpres_read_file_to_memory()` rejects files larger than
+  `COLOPRESSO_PNG_MAX_MEMORY_INPUT_SIZE` (512 MB) before reading them; the memory APIs rejected such
+  input already (#362).
+- **Fixed:** A `pngx_protected_colors_count` above 256 uses the first 256 colors, as documented.
+  Palette256 quantization was skipped in that case (#362).
+- **Fixed:** The Reduced RGBA32 mode checks the sizes of its working buffers for overflow (#362).
+
+### GUI
+- **Fixed:** Imported and stored settings profiles are checked against the settings of the format;
+  values of the wrong type are ignored instead of being shown in the settings dialog (#362).
+- **Changed:** The app window stays on the app's own pages: navigation to other pages and new windows
+  are refused, and the main process answers only requests from the app's pages (#362).
+- **Changed:** Converted files are written only to new paths or regular files. An existing symbolic
+  link at the output path is refused instead of followed (#362).
+- **Removed:** The unused `openExternal` function of the preload API (#362).
+
 ### Build / CI
 - **Changed:** Windows builds also link `Synchronization.lib`: the Rust 1.100 standard library calls
   `WaitOnAddress` and `WakeByAddress*` directly, so linking `pngx_bridge` failed without it (#361).
