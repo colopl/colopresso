@@ -103,7 +103,8 @@ extern cpres_error_t cpres_read_file_to_memory(const char *path, uint8_t **data_
         return CPRES_ERROR_INVALID_PARAMETER;
     }
 
-    if (file_size64 <= 0 || file_size64 > (uint64_t)SIZE_MAX) {
+    if (file_size64 <= 0 || file_size64 > (uint64_t)SIZE_MAX ||
+        file_size64 > (uint64_t)COLOPRESSO_PNG_MAX_MEMORY_INPUT_SIZE) {
         fclose(fp);
 
         return CPRES_ERROR_INVALID_PARAMETER;

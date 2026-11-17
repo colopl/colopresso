@@ -19,6 +19,8 @@
 #include "internal/log.h"
 #include "internal/pngx_common.h"
 
+#define PNGX_MAX_PROTECTED_COLORS 256
+
 static int g_pngx_last_error = 0;
 
 extern int pngx_get_last_error(void)
@@ -185,7 +187,10 @@ extern void pngx_fill_pngx_options(pngx_options_t *opts, const cpres_config_t *c
 
         if (config->pngx_protected_colors && config->pngx_protected_colors_count > 0) {
             opts->protected_colors = config->pngx_protected_colors;
-            opts->protected_colors_count = config->pngx_protected_colors_count;
+            opts->protected_colors_count =
+                config->pngx_protected_colors_count > PNGX_MAX_PROTECTED_COLORS
+                    ? PNGX_MAX_PROTECTED_COLORS
+                    : config->pngx_protected_colors_count;
         } else {
             opts->protected_colors = NULL;
             opts->protected_colors_count = 0;
