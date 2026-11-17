@@ -23,9 +23,10 @@
 #include "internal/avif.h"
 #include "internal/png.h"
 #include "internal/pngx.h"
+#include "internal/threads.h"
 #include "internal/webp.h"
 
-static cpres_error_t g_last_error = CPRES_OK;
+static COLOPRESSO_THREAD_LOCAL cpres_error_t g_last_error = CPRES_OK;
 
 EMSCRIPTEN_KEEPALIVE
 cpres_config_t *emscripten_config_create(void)

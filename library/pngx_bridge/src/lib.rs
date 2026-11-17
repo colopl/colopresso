@@ -57,11 +57,28 @@ extern "C" {
     fn free(ptr: *mut std::ffi::c_void);
 }
 
+// Upper bound for the raw image data oxipng inflates from an input. oxipng sizes the buffer from the
+// IHDR chunk, and Rust aborts the process when such an allocation fails, so a few bytes of input
+// must not be able to request more than the largest image the C decoder accepts (2^28 pixels of
+// 16-bit RGBA plus one filter byte per row). 32-bit targets (wasm32) have at most 4 GiB of address
+// space and get a smaller bound.
+#[cfg(target_pointer_width = "64")]
+const MAX_DECOMPRESSED_SIZE: usize = (1usize << 28) * 8 + 65536;
+#[cfg(not(target_pointer_width = "64"))]
+const MAX_DECOMPRESSED_SIZE: usize = 1usize << 28;
+
 #[cfg(all(feature = "rayon", not(target_arch = "wasm32")))]
 static THREAD_POOL_CACHE: OnceLock<Mutex<HashMap<usize, std::sync::Arc<ThreadPool>>>> =
     OnceLock::new();
+// Pool size chosen by the last pngx_bridge_init_threads() call on the calling thread, so encodes
+// running at the same time on other threads keep their own.
 #[cfg(all(feature = "rayon", not(target_arch = "wasm32")))]
-static CURRENT_THREAD_COUNT: OnceLock<Mutex<usize>> = OnceLock::new();
+thread_local! {
+    static CURRENT_THREAD_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+// Distinct pool sizes kept at once. An evicted pool stays alive while an encode still holds it.
+#[cfg(all(feature = "rayon", not(target_arch = "wasm32")))]
+const THREAD_POOL_CACHE_LIMIT: usize = 4;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -129,6 +146,7 @@ pub(crate) fn convert_lossless_options(opts: &PngxBridgeLosslessOptions) -> Opti
         options.strip = oxipng::StripChunks::Safe;
     }
     options.optimize_alpha = opts.optimize_alpha;
+    options.max_decompressed_size = Some(MAX_DECOMPRESSED_SIZE);
     options
 }
 
@@ -580,27 +598,29 @@ pub extern "C" fn pngx_bridge_init_threads(num_threads: c_int) -> bool {
         };
 
         let cache = THREAD_POOL_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-        let current = CURRENT_THREAD_COUNT.get_or_init(|| Mutex::new(0));
 
-        let needs_new_pool = {
-            let cache_guard = cache.lock().unwrap();
-            !cache_guard.contains_key(&target_threads)
-        };
-
-        if needs_new_pool {
-            let builder = rayon::ThreadPoolBuilder::new().num_threads(target_threads);
-            if let Ok(pool) = builder.build() {
-                let mut cache_guard = cache.lock().unwrap();
-                cache_guard.insert(target_threads, std::sync::Arc::new(pool));
-            } else {
+        {
+            let Ok(mut cache_guard) = cache.lock() else {
                 return false;
+            };
+            if !cache_guard.contains_key(&target_threads) {
+                let Ok(pool) = rayon::ThreadPoolBuilder::new()
+                    .num_threads(target_threads)
+                    .build()
+                else {
+                    return false;
+                };
+                while cache_guard.len() >= THREAD_POOL_CACHE_LIMIT {
+                    let Some(&evicted) = cache_guard.keys().next() else {
+                        break;
+                    };
+                    cache_guard.remove(&evicted);
+                }
+                cache_guard.insert(target_threads, std::sync::Arc::new(pool));
             }
         }
 
-        {
-            let mut current_guard = current.lock().unwrap();
-            *current_guard = target_threads;
-        }
+        CURRENT_THREAD_COUNT.with(|current| current.set(target_threads));
 
         true
     }
@@ -615,11 +635,7 @@ pub extern "C" fn pngx_bridge_init_threads(num_threads: c_int) -> bool {
 #[cfg(all(feature = "rayon", not(target_arch = "wasm32")))]
 fn get_current_thread_pool() -> Option<std::sync::Arc<ThreadPool>> {
     let cache = THREAD_POOL_CACHE.get()?;
-    let current = CURRENT_THREAD_COUNT.get()?;
-
-    let current_guard = current.lock().ok()?;
-    let target_threads = *current_guard;
-    drop(current_guard);
+    let target_threads = CURRENT_THREAD_COUNT.with(|current| current.get());
 
     let cache_guard = cache.lock().ok()?;
     cache_guard.get(&target_threads).cloned()

@@ -12,6 +12,8 @@
 #ifndef COLOPRESSO_INTERNAL_PNG_H
 #define COLOPRESSO_INTERNAL_PNG_H
 
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include <png.h>
@@ -25,6 +27,10 @@ extern "C" {
 extern cpres_error_t png_decode_from_memory(const uint8_t *png_data, size_t png_size,
                                             uint8_t **rgba_data, png_uint_32 *width,
                                             png_uint_32 *height);
+
+/* Checks the signature and the IHDR chunk against the size limits of the decoder without
+ * decoding. */
+extern bool png_header_within_limits(const uint8_t *png_data, size_t png_size);
 
 #if COLOPRESSO_WITH_FILE_OPS
 extern cpres_error_t png_decode_from_file(const char *filename, uint8_t **rgba_data,

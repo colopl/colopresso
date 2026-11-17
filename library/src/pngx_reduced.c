@@ -762,6 +762,9 @@ static inline bool build_color_histogram(const pngx_rgba_image_t *image, const p
     }
 
     pixel_count = image->pixel_count;
+    if (pixel_count > SIZE_MAX / sizeof(histogram_sample_t)) {
+        return false;
+    }
 
     samples = (histogram_sample_t *)malloc(pixel_count * sizeof(histogram_sample_t));
     if (!samples) {
@@ -821,6 +824,12 @@ static inline bool build_color_histogram(const pngx_rgba_image_t *image, const p
 
         ++unique_count;
         i += run;
+    }
+
+    if (unique_count > SIZE_MAX / sizeof(color_entry_t)) {
+        free(samples);
+
+        return false;
     }
 
     hist->entries = (color_entry_t *)malloc(unique_count * sizeof(color_entry_t));
@@ -1209,6 +1218,12 @@ static inline bool build_color_frequency(const uint8_t *rgba, size_t pixel_count
     }
 
     if (!pack_sorted_rgba(rgba, pixel_count, &packed)) {
+        return false;
+    }
+
+    if (pixel_count > SIZE_MAX / sizeof(color_freq_t)) {
+        free(packed);
+
         return false;
     }
 

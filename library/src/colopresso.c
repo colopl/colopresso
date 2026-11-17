@@ -253,6 +253,12 @@ extern cpres_error_t cpres_encode_pngx_memory(const uint8_t *png_data, size_t pn
     *optimized_data = NULL;
     *optimized_size = 0;
 
+    if (!png_header_within_limits(png_data, png_size)) {
+        colopresso_log(CPRES_LOG_LEVEL_ERROR, "PNGX: Input is not a PNG within the supported size");
+
+        return CPRES_ERROR_INVALID_PNG;
+    }
+
     lossless_data = NULL;
     lossless_size = 0;
     quant_data = NULL;

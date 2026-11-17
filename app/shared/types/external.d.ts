@@ -22,7 +22,6 @@ declare global {
     saveZipDialog?: (defaultFileName: string) => Promise<{ success: boolean; filePath?: string; error?: string; canceled?: boolean }>;
     saveJsonDialog?: (defaultFileName: string) => Promise<{ success: boolean; filePath?: string; error?: string; canceled?: boolean }>;
     getPathForFile?: (file: File) => string | undefined;
-    openExternal?: (url: string) => void;
     onUpdateDownloadStart?: (handler: (payload: Record<string, unknown>) => void) => () => void;
     onUpdateDownloadProgress?: (handler: (payload: Record<string, unknown>) => void) => () => void;
     onUpdateDownloadComplete?: (handler: (payload: Record<string, unknown>) => void) => () => void;

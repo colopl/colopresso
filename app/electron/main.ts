@@ -10,12 +10,13 @@
  */
 
 import { app, BrowserWindow, dialog, ipcMain, net, protocol, session } from 'electron';
-import type { FileFilter, IpcMainInvokeEvent, MessageBoxOptions, MessageBoxReturnValue } from 'electron';
+import type { FileFilter, IpcMainInvokeEvent, MessageBoxOptions, MessageBoxReturnValue, WebContents } from 'electron';
 import { autoUpdater, UpdateDownloadedEvent, UpdateInfo } from 'electron-updater';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { promises as fs } from 'node:fs';
 import { createRequire } from 'node:module';
+import { randomBytes } from 'node:crypto';
 import packageJson from '../../package.json';
 import { bundles as languageBundles, translateForLanguage as translateForLanguageCore } from '../shared/i18n/core';
 import { LanguageCode, TranslationParams } from '../shared/types';
@@ -51,6 +52,78 @@ protocol.registerSchemesAsPrivileged([
     },
   },
 ]);
+
+// The app's pages are served from colopresso://app/. URL.origin is "null" for non-special schemes,
+// so the scheme and host are compared instead.
+function isAppUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === `${CUSTOM_SCHEME}:` && parsed.host === 'app';
+  } catch {
+    return false;
+  }
+}
+
+// The preload script exposes file system access, so no web contents may leave the app's pages or
+// open other windows.
+function restrictWebContents(contents: WebContents): void {
+  contents.on('will-navigate', (event) => {
+    if (!isAppUrl(event.url)) {
+      event.preventDefault();
+    }
+  });
+  contents.on('will-redirect', (event) => {
+    if (!isAppUrl(event.url)) {
+      event.preventDefault();
+    }
+  });
+  contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+}
+
+function isTrustedIpcSender(event: IpcMainInvokeEvent): boolean {
+  const frame = event.senderFrame;
+  return frame !== null && frame === event.sender.mainFrame && isAppUrl(frame.url);
+}
+
+function handleTrustedIpc<Args extends unknown[], Result>(channel: string, listener: (event: IpcMainInvokeEvent, ...args: Args) => Result): void {
+  ipcMain.handle(channel, (event: IpcMainInvokeEvent, ...args: unknown[]) => {
+    if (!isTrustedIpcSender(event)) {
+      throw new Error(`Rejected ${channel} from an untrusted sender`);
+    }
+    return listener(event, ...(args as Args));
+  });
+}
+
+// Writes only to a new path or over a regular file, never through a symbolic link or into a device,
+// so a link placed next to an input file cannot redirect the output elsewhere. The data goes to a
+// new file created exclusively next to the target and is then renamed over it; rename replaces a
+// directory entry without following it, so swapping the target for a link after the check does
+// not redirect the write either.
+async function writeRegularFile(filePath: string, data: Uint8Array): Promise<void> {
+  let existing: Awaited<ReturnType<typeof fs.lstat>> | null = null;
+
+  try {
+    existing = await fs.lstat(filePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+
+  if (existing && !existing.isFile()) {
+    throw new Error(`Refusing to write to ${filePath}: not a regular file`);
+  }
+
+  const tempPath = path.join(path.dirname(filePath), `.${path.basename(filePath)}.${randomBytes(6).toString('hex')}.tmp`);
+
+  try {
+    await fs.writeFile(tempPath, data, { flag: 'wx' });
+    await fs.rename(tempPath, filePath);
+  } catch (error) {
+    await fs.unlink(tempPath).catch(() => undefined);
+    throw error;
+  }
+}
 
 function sendUpdateIpc(channel: string, payload?: unknown): void {
   if (!mainWindow || mainWindow.isDestroyed()) {
@@ -678,7 +751,7 @@ async function handleReadDirectory(_event: IpcMainInvokeEvent, folderPath: strin
 async function handleWriteFile(_event: IpcMainInvokeEvent, filePath: string, data: Uint8Array): Promise<ElectronWriteResult> {
   try {
     const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data.buffer, data.byteOffset, data.byteLength);
-    await fs.writeFile(filePath, buffer);
+    await writeRegularFile(filePath, buffer);
     return { success: true };
   } catch (error) {
     return { success: false, error: extractErrorMessage(error) };
@@ -695,7 +768,7 @@ async function handleWriteFileInDirectory(_event: IpcMainInvokeEvent, directoryP
     const targetPath = path.join(basePath, safeRelative);
     await fs.mkdir(path.dirname(targetPath), { recursive: true });
     const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data.buffer, data.byteOffset, data.byteLength);
-    await fs.writeFile(targetPath, buffer);
+    await writeRegularFile(targetPath, buffer);
     return { success: true };
   } catch (error) {
     return { success: false, error: extractErrorMessage(error) };
@@ -841,36 +914,36 @@ async function handleSaveJsonDialog(_event: IpcMainInvokeEvent, defaultFileName:
 }
 
 function registerIpcHandlers(): void {
-  ipcMain.handle('read-directory', handleReadDirectory);
-  ipcMain.handle('write-file', handleWriteFile);
-  ipcMain.handle('write-in-directory', handleWriteFileInDirectory);
-  ipcMain.handle('delete-file', handleDeleteFile);
-  ipcMain.handle('check-path-type', handleCheckPathType);
-  ipcMain.handle('select-folder', () => handleSelectFolder());
-  ipcMain.handle('save-file-dialog', handleSaveFileDialog);
-  ipcMain.handle('save-zip-dialog', handleSaveZipDialog);
-  ipcMain.handle('save-json-dialog', handleSaveJsonDialog);
-  ipcMain.handle('get-update-channel', () => getUpdateChannel());
-  ipcMain.handle('get-architecture', () => process.arch);
-  ipcMain.handle('get-architecture-info', () => ({
+  handleTrustedIpc('read-directory', handleReadDirectory);
+  handleTrustedIpc('write-file', handleWriteFile);
+  handleTrustedIpc('write-in-directory', handleWriteFileInDirectory);
+  handleTrustedIpc('delete-file', handleDeleteFile);
+  handleTrustedIpc('check-path-type', handleCheckPathType);
+  handleTrustedIpc('select-folder', () => handleSelectFolder());
+  handleTrustedIpc('save-file-dialog', handleSaveFileDialog);
+  handleTrustedIpc('save-zip-dialog', handleSaveZipDialog);
+  handleTrustedIpc('save-json-dialog', handleSaveJsonDialog);
+  handleTrustedIpc('get-update-channel', () => getUpdateChannel());
+  handleTrustedIpc('get-architecture', () => process.arch);
+  handleTrustedIpc('get-architecture-info', () => ({
     architecture: process.arch,
     nativeArchitecture: getNativeArchitecture(),
     runningUnderArm64Translation: isRunningUnderArm64Translation(),
   }));
-  ipcMain.handle('is-native-conversion-available', () => {
+  handleTrustedIpc('is-native-conversion-available', () => {
     const addon = loadNativeAddon();
     return { available: Boolean(addon), error: addon ? undefined : nativeAddonLoadError };
   });
-  ipcMain.handle('get-native-version-info', () => {
+  handleTrustedIpc('get-native-version-info', () => {
     const addon = loadNativeAddon();
     return addon ? { success: true, versionInfo: addon.getVersionInfo() } : { success: false, error: nativeAddonLoadError ?? 'Native addon is unavailable' };
   });
-  ipcMain.handle('get-native-thread-info', () => {
+  handleTrustedIpc('get-native-thread-info', () => {
     const addon = loadNativeAddon();
     return addon ? { success: true, threadInfo: addon.getThreadInfo() } : { success: false, error: nativeAddonLoadError ?? 'Native addon is unavailable' };
   });
-  ipcMain.handle('convert-native', handleNativeConvert);
-  ipcMain.handle('check-for-updates', async () => {
+  handleTrustedIpc('convert-native', handleNativeConvert);
+  handleTrustedIpc('check-for-updates', async () => {
     if (!autoUpdateInitialized || !app.isPackaged || process.platform === 'linux') {
       return { success: false, error: 'Auto update is not available' };
     }
@@ -883,11 +956,11 @@ function registerIpcHandlers(): void {
       return { success: false, error: extractErrorMessage(error) };
     }
   });
-  ipcMain.handle('get-pngx-bridge-url', () => {
+  handleTrustedIpc('get-pngx-bridge-url', () => {
     const baseUrl = new URL(`${CUSTOM_SCHEME}://app${pathToFileURL(__dirname).pathname}/`);
     return baseUrl.href;
   });
-  ipcMain.handle('install-update-now', () => {
+  handleTrustedIpc('install-update-now', () => {
     if (!pendingUpdateEvent) {
       return { success: false, error: 'No update is ready to install' };
     }
@@ -897,7 +970,7 @@ function registerIpcHandlers(): void {
     return { success: true };
   });
 
-  ipcMain.handle('restart-app', () => {
+  handleTrustedIpc('restart-app', () => {
     try {
       app.relaunch();
       app.exit(0);
@@ -906,7 +979,7 @@ function registerIpcHandlers(): void {
     }
   });
 
-  ipcMain.handle('confirm-install-update', async (_event: IpcMainInvokeEvent, payload: unknown): Promise<ElectronConfirmInstallUpdateResult> => {
+  handleTrustedIpc('confirm-install-update', async (_event: IpcMainInvokeEvent, payload: unknown): Promise<ElectronConfirmInstallUpdateResult> => {
     const typed = (payload ?? {}) as { version?: unknown };
     const version = typeof typed.version === 'string' ? typed.version : '';
 
@@ -923,7 +996,7 @@ function registerIpcHandlers(): void {
     return { confirmed: response === 1 };
   });
 
-  ipcMain.handle('download-update-now', async () => {
+  handleTrustedIpc('download-update-now', async () => {
     if (!autoUpdateInitialized || !app.isPackaged || process.platform === 'linux') {
       return { success: false, error: 'Auto update is not available' };
     }
@@ -1019,6 +1092,10 @@ function setupCrossOriginIsolation(): void {
     callback({ responseHeaders: headers });
   });
 }
+
+app.on('web-contents-created', (_event, contents) => {
+  restrictWebContents(contents);
+});
 
 app.whenReady().then(() => {
   setupCrossOriginIsolation();

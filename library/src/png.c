@@ -23,7 +23,10 @@
 #include "internal/png.h"
 
 #define PNG_DECODE_MAX_DIMENSION 65536u
+#define PNG_DECODE_MAX_PIXELS    ((uint64_t)1 << 28)
 #define PNG_DECODE_CHANNELS      4u
+#define PNG_SIGNATURE_SIZE       8u
+#define PNG_IHDR_DATA_SIZE       13u
 
 typedef struct {
     const uint8_t *data;
@@ -60,6 +63,15 @@ static inline cpres_error_t png_decode_take(png_decode_state_t *state, cpres_err
     state->rgba = NULL;
 
     return CPRES_OK;
+}
+
+/* 2^28 pixels (16384 x 16384) is the largest image libavif and libwebp accept as well; it bounds
+ * the RGBA buffer and every working copy the encoders make from it. */
+static inline bool png_dimensions_within_limits(png_uint_32 width, png_uint_32 height)
+{
+    return width > 0 && height > 0 && width <= PNG_DECODE_MAX_DIMENSION &&
+           height <= PNG_DECODE_MAX_DIMENSION &&
+           (uint64_t)width * (uint64_t)height <= PNG_DECODE_MAX_PIXELS;
 }
 
 static void png_read_from_memory(png_structp png_ptr, png_bytep data, png_size_t length)
@@ -106,8 +118,10 @@ static cpres_error_t png_read_rgba_rows(png_structp png, png_infop info, png_dec
     color_type = png_get_color_type(png, info);
     bit_depth = png_get_bit_depth(png, info);
 
-    if (state->width == 0 || state->height == 0 || state->width > PNG_DECODE_MAX_DIMENSION ||
-        state->height > PNG_DECODE_MAX_DIMENSION) {
+    if (!png_dimensions_within_limits(state->width, state->height)) {
+        colopresso_log(CPRES_LOG_LEVEL_ERROR, "PNG dimensions %ux%u exceed the supported size",
+                       (unsigned int)state->width, (unsigned int)state->height);
+
         return CPRES_ERROR_INVALID_PNG;
     }
 
@@ -251,3 +265,42 @@ extern cpres_error_t png_decode_from_file(const char *filename, uint8_t **rgba_d
     return png_decode_take(&state, result, rgba_data, width, height);
 }
 #endif /* COLOPRESSO_WITH_FILE_OPS */
+
+extern bool png_header_within_limits(const uint8_t *png_data, size_t png_size)
+{
+    uint32_t length;
+    size_t offset;
+
+    if (!png_data || png_size < PNG_SIGNATURE_SIZE + 8u + PNG_IHDR_DATA_SIZE ||
+        png_sig_cmp(png_data, 0, PNG_SIGNATURE_SIZE) != 0) {
+        return false;
+    }
+
+    if (png_get_uint_32(png_data + PNG_SIGNATURE_SIZE) != PNG_IHDR_DATA_SIZE ||
+        memcmp(png_data + PNG_SIGNATURE_SIZE + 4u, "IHDR", 4) != 0) {
+        return false;
+    }
+
+    if (!png_dimensions_within_limits(png_get_uint_32(png_data + PNG_SIGNATURE_SIZE + 8u),
+                                      png_get_uint_32(png_data + PNG_SIGNATURE_SIZE + 12u))) {
+        return false;
+    }
+
+    /* Chunk lengths above 2^31 - 1 are invalid; offset arithmetic in other parsers (oxipng on
+     * 32-bit targets) can wrap on them. A truncated last chunk is left to the decoders. */
+    offset = PNG_SIGNATURE_SIZE;
+    while (png_size - offset >= 12u) {
+        length = png_get_uint_32(png_data + offset);
+        if (length > PNG_UINT_31_MAX) {
+            return false;
+        }
+
+        if (length > png_size - offset - 12u) {
+            break;
+        }
+
+        offset += 12u + (size_t)length;
+    }
+
+    return true;
+}
