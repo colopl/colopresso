@@ -120,7 +120,6 @@ interface ElectronAPI {
   checkPathType: (path: string) => Promise<ElectronCheckPathResult>;
   readDirectory: (path: string) => Promise<ElectronReadDirectoryResult>;
   selectFolder: () => Promise<ElectronSelectFolderResult>;
-  openExternal?: (url: string) => void;
   onUpdateDownloadStart?: (handler: (payload: Record<string, unknown>) => void) => () => void;
   onUpdateDownloadProgress?: (handler: (payload: Record<string, unknown>) => void) => () => void;
   onUpdateDownloadComplete?: (handler: (payload: Record<string, unknown>) => void) => () => void;

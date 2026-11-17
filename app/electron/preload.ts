@@ -9,7 +9,7 @@
  * Developed with AI (LLM) code assistance. See `NOTICE` for details.
  */
 
-import { contextBridge, ipcRenderer, shell, webUtils } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 const api: ElectronAPI = {
   getPathForFile: (file) => {
@@ -29,7 +29,6 @@ const api: ElectronAPI = {
   saveFileDialog: (defaultFileName) => ipcRenderer.invoke('save-file-dialog', defaultFileName),
   saveZipDialog: (defaultFileName) => ipcRenderer.invoke('save-zip-dialog', defaultFileName),
   saveJsonDialog: (defaultFileName) => ipcRenderer.invoke('save-json-dialog', defaultFileName),
-  openExternal: (url) => void shell.openExternal(url),
   onUpdateDownloadStart: (handler) => {
     const listener = (_event: unknown, payload: unknown) => handler(payload as unknown as Record<string, unknown>);
     ipcRenderer.on('update-download-start', listener);
