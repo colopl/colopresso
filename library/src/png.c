@@ -268,6 +268,9 @@ extern cpres_error_t png_decode_from_file(const char *filename, uint8_t **rgba_d
 
 extern bool png_header_within_limits(const uint8_t *png_data, size_t png_size)
 {
+    uint32_t length;
+    size_t offset;
+
     if (!png_data || png_size < PNG_SIGNATURE_SIZE + 8u + PNG_IHDR_DATA_SIZE ||
         png_sig_cmp(png_data, 0, PNG_SIGNATURE_SIZE) != 0) {
         return false;
@@ -278,6 +281,26 @@ extern bool png_header_within_limits(const uint8_t *png_data, size_t png_size)
         return false;
     }
 
-    return png_dimensions_within_limits(png_get_uint_32(png_data + PNG_SIGNATURE_SIZE + 8u),
-                                        png_get_uint_32(png_data + PNG_SIGNATURE_SIZE + 12u));
+    if (!png_dimensions_within_limits(png_get_uint_32(png_data + PNG_SIGNATURE_SIZE + 8u),
+                                      png_get_uint_32(png_data + PNG_SIGNATURE_SIZE + 12u))) {
+        return false;
+    }
+
+    /* Chunk lengths above 2^31 - 1 are invalid; offset arithmetic in other parsers (oxipng on
+     * 32-bit targets) can wrap on them. A truncated last chunk is left to the decoders. */
+    offset = PNG_SIGNATURE_SIZE;
+    while (png_size - offset >= 12u) {
+        length = png_get_uint_32(png_data + offset);
+        if (length > PNG_UINT_31_MAX) {
+            return false;
+        }
+
+        if (length > png_size - offset - 12u) {
+            break;
+        }
+
+        offset += 12u + (size_t)length;
+    }
+
+    return true;
 }

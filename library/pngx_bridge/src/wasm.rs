@@ -212,8 +212,9 @@ pub fn pngx_wasm_quantize(
     height: u32,
     params: Option<WasmQuantParams>,
 ) -> WasmQuantResult {
-    let pixel_count = (width as usize) * (height as usize);
-    let expected_len = pixel_count * 4;
+    let expected_len = (width as usize)
+        .checked_mul(height as usize)
+        .and_then(|count| count.checked_mul(4));
     if width == 0 || height == 0 {
         return WasmQuantResult {
             palette: Vec::new(),
@@ -223,7 +224,7 @@ pub fn pngx_wasm_quantize(
         };
     }
 
-    if pixels.len() != expected_len {
+    if expected_len != Some(pixels.len()) {
         return WasmQuantResult {
             palette: Vec::new(),
             indices: Vec::new(),
@@ -309,9 +310,16 @@ pub fn pngx_wasm_quantize_advanced(
     importance_map: Option<Vec<u8>>,
     fixed_colors: Option<Vec<u8>>,
 ) -> WasmQuantResult {
-    let pixel_count = (width as usize) * (height as usize);
+    let Some(pixel_count) = (width as usize).checked_mul(height as usize) else {
+        return WasmQuantResult {
+            palette: Vec::new(),
+            indices: Vec::new(),
+            quality: -1,
+            status: 2,
+        };
+    };
 
-    if pixels.len() != pixel_count * 4 {
+    if pixel_count.checked_mul(4) != Some(pixels.len()) {
         return WasmQuantResult {
             palette: Vec::new(),
             indices: Vec::new(),
