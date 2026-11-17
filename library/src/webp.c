@@ -22,9 +22,10 @@
 #include <colopresso.h>
 
 #include "internal/log.h"
+#include "internal/threads.h"
 #include "internal/webp.h"
 
-static int g_last_webp_error = 0;
+static COLOPRESSO_THREAD_LOCAL int g_last_webp_error = 0;
 
 static void apply_webp_config(WebPConfig *webp_config, const cpres_config_t *config)
 {

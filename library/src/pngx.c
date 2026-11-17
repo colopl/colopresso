@@ -18,10 +18,11 @@
 
 #include "internal/log.h"
 #include "internal/pngx_common.h"
+#include "internal/threads.h"
 
 #define PNGX_MAX_PROTECTED_COLORS 256
 
-static int g_pngx_last_error = 0;
+static COLOPRESSO_THREAD_LOCAL int g_pngx_last_error = 0;
 
 extern int pngx_get_last_error(void)
 {

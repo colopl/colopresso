@@ -53,8 +53,9 @@ typedef struct {
 } png_write_job_t;
 
 /* Context of the multi-step API (pngx_palette256_prepare / _finalize) used by the WASM separation
- * mode, whose steps are called one after another from JS. */
-static palette256_context_t g_palette256_ctx = {0};
+ * mode, whose steps are called one after another from JS. Each calling thread has its own, and a
+ * prepare discards the previous context of that thread. */
+static COLOPRESSO_THREAD_LOCAL palette256_context_t g_palette256_ctx = {0};
 
 static inline void alpha_bleed_rgb_from_opaque(uint8_t *rgba, uint32_t width, uint32_t height,
                                                const pngx_options_t *opts)
@@ -867,6 +868,13 @@ static bool palette256_prepare_context(palette256_context_t *ctx, const uint8_t 
             *out_fixed_colors = NULL;
             *out_fixed_colors_len = 0;
         }
+    }
+
+    /* The caller owns opts->protected_colors and may free it once prepare returns; finalize only
+     * needs the options that postprocess the indices. */
+    if (ctx->tuned_opts.protected_colors == opts->protected_colors) {
+        ctx->tuned_opts.protected_colors = NULL;
+        ctx->tuned_opts.protected_colors_count = 0;
     }
 
     ctx->initialized = true;

@@ -23,8 +23,9 @@
 
 #include "internal/avif.h"
 #include "internal/log.h"
+#include "internal/threads.h"
 
-static int g_avif_last_error = 0;
+static COLOPRESSO_THREAD_LOCAL int g_avif_last_error = 0;
 
 static inline void apply_avif_config(avifEncoder *encoder, const cpres_config_t *config)
 {

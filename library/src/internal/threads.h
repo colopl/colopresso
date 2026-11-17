@@ -16,6 +16,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+/* Storage duration of state that each calling thread keeps on its own. MSVC's C mode has no
+ * _Thread_local, so its own keyword is used there. */
+#if defined(_MSC_VER) && !defined(__clang__)
+#define COLOPRESSO_THREAD_LOCAL __declspec(thread)
+#else
+#define COLOPRESSO_THREAD_LOCAL _Thread_local
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
