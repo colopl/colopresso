@@ -21,6 +21,8 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
   では同梱の node-gyp から undici 6 (CVE-2026-84947) が取り除かれました (#361)。
 
 ### Build / CI
+- **変更:** Windows のビルドで `Synchronization.lib` もリンクするようにしました。Rust 1.100 の標準ライブラリが
+  `WaitOnAddress` と `WakeByAddress*` を直接呼ぶため、これがないと `pngx_bridge` のリンクに失敗していました (#361)。
 - **変更:** LinuxAndWasm の CI ジョブと Dev Container が使う Linux のツールチェーンイメージ (`Dockerfile`) に、
   LLVM 22 ではなく LLVM 23 (clang, clang-tidy, lld, サニタイザのランタイム) を入れるようにしました (#361)。
 - **追加:** `electron@45.3.3` を pnpm の `minimumReleaseAge` (公開から 1 日の待機期間) の対象外にし、

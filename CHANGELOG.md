@@ -21,6 +21,8 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
   pnpm 12.20.0 removes undici 6 (CVE-2026-84947) from the bundled node-gyp (#361).
 
 ### Build / CI
+- **Changed:** Windows builds also link `Synchronization.lib`: the Rust 1.100 standard library calls
+  `WaitOnAddress` and `WakeByAddress*` directly, so linking `pngx_bridge` failed without it (#361).
 - **Changed:** The Linux toolchain image (`Dockerfile`), used by the LinuxAndWasm CI jobs and the Dev
   Container, installs LLVM 23 (clang, clang-tidy, lld and the sanitizer runtimes) instead of LLVM 22
   (#361).

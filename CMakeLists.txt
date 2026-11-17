@@ -130,7 +130,7 @@ if(APPLE)
 elseif(UNIX)
   target_link_libraries(colopresso PUBLIC m)
 elseif(WIN32)
-  target_link_libraries(colopresso PUBLIC userenv ntdll ws2_32)
+  target_link_libraries(colopresso PUBLIC userenv ntdll ws2_32 synchronization)
 endif()
 
 # ==============================================================================

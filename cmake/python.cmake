@@ -152,6 +152,7 @@ else()
     userenv
     ntdll
     ws2_32
+    synchronization
   )
 endif()
 
