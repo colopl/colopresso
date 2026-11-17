@@ -27,6 +27,9 @@
 #include "internal/png.h"
 #include "internal/webp.h"
 
+#define OUTPUT_TEMP_SUFFIX_SIZE  16u
+#define OUTPUT_TEMP_MAX_ATTEMPTS 100u
+
 #if COLOPRESSO_WITH_FILE_OPS
 
 static inline bool cpres_get_file_size_bytes(const char *path, size_t *size_out)
@@ -46,28 +49,50 @@ static inline bool cpres_get_file_size_bytes(const char *path, size_t *size_out)
     return true;
 }
 
+/* Writes to a new file next to path and moves it over path once complete, so a failed write
+ * leaves an existing output untouched and a symbolic link at path is replaced, not followed. */
 static inline cpres_error_t write_output_file(const char *path, const uint8_t *data, size_t size)
 {
     FILE *fp;
-    size_t written;
+    uint32_t attempt;
+    size_t path_len, temp_size, written;
+    bool ok;
+    char *temp_path;
 
-    fp = fopen(path, "wb");
+    path_len = strlen(path);
+    if (path_len > SIZE_MAX - OUTPUT_TEMP_SUFFIX_SIZE) {
+        return CPRES_ERROR_IO;
+    }
+
+    temp_size = path_len + OUTPUT_TEMP_SUFFIX_SIZE;
+    temp_path = (char *)malloc(temp_size);
+    if (!temp_path) {
+        return CPRES_ERROR_OUT_OF_MEMORY;
+    }
+
+    fp = NULL;
+    for (attempt = 0; attempt < OUTPUT_TEMP_MAX_ATTEMPTS && !fp; ++attempt) {
+        snprintf(temp_path, temp_size, "%s.tmp%u", path, (unsigned int)attempt);
+        fp = fopen(temp_path, "wbx");
+    }
+
     if (!fp) {
-        colopresso_log(CPRES_LOG_LEVEL_ERROR, "Failed to open output file '%s'", path);
+        colopresso_log(CPRES_LOG_LEVEL_ERROR, "Failed to create a temporary file for '%s'", path);
+        free(temp_path);
 
         return CPRES_ERROR_IO;
     }
 
     written = fwrite(data, 1, size, fp);
-    if (fclose(fp) != 0 || written != size) {
-        colopresso_remove_regular_file(path);
-
+    ok = fclose(fp) == 0 && written == size && colopresso_replace_file(temp_path, path);
+    if (!ok) {
+        colopresso_remove_regular_file(temp_path);
         colopresso_log(CPRES_LOG_LEVEL_ERROR, "Failed to write output file '%s'", path);
-
-        return CPRES_ERROR_IO;
     }
 
-    return CPRES_OK;
+    free(temp_path);
+
+    return ok ? CPRES_OK : CPRES_ERROR_IO;
 }
 
 extern cpres_error_t cpres_read_file_to_memory(const char *path, uint8_t **data_out,

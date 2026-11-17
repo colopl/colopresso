@@ -494,6 +494,21 @@ extern bool colopresso_remove_regular_file(const char *path)
     return remove(path) == 0;
 }
 
+/* Moves source over target in one step, as rename(2) does: an existing target, including a
+ * symbolic link, is replaced rather than written through. */
+extern bool colopresso_replace_file(const char *source, const char *target)
+{
+    if (!source || !target) {
+        return false;
+    }
+
+#ifdef _WIN32
+    return MoveFileExA(source, target, MOVEFILE_REPLACE_EXISTING) != 0;
+#else
+    return rename(source, target) == 0;
+#endif
+}
+
 #endif
 
 /* LCOV_EXCL_STOP */
