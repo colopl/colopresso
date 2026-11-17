@@ -15,6 +15,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
 #include <colopresso.h>
 
 #include <unity.h>
@@ -163,6 +168,47 @@ void test_pngx_file_with_rgba64_png(void)
 }
 #endif
 
+#if !defined(COLOPRESSO_DISABLE_FILE_OPS) && !defined(_WIN32) && !defined(__EMSCRIPTEN__)
+void test_pngx_file_replaces_symlink_output(void)
+{
+    const char *target_path = "example_pngx_link_target.bin", *link_path = "example_pngx_link.png";
+    FILE *fp;
+    struct stat st;
+    size_t read_size;
+    char input_path[512], content[8];
+
+    if (snprintf(input_path, sizeof(input_path), "%s/128x128.png", COLOPRESSO_TEST_ASSETS_DIR) <
+        0) {
+        TEST_FAIL_MESSAGE("failed to format PNG input path");
+    }
+
+    remove(link_path);
+    remove(target_path);
+
+    fp = fopen(target_path, "wb");
+    TEST_ASSERT_NOT_NULL(fp);
+    TEST_ASSERT_TRUE(fputs("keep", fp) >= 0);
+    TEST_ASSERT_EQUAL_INT(0, fclose(fp));
+    TEST_ASSERT_EQUAL_INT(0, symlink(target_path, link_path));
+
+    g_config.pngx_lossy_enable = true;
+    TEST_ASSERT_EQUAL_INT(CPRES_OK, cpres_encode_pngx_file(input_path, link_path, &g_config));
+
+    TEST_ASSERT_EQUAL_INT(0, lstat(link_path, &st));
+    TEST_ASSERT_TRUE(S_ISREG(st.st_mode));
+
+    fp = fopen(target_path, "rb");
+    TEST_ASSERT_NOT_NULL(fp);
+    read_size = fread(content, 1, sizeof(content), fp);
+    TEST_ASSERT_EQUAL_INT(0, fclose(fp));
+    TEST_ASSERT_EQUAL_size_t(4, read_size);
+    TEST_ASSERT_EQUAL_MEMORY("keep", content, 4);
+
+    remove(link_path);
+    remove(target_path);
+}
+#endif
+
 void test_pngx_file_dummy(void)
 {
     TEST_ASSERT_TRUE(true);
@@ -179,6 +225,9 @@ int main(void)
     RUN_TEST(test_pngx_file_with_null_input_path);
     RUN_TEST(test_pngx_file_with_valid_png);
     RUN_TEST(test_pngx_file_with_rgba64_png);
+#endif
+#if !defined(COLOPRESSO_DISABLE_FILE_OPS) && !defined(_WIN32) && !defined(__EMSCRIPTEN__)
+    RUN_TEST(test_pngx_file_replaces_symlink_output);
 #endif
 
     RUN_TEST(test_pngx_file_dummy);

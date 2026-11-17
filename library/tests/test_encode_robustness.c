@@ -99,6 +99,19 @@ static size_t build_header_only_png(uint8_t *out, uint32_t width, uint32_t heigh
     return append_png_chunk(out, offset, "IEND", NULL, 0);
 }
 
+/* A 1 x 1 PNG whose IEND is replaced with a chunk header that declares length bytes of data. */
+static size_t build_png_with_chunk_length(uint8_t *out, uint32_t length)
+{
+    size_t offset;
+
+    offset = build_header_only_png(out, 1, 1) - 12;
+    put_be32(out + offset, length);
+    memcpy(out + offset + 4, "IDAT", 4);
+    memset(out + offset + 8, 0, 4);
+
+    return offset + 12;
+}
+
 static void load_asset(void)
 {
     if (g_png_data) {
@@ -296,6 +309,21 @@ void test_encode_rejects_oversized_header(void)
     }
 }
 
+void test_encode_pngx_rejects_oversized_chunk_length(void)
+{
+    cpres_config_t config;
+    uint8_t png[HEADER_ONLY_PNG_CAPACITY], *out;
+    size_t png_size, out_size;
+
+    cpres_config_init_defaults(&config);
+    png_size = build_png_with_chunk_length(png, 0xfffffff0u);
+
+    out = NULL;
+    TEST_ASSERT_EQUAL_INT(CPRES_ERROR_INVALID_PNG,
+                          cpres_encode_pngx_memory(png, png_size, &out, &out_size, &config));
+    TEST_ASSERT_NULL(out);
+}
+
 void test_encode_pngx_protected_colors_over_limit(void)
 {
     cpres_rgba_color_t colors[PROTECTED_COLOR_OVER];
@@ -346,6 +374,7 @@ int main(void)
     RUN_TEST(test_encode_pngx_non_finite_smooth_cutoff);
     RUN_TEST(test_encode_pngx_protected_color_limit);
     RUN_TEST(test_encode_rejects_oversized_header);
+    RUN_TEST(test_encode_pngx_rejects_oversized_chunk_length);
     RUN_TEST(test_encode_pngx_protected_colors_over_limit);
 
     result = UNITY_END();
