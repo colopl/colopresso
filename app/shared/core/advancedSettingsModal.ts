@@ -14,6 +14,9 @@ import Storage from './storage';
 import { t, addLanguageChangeListener } from '../i18n';
 import { FormatDefinition, FormatOptions, FormatField, ColorValue, SETTINGS_SCHEMA_VERSION } from '../types';
 
+// libcolopresso accepts at most 256 protected colors.
+const MAX_PROTECTED_COLORS = 256;
+
 const ADVANCED_SETTINGS_STYLES = `
 .modal {
   display: none;
@@ -1065,6 +1068,8 @@ class AdvancedSettingsManager {
             throw new Error(t('settingsModal.alerts.importInvalid'));
           }
 
+          config = sanitizeProfileConfig(format, config);
+
           const profiles = await loadProfiles(format);
           const duplicateName = findDuplicateProfile(config, profiles);
           if (duplicateName) {
@@ -1199,7 +1204,8 @@ function buildFieldHTML(field: FormatField, value: unknown): string {
     case 'number': {
       const hardwareConcurrency = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : 64;
       const maxValue = field.maxIsHardwareConcurrency ? Math.min(field.max ?? hardwareConcurrency, hardwareConcurrency) : field.max;
-      return `<div class="config-item" data-wrapper="${field.id}"><label for="field_${field.id}">${labelText ? `${labelText}: ` : ''}</label><input type="number" ${common} value="${fallbackValue ?? ''}" ${field.min !== undefined ? `min='${field.min}'` : ''} ${maxValue !== undefined ? `max='${maxValue}'` : ''} ${field.step !== undefined ? `step='${field.step}'` : ''}>${noteText ? `<div class="field-note">${noteText}</div>` : ''}<div class="field-error" id="err_${field.id}" aria-live="polite"></div></div>`;
+      const numberValue = typeof fallbackValue === 'number' && Number.isFinite(fallbackValue) ? String(fallbackValue) : '';
+      return `<div class="config-item" data-wrapper="${field.id}"><label for="field_${field.id}">${labelText ? `${labelText}: ` : ''}</label><input type="number" ${common} value="${numberValue}" ${field.min !== undefined ? `min='${field.min}'` : ''} ${maxValue !== undefined ? `max='${maxValue}'` : ''} ${field.step !== undefined ? `step='${field.step}'` : ''}>${noteText ? `<div class="field-note">${noteText}</div>` : ''}<div class="field-error" id="err_${field.id}" aria-live="polite"></div></div>`;
     }
     case 'checkbox': {
       const inlineAttr = field.id === 'pngx_lossy_dither_auto' ? ` data-inline-for='pngx_lossy_dither_level'` : '';
@@ -1365,7 +1371,85 @@ function readConfigFromModal(format: FormatDefinition): FormatOptions {
   return format.normalizeOptions ? format.normalizeOptions(result) : result;
 }
 
-function applyConfigToModalFields(format: FormatDefinition, config: FormatOptions): void {
+function toColorComponent(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.min(255, Math.max(0, Math.round(value))) : null;
+}
+
+function sanitizeColorArray(value: unknown): ColorValue[] {
+  const colors: ColorValue[] = [];
+
+  if (!Array.isArray(value)) {
+    return colors;
+  }
+
+  for (const entry of value.slice(0, MAX_PROTECTED_COLORS)) {
+    if (!entry || typeof entry !== 'object') {
+      continue;
+    }
+    const { r, g, b, a } = entry as Record<string, unknown>;
+    const red = toColorComponent(r);
+    const green = toColorComponent(g);
+    const blue = toColorComponent(b);
+    const alpha = a === undefined ? 255 : toColorComponent(a);
+    if (red === null || green === null || blue === null || alpha === null) {
+      continue;
+    }
+    colors.push({ r: red, g: green, b: blue, a: alpha });
+  }
+
+  return colors;
+}
+
+// Profiles come from imported files and from storage, so only the fields of the format's schema
+// are kept, each with a value of the type the field expects.
+function sanitizeProfileConfig(format: FormatDefinition, raw: unknown): FormatOptions {
+  const source = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const result: FormatOptions = {};
+
+  (format.optionsSchema || []).forEach((section) =>
+    section.fields.forEach((field) => {
+      if (!field.id || !Object.prototype.hasOwnProperty.call(source, field.id)) {
+        return;
+      }
+
+      const value = source[field.id];
+
+      switch (field.type) {
+        case 'checkbox':
+          if (typeof value === 'boolean') {
+            result[field.id] = value;
+          }
+          break;
+        case 'number':
+        case 'range':
+          if (value === null || (typeof value === 'number' && Number.isFinite(value))) {
+            result[field.id] = value;
+          }
+          break;
+        case 'select': {
+          const option = field.options.find((candidate) => (typeof value === 'string' || typeof value === 'number') && String(candidate.value) === String(value));
+          if (option) {
+            result[field.id] = option.value;
+          }
+          break;
+        }
+        case 'color-array':
+          result[field.id] = sanitizeColorArray(value);
+          break;
+        case 'info':
+          break;
+        default:
+          assertUnreachable(field);
+      }
+    })
+  );
+
+  return result;
+}
+
+function applyConfigToModalFields(format: FormatDefinition, rawConfig: FormatOptions): void {
+  const config = sanitizeProfileConfig(format, rawConfig);
+
   (format.optionsSchema || []).forEach((section) =>
     section.fields.forEach((field) => {
       if (!field.id) {
@@ -2083,7 +2167,8 @@ async function showNamePrompt(title: string, defaultValue = ''): Promise<string 
 }
 
 function renderColorArray(container: HTMLDivElement, colors: ColorValue[], fieldId: string): void {
-  container.innerHTML = '';
+  container.replaceChildren();
+  colors.splice(0, colors.length, ...sanitizeColorArray(colors));
   colors.forEach((color, index) => {
     const colorItem = document.createElement('div');
     colorItem.className = 'color-item';
@@ -2091,22 +2176,45 @@ function renderColorArray(container: HTMLDivElement, colors: ColorValue[], field
     const fullHex = rgbToHex(color.r, color.g, color.b);
     const textColor = getContrastTextColor(color.r, color.g, color.b);
 
-    colorItem.innerHTML = `
-      <div class="color-preview" style="background-color: ${fullHex}; color: ${textColor};" data-index="${index}">
-        ${fullHex}
-      </div>
-      <span class="hex-prefix">#</span>
-      <input type="text" value="${hexValue}" data-index="${index}" class="hex-input" maxlength="6" placeholder="RRGGBB">
-      <input type="range" min="0" max="255" value="${color.a}" data-index="${index}" class="alpha-slider">
-      <span class="alpha-value">${color.a}</span>
-      <button type="button" class="btn-remove-color" data-index="${index}">×</button>
-    `;
-    container.appendChild(colorItem);
+    const preview = document.createElement('div');
+    preview.className = 'color-preview';
+    preview.style.backgroundColor = fullHex;
+    preview.style.color = textColor;
+    preview.dataset.index = String(index);
+    preview.textContent = fullHex;
 
-    const hexInput = colorItem.querySelector<HTMLInputElement>('.hex-input');
-    const alphaSlider = colorItem.querySelector<HTMLInputElement>('.alpha-slider');
-    const alphaValue = colorItem.querySelector<HTMLSpanElement>('.alpha-value');
-    const removeButton = colorItem.querySelector<HTMLButtonElement>('.btn-remove-color');
+    const hexPrefix = document.createElement('span');
+    hexPrefix.className = 'hex-prefix';
+    hexPrefix.textContent = '#';
+
+    const hexInput = document.createElement('input');
+    hexInput.type = 'text';
+    hexInput.value = hexValue;
+    hexInput.dataset.index = String(index);
+    hexInput.className = 'hex-input';
+    hexInput.maxLength = 6;
+    hexInput.placeholder = 'RRGGBB';
+
+    const alphaSlider = document.createElement('input');
+    alphaSlider.type = 'range';
+    alphaSlider.min = '0';
+    alphaSlider.max = '255';
+    alphaSlider.value = String(color.a);
+    alphaSlider.dataset.index = String(index);
+    alphaSlider.className = 'alpha-slider';
+
+    const alphaValue = document.createElement('span');
+    alphaValue.className = 'alpha-value';
+    alphaValue.textContent = String(color.a);
+
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.className = 'btn-remove-color';
+    removeButton.dataset.index = String(index);
+    removeButton.textContent = '×';
+
+    colorItem.append(preview, hexPrefix, hexInput, alphaSlider, alphaValue, removeButton);
+    container.appendChild(colorItem);
 
     const updatePreview = () => {
       if (!hexInput) {
