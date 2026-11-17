@@ -1372,7 +1372,7 @@ function readConfigFromModal(format: FormatDefinition): FormatOptions {
 }
 
 function toColorComponent(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? Math.min(255, Math.max(0, Math.round(value))) : null;
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 255 ? value : null;
 }
 
 function sanitizeColorArray(value: unknown): ColorValue[] {
@@ -1400,46 +1400,46 @@ function sanitizeColorArray(value: unknown): ColorValue[] {
   return colors;
 }
 
-// Profiles come from imported files and from storage, so only the fields of the format's schema
-// are kept, each with a value of the type the field expects.
+// Returns the value when it has the type the field expects, undefined otherwise.
+function acceptFieldValue(field: FormatField, value: unknown): unknown {
+  switch (field.type) {
+    case 'checkbox':
+      return typeof value === 'boolean' ? value : undefined;
+    case 'number':
+    case 'range':
+      return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+    case 'select': {
+      const option = field.options.find((candidate) => (typeof value === 'string' || typeof value === 'number') && String(candidate.value) === String(value));
+      return option ? option.value : undefined;
+    }
+    case 'color-array':
+      return Array.isArray(value) ? sanitizeColorArray(value) : undefined;
+    case 'info':
+      return undefined;
+    default:
+      return assertUnreachable(field);
+  }
+}
+
+// Profiles come from imported files and from storage, so each field of the format's schema takes
+// the profile's value only when it has the expected type, and the format's default otherwise.
 function sanitizeProfileConfig(format: FormatDefinition, raw: unknown): FormatOptions {
   const source = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const defaults = format.getDefaultOptions();
   const result: FormatOptions = {};
 
   (format.optionsSchema || []).forEach((section) =>
     section.fields.forEach((field) => {
-      if (!field.id || !Object.prototype.hasOwnProperty.call(source, field.id)) {
+      if (!field.id || field.type === 'info') {
         return;
       }
 
-      const value = source[field.id];
+      const accepted = Object.prototype.hasOwnProperty.call(source, field.id) ? acceptFieldValue(field, source[field.id]) : undefined;
 
-      switch (field.type) {
-        case 'checkbox':
-          if (typeof value === 'boolean') {
-            result[field.id] = value;
-          }
-          break;
-        case 'number':
-        case 'range':
-          if (value === null || (typeof value === 'number' && Number.isFinite(value))) {
-            result[field.id] = value;
-          }
-          break;
-        case 'select': {
-          const option = field.options.find((candidate) => (typeof value === 'string' || typeof value === 'number') && String(candidate.value) === String(value));
-          if (option) {
-            result[field.id] = option.value;
-          }
-          break;
-        }
-        case 'color-array':
-          result[field.id] = sanitizeColorArray(value);
-          break;
-        case 'info':
-          break;
-        default:
-          assertUnreachable(field);
+      if (accepted !== undefined) {
+        result[field.id] = accepted;
+      } else if (Object.prototype.hasOwnProperty.call(defaults, field.id)) {
+        result[field.id] = defaults[field.id];
       }
     })
   );

@@ -14,8 +14,9 @@ import type { FileFilter, IpcMainInvokeEvent, MessageBoxOptions, MessageBoxRetur
 import { autoUpdater, UpdateDownloadedEvent, UpdateInfo } from 'electron-updater';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { constants as fsConstants, promises as fs } from 'node:fs';
+import { promises as fs } from 'node:fs';
 import { createRequire } from 'node:module';
+import { randomBytes } from 'node:crypto';
 import packageJson from '../../package.json';
 import { bundles as languageBundles, translateForLanguage as translateForLanguageCore } from '../shared/i18n/core';
 import { LanguageCode, TranslationParams } from '../shared/types';
@@ -93,8 +94,11 @@ function handleTrustedIpc<Args extends unknown[], Result>(channel: string, liste
   });
 }
 
-// Writes only to a new or existing regular file: never through a symbolic link or into a device,
-// so a link placed next to an input file cannot redirect the output elsewhere.
+// Writes only to a new path or over a regular file, never through a symbolic link or into a device,
+// so a link placed next to an input file cannot redirect the output elsewhere. The data goes to a
+// new file created exclusively next to the target and is then renamed over it; rename replaces a
+// directory entry without following it, so swapping the target for a link after the check does
+// not redirect the write either.
 async function writeRegularFile(filePath: string, data: Uint8Array): Promise<void> {
   let existing: Awaited<ReturnType<typeof fs.lstat>> | null = null;
 
@@ -110,7 +114,15 @@ async function writeRegularFile(filePath: string, data: Uint8Array): Promise<voi
     throw new Error(`Refusing to write to ${filePath}: not a regular file`);
   }
 
-  await fs.writeFile(filePath, data, { flag: fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_TRUNC | (fsConstants.O_NOFOLLOW ?? 0) });
+  const tempPath = path.join(path.dirname(filePath), `.${path.basename(filePath)}.${randomBytes(6).toString('hex')}.tmp`);
+
+  try {
+    await fs.writeFile(tempPath, data, { flag: 'wx' });
+    await fs.rename(tempPath, filePath);
+  } catch (error) {
+    await fs.unlink(tempPath).catch(() => undefined);
+    throw error;
+  }
 }
 
 function sendUpdateIpc(channel: string, payload?: unknown): void {
