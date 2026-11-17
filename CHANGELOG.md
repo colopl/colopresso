@@ -8,6 +8,31 @@ Changes are grouped by build type: Library (libcolopresso and its public API), C
 Build / CI, Documentation and General. Each entry is tagged Added, Changed, Fixed or Removed.
 Security fixes are listed first in each release and marked **[SECURITY]**.
 
+## [Unreleased]
+
+### Security
+- **[SECURITY]** **Fixed:** GUI: Electron is updated from 45.2.3 to 45.3.3 (Chromium 156.0.8078.100).
+  It updates the bundled Node.js from 24.22.2 to 24.22.3, a security release that fixes HTTP/2 and TLS
+  issues (CVE-2026-123863, CVE-2026-123872 and others, rated high), and brings backported upstream
+  security fixes from Chromium, V8, ANGLE, Dawn and Skia. It also stops trusting certificates issued by
+  eMudhra's revoked RSA intermediates (#361).
+- **[SECURITY]** **Fixed:** Build / CI: pnpm is updated from 12.18.0 to 12.21.0. pnpm 12.19.0 no longer
+  prints registry credentials in the error for a tarball missing from the store in offline mode, and
+  pnpm 12.20.0 removes undici 6 (CVE-2026-84947) from the bundled node-gyp (#361).
+
+### Build / CI
+- **Changed:** The Linux toolchain image (`Dockerfile`), used by the LinuxAndWasm CI jobs and the Dev
+  Container, installs LLVM 23 (clang, clang-tidy, lld and the sanitizer runtimes) instead of LLVM 22
+  (#361).
+- **Added:** `electron@45.3.3` is exempted from pnpm's one-day `minimumReleaseAge`, so its security
+  fixes are taken before the waiting period ends. The next dependency rollup removes the exemption
+  (#361).
+
+### Dependencies
+- Electron 45.3.3, pnpm 12.21.0, Rust 1.100.0, LLVM 23 (Linux CI image), Vite 8.3.8,
+  `@vitejs/plugin-react` 6.3.0, Prettier 3.10.1, playwright-core 1.65.1, Rust crates in `Cargo.lock`
+  (cc 1.11.2, syn 3.0.10 and others).
+
 ## [15.0.0] - 2026-11-09
 
 ### Security

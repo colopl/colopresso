@@ -8,6 +8,30 @@
 Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 のいずれかを付けています。
 セキュリティ修正は各リリースの先頭にまとめ、**[SECURITY]** を付けています。
 
+## [Unreleased]
+
+### Security
+- **[SECURITY]** **修正:** GUI: Electron を 45.2.3 から 45.3.3 (Chromium 156.0.8078.100) に更新しました。
+  同梱の Node.js が 24.22.2 から 24.22.3 になります。24.22.3 はセキュリティリリースで、HTTP/2 と TLS の
+  問題 (CVE-2026-123863, CVE-2026-123872 ほか、重大度 high) が修正されています。あわせて Chromium, V8,
+  ANGLE, Dawn, Skia 由来のセキュリティ修正のバックポートを取り込み、失効した eMudhra の RSA 中間証明書が
+  発行した証明書を信頼しなくなりました (#361)。
+- **[SECURITY]** **修正:** Build / CI: pnpm を 12.18.0 から 12.21.0 に更新しました。pnpm 12.19.0 では、
+  オフラインモードでストアに tarball がない時のエラーにレジストリの認証情報を表示しなくなり、pnpm 12.20.0
+  では同梱の node-gyp から undici 6 (CVE-2026-84947) が取り除かれました (#361)。
+
+### Build / CI
+- **変更:** LinuxAndWasm の CI ジョブと Dev Container が使う Linux のツールチェーンイメージ (`Dockerfile`) に、
+  LLVM 22 ではなく LLVM 23 (clang, clang-tidy, lld, サニタイザのランタイム) を入れるようにしました (#361)。
+- **追加:** `electron@45.3.3` を pnpm の `minimumReleaseAge` (公開から 1 日の待機期間) の対象外にし、
+  待機期間が明ける前にセキュリティ修正を取り込みました。次回の依存関係のロールアップでこの除外を外します
+  (#361)。
+
+### Dependencies
+- Electron 45.3.3, pnpm 12.21.0, Rust 1.100.0, LLVM 23 (Linux の CI イメージ), Vite 8.3.8,
+  `@vitejs/plugin-react` 6.3.0, Prettier 3.10.1, playwright-core 1.65.1, `Cargo.lock` の Rust crate
+  (cc 1.11.2, syn 3.0.10 ほか)。
+
 ## [15.0.0] - 2026-11-09
 
 ### Security
