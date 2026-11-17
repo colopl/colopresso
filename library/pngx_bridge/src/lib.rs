@@ -57,6 +57,16 @@ extern "C" {
     fn free(ptr: *mut std::ffi::c_void);
 }
 
+// Upper bound for the raw image data oxipng inflates from an input. oxipng sizes the buffer from the
+// IHDR chunk, and Rust aborts the process when such an allocation fails, so a few bytes of input
+// must not be able to request more than the largest image the C decoder accepts (2^28 pixels of
+// 16-bit RGBA plus one filter byte per row). 32-bit targets (wasm32) have at most 4 GiB of address
+// space and get a smaller bound.
+#[cfg(target_pointer_width = "64")]
+const MAX_DECOMPRESSED_SIZE: usize = (1usize << 28) * 8 + 65536;
+#[cfg(not(target_pointer_width = "64"))]
+const MAX_DECOMPRESSED_SIZE: usize = 1usize << 28;
+
 #[cfg(all(feature = "rayon", not(target_arch = "wasm32")))]
 static THREAD_POOL_CACHE: OnceLock<Mutex<HashMap<usize, std::sync::Arc<ThreadPool>>>> =
     OnceLock::new();
@@ -129,6 +139,7 @@ pub(crate) fn convert_lossless_options(opts: &PngxBridgeLosslessOptions) -> Opti
         options.strip = oxipng::StripChunks::Safe;
     }
     options.optimize_alpha = opts.optimize_alpha;
+    options.max_decompressed_size = Some(MAX_DECOMPRESSED_SIZE);
     options
 }
 
