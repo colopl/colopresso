@@ -19,6 +19,12 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
 - **[SECURITY]** **Fixed:** Build / CI: pnpm is updated from 12.18.0 to 12.21.0. pnpm 12.19.0 no longer
   prints registry credentials in the error for a tarball missing from the store in offline mode, and
   pnpm 12.20.0 removes undici 6 (CVE-2026-84947) from the bundled node-gyp (#361).
+- **[SECURITY]** **Changed:** GUI: The app window stays on the app's own pages: navigation to other
+  pages and new windows are refused, and the main process answers only requests from the app's pages
+  (#362).
+- **[SECURITY]** **Changed:** GUI: Converted files are written to a new file next to the output and
+  then moved into place, and only to new paths or over regular files: an existing symbolic link at the
+  output path is refused instead of followed (#362).
 
 ### Library
 - **Changed:** Images with more than 268,435,456 pixels (16384 x 16384) are rejected with
@@ -51,11 +57,6 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
 - **Fixed:** Imported and stored settings profiles are checked against the settings of the format: a
   value of the wrong type falls back to the format's default instead of being shown in the settings
   dialog, and protected colors need integer channels from 0 to 255 (#362).
-- **Changed:** The app window stays on the app's own pages: navigation to other pages and new windows
-  are refused, and the main process answers only requests from the app's pages (#362).
-- **Changed:** Converted files are written to a new file next to the output and then moved into
-  place, and only to new paths or over regular files: an existing symbolic link at the output path is
-  refused instead of followed (#362).
 - **Removed:** The unused `openExternal` function of the preload API (#362).
 
 ### Build / CI
