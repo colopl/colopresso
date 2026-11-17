@@ -51,21 +51,21 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       test -n "${LLVM_APT_CODENAME}" && \
       mkdir -p "/usr/share/keyrings" && \
       curl -fsSL "https://apt.llvm.org/llvm-snapshot.gpg.key" | gpg --dearmor --yes -o "/usr/share/keyrings/llvm-archive-keyring.gpg" && \
-      echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] https://apt.llvm.org/${LLVM_APT_CODENAME}/ llvm-toolchain-${LLVM_APT_CODENAME}-22 main" > "/etc/apt/sources.list.d/llvm.list" && \
+      echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] https://apt.llvm.org/${LLVM_APT_CODENAME}/ llvm-toolchain-${LLVM_APT_CODENAME}-23 main" > "/etc/apt/sources.list.d/llvm.list" && \
       apt-get update && \
       apt-get install --no-install-recommends -y \
-        "clang-22" "clang-tools-22" "clang-format-22" "clang-tidy-22" \
-        "libclang-rt-22-dev" "lld-22" "lldb-22" \
-        "libc++-22-dev" "libc++abi-22-dev" \
-        "llvm-22" "llvm-22-dev" "llvm-22-runtime" && \
-      update-alternatives --install "/usr/bin/clang" clang "/usr/bin/clang-22" 100 && \
-      update-alternatives --install "/usr/bin/clang++" clang++ "/usr/bin/clang++-22" 100 && \
-      update-alternatives --install "/usr/bin/clang-format" clang-format "/usr/bin/clang-format-22" 100 && \
-      update-alternatives --install "/usr/bin/clang-tidy" clang-tidy "/usr/bin/clang-tidy-22" 100 && \
-      update-alternatives --install "/usr/bin/lldb" lldb "/usr/bin/lldb-22" 100 && \
-      update-alternatives --install "/usr/bin/ld.lld" ld.lld "/usr/bin/ld.lld-22" 100 && \
-      update-alternatives --install "/usr/bin/llvm-symbolizer" llvm-symbolizer "/usr/bin/llvm-symbolizer-22" 100 && \
-      update-alternatives --install "/usr/bin/llvm-config" llvm-config "/usr/bin/llvm-config-22" 100; \
+        "clang-23" "clang-tools-23" "clang-format-23" "clang-tidy-23" \
+        "libclang-rt-23-dev" "lld-23" "lldb-23" \
+        "libc++-23-dev" "libc++abi-23-dev" \
+        "llvm-23" "llvm-23-dev" "llvm-23-runtime" && \
+      update-alternatives --install "/usr/bin/clang" clang "/usr/bin/clang-23" 100 && \
+      update-alternatives --install "/usr/bin/clang++" clang++ "/usr/bin/clang++-23" 100 && \
+      update-alternatives --install "/usr/bin/clang-format" clang-format "/usr/bin/clang-format-23" 100 && \
+      update-alternatives --install "/usr/bin/clang-tidy" clang-tidy "/usr/bin/clang-tidy-23" 100 && \
+      update-alternatives --install "/usr/bin/lldb" lldb "/usr/bin/lldb-23" 100 && \
+      update-alternatives --install "/usr/bin/ld.lld" ld.lld "/usr/bin/ld.lld-23" 100 && \
+      update-alternatives --install "/usr/bin/llvm-symbolizer" llvm-symbolizer "/usr/bin/llvm-symbolizer-23" 100 && \
+      update-alternatives --install "/usr/bin/llvm-config" llvm-config "/usr/bin/llvm-config-23" 100; \
     fi
 
 COPY rust-toolchain.toml /tmp/rust-toolchain.toml
