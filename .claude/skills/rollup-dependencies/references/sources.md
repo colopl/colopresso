@@ -12,6 +12,7 @@
 - Docker と CI のツール
 - GitHub Actions
 - Python と Node.js
+- 待機期間内の版の差分レビュー
 
 ## npm
 
@@ -112,3 +113,44 @@ CI は `.github/actions/libaom-source` で、その版の libaom を `.cache/lib
 - Python: ワークフローの `python-version`。配布する wheel は `cp310-abi3`。
 - Node.js: ワークフローの `node-version`。Electron が内蔵する Node のメジャーに揃える
   (`curl -s https://nodejs.org/dist/index.json` で LTS の状態も確かめられる)。
+
+## 待機期間内の版の差分レビュー
+
+公開から 1 日経っていないセキュリティ修正版を取り込むときに、今の版と取り込む版の公開物を比べる
+(SKILL.md の手順 3)。取得したものは実行しない。ダウンロードしたアーカイブは、それぞれ新しい空の
+ディレクトリに置き、そこで何も実行しない。
+
+### npm
+
+```bash
+npm diff --diff=<pkg>@<今の版> --diff=<pkg>@<取り込む版> --diff-name-only
+npm diff --diff=<pkg>@<今の版> --diff=<pkg>@<取り込む版> -- <見るファイル>
+npm view <pkg>@<取り込む版> scripts dependencies optionalDependencies gitHead --json
+```
+
+`npm diff` は tarball を取得して比べるだけで、スクリプトは実行しない。次を確かめる。
+
+- `scripts` の `preinstall` / `install` / `postinstall` / `prepare` が増えたり変わったりしていない
+- 依存が増えていない。増えたなら、その依存も同じように見る
+- `child_process`、ネットワークアクセス、`eval` / `new Function`、難読化・圧縮されたコード、バイナリが
+  増えていない (配布物がもともとビルド済みのファイルなら、増えた部分がリリースノートの変更と対応するか)
+- 変更がリリースノートの内容と対応し、上流のリポジトリに同じ版のタグかリリースがある
+
+### Electron
+
+npm パッケージで変わるのはふつう `package.json` の version、型定義 (`electron.d.ts`)、`checksums.json` だけで、
+本体の zip は GitHub のリリースから取得される。npm の差分に加えて、`checksums.json` が
+`https://github.com/electron/electron/releases/download/v<版>/SHASUMS256.txt` と全件一致することを確かめる。
+ビルドで取得した zip (`~/Library/Caches/electron/*/electron-v<版>-darwin-arm64.zip`) の `shasum -a 256` も
+一致すること。
+
+### crate
+
+```bash
+curl -sSfL -A "dependency-review" -o <空のディレクトリ>/old.crate https://static.crates.io/crates/<name>/<name>-<今の版>.crate
+curl -sSfL -A "dependency-review" -o <空のディレクトリ>/new.crate https://static.crates.io/crates/<name>/<name>-<取り込む版>.crate
+```
+
+それぞれ別のディレクトリに展開して `diff -ru` で比べる。`build.rs` と proc-macro の変更 (ビルド時に
+実行される)、依存の追加、`unsafe` やネットワークアクセス・プロセス起動の追加を見る。
+`.cargo_vcs_info.json` のコミットが上流のタグのコミットと一致することも確かめる。

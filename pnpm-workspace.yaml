@@ -9,4 +9,4 @@ onlyBuiltDependencies:
   - electron
 
 minimumReleaseAgeExclude:
-  - electron@45.3.3
+  - electron@45.5.0

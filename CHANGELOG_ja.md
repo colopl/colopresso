@@ -11,6 +11,35 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
 ## [Unreleased]
 
 ### Security
+- **[SECURITY]** **修正:** GUI: Electron を 45.3.3 から 45.5.0 に更新し、Chromium が 156.0.8078.100 から
+  156.0.8078.109 になりました。Google は対応する Chrome の Extended Stable 更新 (156.0.8078.108/.109) に
+  79 件のセキュリティ修正 (重大度 critical 3 件 (CVE-2026-118331, CVE-2026-118344, CVE-2026-118348)、
+  high 70 件、medium 5 件、low 1 件) を挙げています。あわせて Electron 45.4.1 で ANGLE, Chromium, Dawn,
+  FFmpeg, PDFium, V8 由来の修正のバックポートを取り込みます (#367)。
+- **[SECURITY]** **修正:** Build / CI: pnpm を 12.21.0 から 12.23.0 に更新しました。pnpm 12.22.0 では、
+  レジストリを変更した時に lockfile を `minimumReleaseAge` と `trustPolicy` で検査し直すようになりました
+  (以前は変更前のレジストリでの結果を使い回していました)。pnpm 12.23.0 では、設定ファイルから `otp` を
+  読まなくなり、レジストリの認証情報を HTTPS (またはループバックへの HTTP) でだけ送り、`blockExoticSubdeps`
+  を lockfile にも適用し、同梱の picomatch に修正 (GHSA-fc5q-39xc-vjpf) を当てています (#367)。
+
+### Build / CI
+- **変更:** pnpm の 1 日の `minimumReleaseAge` の除外を `electron@45.3.3` から `electron@45.5.0` に
+  置き換え、Chromium のセキュリティ更新を待機期間が明ける前に取り込みます。この除外は次回の依存関係の
+  ロールアップで外します (#367)。
+
+### Documentation
+- **変更:** `rollup-dependencies` スキルは、公開から 1 日の待機期間内のセキュリティ修正版を、公開された
+  パッケージの差分を今の版と比べてレビューし、GUI の E2E が通った場合にだけ取り込むようにしました。
+  CI が通ったあとは PR のレビューに対応し、レビュー bot の誤検知には根拠を添えて返信して resolve し、
+  正しい指摘は直して push します (#367)。
+
+### Dependencies
+- Electron 45.5.0, pnpm 12.23.0, emsdk 7.0.1, `@reduxjs/toolkit` 2.15.0, `Cargo.lock` の Rust crate
+  (cc 1.11.3, clap 4.6.9, hashbrown 0.17.2 ほか)。
+
+## [15.0.1] - 2026-11-17
+
+### Security
 - **[SECURITY]** **修正:** GUI: Electron を 45.2.3 から 45.3.3 (Chromium 156.0.8078.100) に更新しました。
   同梱の Node.js が 24.22.2 から 24.22.3 になります。24.22.3 はセキュリティリリースで、HTTP/2 と TLS の
   問題 (CVE-2026-123863, CVE-2026-123872 ほか、重大度 high) が修正されています。あわせて Chromium, V8,
