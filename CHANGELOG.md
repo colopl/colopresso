@@ -8,6 +8,29 @@ Changes are grouped by build type: Library (libcolopresso and its public API), C
 Build / CI, Documentation and General. Each entry is tagged Added, Changed, Fixed or Removed.
 Security fixes are listed first in each release and marked **[SECURITY]**.
 
+## [Unreleased]
+
+### Security
+- **[SECURITY]** **Fixed:** GUI: Electron is updated from 45.3.3 to 45.5.0, which moves Chromium from
+  156.0.8078.100 to 156.0.8078.109. Google lists the matching Chrome Extended Stable update
+  (156.0.8078.108/.109) with 79 security fixes: 3 rated critical (CVE-2026-118331, CVE-2026-118344,
+  CVE-2026-118348), 70 high, 5 medium and 1 low. Electron 45.4.1 also brings backported upstream
+  fixes from ANGLE, Chromium, Dawn, FFmpeg, PDFium and V8 (#367).
+- **[SECURITY]** **Fixed:** Build / CI: pnpm is updated from 12.21.0 to 12.23.0. pnpm 12.22.0 checks the
+  lockfile against `minimumReleaseAge` and `trustPolicy` again when a registry changes; it reused the
+  result for the previous registry before. pnpm 12.23.0 no longer reads `otp` from config files, sends
+  registry credentials only over HTTPS (or HTTP to loopback), applies `blockExoticSubdeps` to the
+  lockfile, and patches its bundled picomatch (GHSA-fc5q-39xc-vjpf) (#367).
+
+### Build / CI
+- **Changed:** The exemption from pnpm's one-day `minimumReleaseAge` moves from `electron@45.3.3` to
+  `electron@45.5.0`, so the Chromium security update is taken before the waiting period ends. The
+  next dependency rollup removes it (#367).
+
+### Dependencies
+- Electron 45.5.0, pnpm 12.23.0, emsdk 7.0.1, `@reduxjs/toolkit` 2.15.0, Rust crates in `Cargo.lock`
+  (cc 1.11.3, clap 4.6.9, hashbrown 0.17.2 and others).
+
 ## [15.0.1] - 2026-11-17
 
 ### Security
