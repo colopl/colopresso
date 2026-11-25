@@ -8,7 +8,7 @@
 Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 のいずれかを付けています。
 セキュリティ修正は各リリースの先頭にまとめ、**[SECURITY]** を付けています。
 
-## [Unreleased]
+## [15.0.2] - 2026-11-25
 
 ### Security
 - **[SECURITY]** **修正:** GUI: Electron を 45.3.3 から 45.5.0 に更新し、Chromium が 156.0.8078.100 から
