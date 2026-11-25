@@ -27,6 +27,12 @@ Documentation、General。各項目には 追加 / 変更 / 修正 / 削除 の�
   置き換え、Chromium のセキュリティ更新を待機期間が明ける前に取り込みます。この除外は次回の依存関係の
   ロールアップで外します (#367)。
 
+### Documentation
+- **変更:** `rollup-dependencies` スキルは、公開から 1 日の待機期間内のセキュリティ修正版を、公開された
+  パッケージの差分を今の版と比べてレビューし、GUI の E2E が通った場合にだけ取り込むようにしました。
+  CI が通ったあとは PR のレビューに対応し、レビュー bot の誤検知には根拠を添えて返信して resolve し、
+  正しい指摘は直して push します (#367)。
+
 ### Dependencies
 - Electron 45.5.0, pnpm 12.23.0, emsdk 7.0.1, `@reduxjs/toolkit` 2.15.0, `Cargo.lock` の Rust crate
   (cc 1.11.3, clap 4.6.9, hashbrown 0.17.2 ほか)。

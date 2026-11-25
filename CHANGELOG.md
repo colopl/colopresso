@@ -27,6 +27,13 @@ Security fixes are listed first in each release and marked **[SECURITY]**.
   `electron@45.5.0`, so the Chromium security update is taken before the waiting period ends. The
   next dependency rollup removes it (#367).
 
+### Documentation
+- **Changed:** The `rollup-dependencies` skill takes a security release that is still within the
+  one-day waiting period only after reviewing the diff of the published package against the current
+  version and passing the GUI E2E test. Once CI passes, it handles the review comments of its pull
+  request: it answers false positives of review bots with the evidence and resolves them, and fixes
+  and pushes valid findings (#367).
+
 ### Dependencies
 - Electron 45.5.0, pnpm 12.23.0, emsdk 7.0.1, `@reduxjs/toolkit` 2.15.0, Rust crates in `Cargo.lock`
   (cc 1.11.3, clap 4.6.9, hashbrown 0.17.2 and others).
