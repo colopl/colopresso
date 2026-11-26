@@ -203,7 +203,7 @@ importers:
     devDependencies:
       '@types/node':
         specifier: ^24.10.3
-        version: 24.19.2
+        version: 24.19.4
       '@types/react':
         specifier: ^19.2.7
         version: 19.3.0
@@ -212,7 +212,7 @@ importers:
         version: 19.3.0(@types/react@19.3.0)
       '@vitejs/plugin-react':
         specifier: ^6.0.0
-        version: 6.3.0(vite@8.3.8(@types/node@24.19.2)(jiti@2.7.0))
+        version: 6.3.0(vite@8.3.8(@types/node@24.19.4)(jiti@2.7.0))
       electron:
         specifier: ^45.0.0
         version: 45.5.0(supports-color@7.2.0)
@@ -236,7 +236,7 @@ importers:
         version: 7.0.2
       vite:
         specifier: ^8.0.0
-        version: 8.3.8(@types/node@24.19.2)(jiti@2.7.0)
+        version: 8.3.8(@types/node@24.19.4)(jiti@2.7.0)
 
 packages:
 
@@ -490,8 +490,8 @@ packages:
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
-  '@types/node@24.19.2':
-    resolution: {integrity: sha512-93d49wCWJkCyN87MxLpNN6KXPCwFw7bVUg79mGUV1OS40JGWwVCr8n61DXCSqz7CV6/VfPkb7xec7uP2M+QHWQ==}
+  '@types/node@24.19.4':
+    resolution: {integrity: sha512-s04odlR3ksJrLu7QLi+pddkWLD0RmSbcP9KuWn2/ozQKAp/YgwBC/6x9kJj8yAzZnGPfxePm7zm7nysVPCRagw==}
 
   '@types/react-dom@19.3.0':
     resolution: {integrity: sha512-ZI7bU42mZXXKHn/qNLEw2IrbiINU7X5+vfgdixBHkCNpYWXjKgfQ/P+uyGb5CjOLB9UcnTeg3rylQtV2hym44Q==}
@@ -2022,7 +2022,7 @@ snapshots:
     dependencies:
       '@types/http-cache-semantics': 4.2.0
       '@types/keyv': 3.1.4
-      '@types/node': 24.19.2
+      '@types/node': 24.19.4
       '@types/responselike': 1.0.3
 
   '@types/debug@4.1.13':
@@ -2031,17 +2031,17 @@ snapshots:
 
   '@types/fs-extra@9.0.13':
     dependencies:
-      '@types/node': 24.19.2
+      '@types/node': 24.19.4
 
   '@types/http-cache-semantics@4.2.0': {}
 
   '@types/keyv@3.1.4':
     dependencies:
-      '@types/node': 24.19.2
+      '@types/node': 24.19.4
 
   '@types/ms@2.1.0': {}
 
-  '@types/node@24.19.2':
+  '@types/node@24.19.4':
     dependencies:
       undici-types: 7.24.6
 
@@ -2055,7 +2055,7 @@ snapshots:
 
   '@types/responselike@1.0.3':
     dependencies:
-      '@types/node': 24.19.2
+      '@types/node': 24.19.4
 
   '@types/use-sync-external-store@0.0.6': {}
 
@@ -2119,10 +2119,10 @@ snapshots:
   '@typescript/typescript-win32-x64@7.0.2':
     optional: true
 
-  '@vitejs/plugin-react@6.3.0(vite@8.3.8(@types/node@24.19.2)(jiti@2.7.0))':
+  '@vitejs/plugin-react@6.3.0(vite@8.3.8(@types/node@24.19.4)(jiti@2.7.0))':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
-      vite: 8.3.8(@types/node@24.19.2)(jiti@2.7.0)
+      vite: 8.3.8(@types/node@24.19.4)(jiti@2.7.0)
 
   '@xmldom/xmldom@0.8.15': {}
 
@@ -2471,7 +2471,7 @@ snapshots:
     dependencies:
       '@electron-internal/extract-zip': 1.0.5
       '@electron/get': 5.1.0(supports-color@7.2.0)
-      '@types/node': 24.19.2
+      '@types/node': 24.19.4
     transitivePeerDependencies:
       - supports-color
 
@@ -3233,7 +3233,7 @@ snapshots:
 
   util-deprecate@1.0.2: {}
 
-  vite@8.3.8(@types/node@24.19.2)(jiti@2.7.0):
+  vite@8.3.8(@types/node@24.19.4)(jiti@2.7.0):
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.7
@@ -3241,7 +3241,7 @@ snapshots:
       rolldown: 1.2.19
       tinyglobby: 0.2.17
     optionalDependencies:
-      '@types/node': 24.19.2
+      '@types/node': 24.19.4
       fsevents: 2.3.3
       jiti: 2.7.0
 
