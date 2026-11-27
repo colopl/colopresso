@@ -37,7 +37,7 @@
   "author": "COLOPL, Inc. <g-kudo@colopl.co.jp>",
   "license": "GPL-3.0-or-later",
   "devDependencies": {
-    "@types/node": "^24.10.3",
+    "@types/node": "^26.0.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.0",
